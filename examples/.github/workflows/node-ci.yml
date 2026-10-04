@@ -1,0 +1,14 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  packages: read
+jobs:
+  ci:
+    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v0.1.0
+    with:
+      node-version: "24"
+    secrets: inherit

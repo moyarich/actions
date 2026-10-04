@@ -1,0 +1,21 @@
+name: Publish VS Code extension
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Package and validate without publishing
+        required: true
+        default: true
+        type: boolean
+permissions:
+  contents: write
+jobs:
+  publish:
+    uses: moyarich/actions/.github/workflows/reusable_vscode-extension-publish.yml@v0.1.0
+    with:
+      target-branch: main
+      extension-directory: .
+      dry-run: ${{ inputs.dry-run }}
+      node-version: "24"
+    secrets:
+      vsce-pat: ${{ secrets.VSCE_PAT }}

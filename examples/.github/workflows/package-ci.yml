@@ -1,0 +1,15 @@
+name: Package CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  packages: read
+jobs:
+  packages:
+    uses: moyarich/actions/.github/workflows/reusable_package-ci.yml@v0.1.0
+    with:
+      packages-directory: packages
+      node-version: "24"
+    secrets: inherit

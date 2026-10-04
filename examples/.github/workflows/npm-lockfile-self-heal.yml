@@ -1,0 +1,19 @@
+name: npm lockfile self-heal
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit the recreated lockfile
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: write
+  packages: read
+jobs:
+  lockfile:
+    uses: moyarich/actions/.github/workflows/reusable_npm-package-lock.yml@v0.1.0
+    with:
+      commit: ${{ inputs.commit }}
+      node-version: "24"
+    secrets: inherit
