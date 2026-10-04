@@ -1,0 +1,252 @@
+name: "Reusable · Prepare npm release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package — package to prepare
+        required: true
+        default: packages/workspace-tools
+        type: string
+      target-branch:
+        description: Release target branch
+        required: true
+        default: main
+        type: string
+      version-mode:
+        description: Version — bump or enter an exact version
+        required: true
+        default: bump
+        type: choice
+        options:
+          - bump
+          - exact
+      version-bump:
+        description: Version — bump amount (used with "bump")
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+      exact-version:
+        description: Version — exact version (used with "exact")
+        required: false
+        default: ""
+        type: string
+      node-version:
+        description: Node.js version
+        required: true
+        default: "24"
+        type: string
+  workflow_call:
+    inputs:
+      package:
+        required: true
+        type: string
+      target-branch:
+        required: false
+        default: main
+        type: string
+      version-mode:
+        required: false
+        default: bump
+        type: string
+      version-bump:
+        required: false
+        default: patch
+        type: string
+      exact-version:
+        required: false
+        default: ""
+        type: string
+      node-version:
+        required: false
+        default: "24"
+        type: string
+    outputs:
+      pull-request-url:
+        description: Created release pull request URL
+        value: ${{ jobs.prepare.outputs.pull-request-url }}
+      prepare-branch:
+        description: Created release preparation branch
+        value: ${{ jobs.prepare.outputs.prepare-branch }}
+      package-version:
+        description: Prepared package version
+        value: ${{ jobs.prepare.outputs.package-version }}
+permissions: {}
+
+jobs:
+  prepare:
+    name: "job: Prepare"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: read
+    outputs:
+      pull-request-url: ${{ steps.pr.outputs.url }}
+      prepare-branch: ${{ steps.release.outputs.branch }}
+      package-version: ${{ steps.release.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v7 # v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install workspace dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm ci --include=optional --prefer-offline
+
+      - name: Resolve workspace tools CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f packages/workspace-tools/package.json ]; then
+            npm run build
+            TOOL_PACKAGE_ROOT="$(cd packages/workspace-tools && pwd -P)"
+          else
+            TOOL_ROOT="$(mktemp -d "$RUNNER_TEMP/workspace-tools.XXXXXX")"
+            npm install --prefix "$TOOL_ROOT" --package-lock=false --ignore-scripts @moyarich/workspace-tools@latest
+            TOOL_PACKAGE_ROOT="$TOOL_ROOT/node_modules/@moyarich/workspace-tools"
+          fi
+          TOOL_BIN_ROOT=""
+          for CANDIDATE in "$TOOL_PACKAGE_ROOT/dist/bin" "$TOOL_PACKAGE_ROOT/bin"; do
+            if [ -f "$CANDIDATE/workspace-release.mjs" ]; then
+              TOOL_BIN_ROOT="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$TOOL_BIN_ROOT" ]; then
+            echo "Unable to resolve packaged CLI directory under $TOOL_PACKAGE_ROOT." >&2
+            exit 1
+          fi
+
+          echo "WORKSPACE_TOOLS_ROOT=$TOOL_PACKAGE_ROOT" >> "$GITHUB_ENV"
+          echo "WORKSPACE_TOOLS_BIN=$TOOL_BIN_ROOT" >> "$GITHUB_ENV"
+
+      - name: Validate release inputs
+        env:
+          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VERSION_MODE" in
+            bump|exact) ;;
+            *) echo "::error::Prepare Release supports bump or exact version selection."; exit 1 ;;
+          esac
+          case "$VERSION_BUMP" in
+            patch|minor|major|prepatch|preminor|premajor|prerelease) ;;
+            *) echo "::error::Invalid version bump: $VERSION_BUMP"; exit 1 ;;
+          esac
+          if [ "$VERSION_MODE" = "exact" ] && [ -z "$EXACT_VERSION" ]; then
+            echo "::error::Exact version is required when version selection is exact."
+            exit 1
+          fi
+
+      - name: Create release preparation branch and commit
+        id: release
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$VERSION_MODE" in
+            bump) VERSION_REQUEST="$VERSION_BUMP" ;;
+            exact) VERSION_REQUEST="$EXACT_VERSION" ;;
+          esac
+
+          SAFE_TARGET="${TARGET_BRANCH//\//-}"
+          SAFE_RELEASE="${VERSION_REQUEST:-package-json}"
+          PREPARE_BRANCH="prepare-${SAFE_TARGET}-${SAFE_RELEASE}-${RUN_ID}"
+          git switch -c "$PREPARE_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          RELEASE_ARGS=(
+            "${PACKAGE_SELECTOR}=${VERSION_REQUEST}"
+            "--mode=${VERSION_MODE}"
+            "--version=${VERSION_REQUEST}"
+            "--json"
+          )
+
+          RELEASE_JSON="$(node "$WORKSPACE_TOOLS_BIN/workspace-release.mjs" "${RELEASE_ARGS[@]}")"
+          PACKAGE_VERSION="$(jq -r .nextVersion <<< "$RELEASE_JSON")"
+          TAG="$(jq -r '.tag.name // .tag' <<< "$RELEASE_JSON")"
+
+          if [ -n "$TAG" ] && [ "$TAG" != "null" ]; then
+            git tag -d "$TAG" >/dev/null 2>&1 || true
+          fi
+
+          echo "branch=$PREPARE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Push preparation branch
+        env:
+          PREPARE_BRANCH: ${{ steps.release.outputs.branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${PREPARE_BRANCH}"
+
+      - name: Open release pull request
+        id: pr
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          PREPARE_BRANCH: ${{ steps.release.outputs.branch }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(gh pr create \
+            --repo "$GH_REPO" \
+            --base "$TARGET_BRANCH" \
+            --head "$PREPARE_BRANCH" \
+            --title "chore: release ${{ inputs.package }}@$PACKAGE_VERSION" \
+            --body "Release PR generated by workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "## Prepare release"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Package | `${{ inputs.package }}` |"
+            echo "| Target branch | `${{ inputs.target-branch }}` |"
+            echo "| Preparation branch | `${{ steps.release.outputs.branch || 'not created' }}` |"
+            echo "| Version | `${{ steps.release.outputs.version || 'unresolved' }}` |"
+            echo "| Pull request | ${{ steps.pr.outputs.url || 'not created' }} |"
+            echo "| Result | **${{ job.status }}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
