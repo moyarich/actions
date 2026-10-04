@@ -28,6 +28,12 @@ for (const entry of entries) {
   if (!/^\s*workflow_call\s*:/m.test(source)) {
     errors.push(`${entry.name}: public reusable workflow is missing workflow_call`);
   }
+
+  if (source.includes("moyarich/dev-toolkit/.github/workflows/")) {
+    errors.push(
+      `${entry.name}: reusable workflow still references dev-toolkit workflow infrastructure`,
+    );
+  }
 }
 
 if (!reusable.length) {
