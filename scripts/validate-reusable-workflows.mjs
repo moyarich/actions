@@ -26,7 +26,9 @@ for (const entry of entries) {
   reusable.push(entry.name);
 
   if (!/^\s*workflow_call\s*:/m.test(source)) {
-    errors.push(`${entry.name}: public reusable workflow is missing workflow_call`);
+    errors.push(
+      `${entry.name}: public reusable workflow is missing workflow_call`,
+    );
   }
 
   if (source.includes("moyarich/dev-toolkit/.github/workflows/")) {
