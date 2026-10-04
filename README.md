@@ -24,7 +24,7 @@ Consumers should pin a release tag or stable major tag when available:
 ```yaml
 jobs:
   ci:
-    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v1
+    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v0.1.0
 ```
 
 ## License
