@@ -1,0 +1,70 @@
+# npm publish workflow
+
+Use `npm-publish.yml` to publish a package located under `packages/<directory>`.
+
+## Copy and paste: GitHub Packages
+
+Create `.github/workflows/publish.yml`:
+
+```yaml
+name: Publish package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory under packages/
+        required: true
+        type: string
+
+jobs:
+  publish:
+    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    with:
+      package: ${{ inputs.package }}
+      registry: github
+      tag: latest
+      node-version: "24"
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+For a package at `packages/my-library/package.json`, enter `my-library` when dispatching the workflow.
+
+## Copy and paste: npm
+
+Create `.github/workflows/stage-npm.yml`:
+
+```yaml
+name: Stage npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory under packages/
+        required: true
+        type: string
+
+jobs:
+  publish:
+    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    with:
+      package: ${{ inputs.package }}
+      registry: npm
+      tag: latest
+      node-version: "24"
+    secrets:
+      npm-token: ${{ secrets.NPM_TOKEN }}
+```
+
+Create the `NPM_TOKEN` repository secret before running the npm example. The reusable tooling validates the selected package before publishing/staging it.
+
+## Inputs
+
+| Input          | Required | Default  |
+| -------------- | -------- | -------- |
+| `package`      | Yes      | —        |
+| `registry`     | No       | `github` |
+| `tag`          | No       | `latest` |
+| `node-version` | No       | `24`     |

@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Reusable workflows
 
-- Node.js CI, package CI, formatting, and workspace package discovery.
-- npm package-lock maintenance, release preparation, release orchestration, and publishing.
+- Node.js CI, package CI, reusable Prettier self-healing, and workspace package discovery.
+- npm lockfile self-healing, release preparation, release orchestration, and publishing.
 - Codemod Registry publishing.
 - VS Code extension packaging and Marketplace publishing with dry-run support, release-environment approval, Git tag and draft-release validation, VSIX artifacts, and GitHub Release promotion.
 - GitHub Pages deployment and README screenshot generation.

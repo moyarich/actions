@@ -1,10 +1,10 @@
-name: "Reusable · Format repository"
+name: "Reusable · Prettier self-heal"
 
 on:
   workflow_dispatch:
     inputs:
       commit:
-        description: Commit formatting changes
+        description: Commit Prettier changes
         required: true
         default: false
         type: boolean
@@ -17,7 +17,7 @@ on:
   workflow_call:
     inputs:
       commit:
-        description: Commit formatting changes
+        description: Commit Prettier changes
         required: false
         default: false
         type: boolean
@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   format:
-    name: "Format repository"
+    name: "Prettier self-heal"
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -40,6 +40,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # pull_request runs default to refs/pull/<n>/merge. Formatting must
+          # target the contributor branch so the self-healing commit lands on
+          # the branch that will be checked again.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
           persist-credentials: ${{ inputs.commit }}
           fetch-depth: 1
 
@@ -68,7 +72,7 @@ jobs:
 
           echo "version=$PRETTIER_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Format repository
+      - name: Prettier self-heal
         id: format
         shell: bash
         run: |
@@ -84,7 +88,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify formatting
+      - name: Verify Prettier formatting
         id: verify
         continue-on-error: true
         shell: bash
@@ -93,7 +97,7 @@ jobs:
 
           npx --yes "prettier@${{ steps.prettier.outputs.version }}" . --check
 
-      - name: Commit formatting changes
+      - name: Commit Prettier changes
         if: ${{ inputs.commit && steps.format.outputs.changed == 'true' }}
         shell: bash
         run: |
@@ -104,9 +108,10 @@ jobs:
 
           git add --all
           git commit -m "style: format repository"
-          git push origin "HEAD:${{ github.ref_name }}"
+          TARGET_REF="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
+          git push origin "HEAD:$TARGET_REF"
 
-      - name: Fail if formatting verification failed
+      - name: Fail if Prettier formatting verification failed
         if: ${{ always() && steps.verify.outcome == 'failure' }}
         shell: bash
         run: |
@@ -118,21 +123,21 @@ jobs:
         shell: bash
         run: |
           {
-            echo "# Format repository"
+            echo "# Prettier self-heal"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Node.js | `%s` |\n' "${{ inputs.node-version || '24' }}"
             printf '| Prettier | `%s` |\n' "${{ steps.prettier.outputs.version || 'unknown' }}"
             printf '| Commit requested | **%s** |\n' "${{ inputs.commit }}"
-            printf '| Branch | `%s` |\n' "${{ github.ref_name }}"
+            printf '| Branch | `%s` |\n' "${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
             echo "| Changes detected | **${{ steps.format.outputs.changed || 'unknown' }}** |"
             echo "| Verification | **${{ steps.verify.outcome || 'unknown' }}** |"
             echo "| Result | **${{ job.status }}** |"
 
             if [ -s /tmp/format-status.txt ]; then
               echo
-              echo "## Formatting changes"
+              echo "## Prettier changes"
               echo
               echo '~~~text'
               cat /tmp/format-status.txt
@@ -141,10 +146,10 @@ jobs:
               if [ "${{ inputs.commit }}" != "true" ]; then
                 echo
                 echo "> [!NOTE]"
-                echo "> Preview only. Formatting changes were written in the runner but not committed."
+                echo "> Preview only. Prettier changes were written in the runner but not committed."
               fi
             else
               echo
-              echo "No formatting changes were required."
+              echo "No Prettier changes were required."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

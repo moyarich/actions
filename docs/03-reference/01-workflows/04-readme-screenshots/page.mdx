@@ -1,0 +1,93 @@
+# README screenshots workflow
+
+Use `readme-screenshots.yml` to start a local site, capture README screenshots with Playwright, and commit changed screenshots back to the current branch.
+
+## Copy and paste: automatic overview
+
+Create `.github/workflows/readme-screenshots.yml`:
+
+```yaml
+name: README screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    uses: moyarich/actions/.github/workflows/reusable_readme-screenshots.yml@v0.1.0
+    with:
+      start-command: npm run dev -- --host 127.0.0.1
+      url: http://127.0.0.1:5173
+```
+
+With no screenshot config, this generates:
+
+```text
+docs/screenshots/playground-overview.png
+```
+
+Reference it from the consuming repository's README:
+
+```md
+![Playground overview](docs/screenshots/playground-overview.png)
+```
+
+## Copy and paste: multiple screenshots
+
+Add `readme-screenshots.config.mjs`:
+
+```js
+export default {
+  screenshots: [
+    {
+      name: "playground-overview.png",
+    },
+    {
+      name: "feature-example.png",
+      selector: '[data-readme-screenshot="feature-example"]',
+      scrollIntoView: true,
+      waitForMs: 500,
+    },
+  ],
+};
+```
+
+Mark the sectional target in the application:
+
+```html
+<section data-readme-screenshot="feature-example">
+  <!-- content to capture -->
+</section>
+```
+
+Then use:
+
+```yaml
+name: README screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    uses: moyarich/actions/.github/workflows/reusable_readme-screenshots.yml@v0.1.0
+    with:
+      start-command: npm run dev -- --host 127.0.0.1
+      url: http://127.0.0.1:5173
+      config: readme-screenshots.config.mjs
+      output-directory: docs/screenshots
+```
+
+Prefer stable `data-readme-screenshot` selectors over headings or other visible copy.
+
+## Inputs
+
+| Input                | Required | Default                           |
+| -------------------- | -------- | --------------------------------- |
+| `start-command`      | Yes      | —                                 |
+| `url`                | No       | `http://127.0.0.1:5173`           |
+| `config`             | No       | empty                             |
+| `output-directory`   | No       | `docs/screenshots`                |
+| `node-version`       | No       | `24`                              |
+| `playwright-version` | No       | `1.55.0`                          |
+| `commit-message`     | No       | `docs: update README screenshots` |
