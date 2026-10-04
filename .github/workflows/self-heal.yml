@@ -1,0 +1,32 @@
+name: Self-heal
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: self-heal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prettier:
+    uses: ./.github/workflows/reusable_prettier.yml
+    with:
+      commit: true
+      node-version: "24"
+
+  package-lock:
+    needs: prettier
+    uses: ./.github/workflows/reusable_npm-package-lock.yml
+    with:
+      commit: true
+      node-version: "24"
+    secrets:
+      package-token: ${{ secrets._GITHUB_TOKEN }}
