@@ -13,6 +13,11 @@ This repository uses directory and naming conventions to make the supported auto
 
 Reusable workflows must live directly in `.github/workflows/`, so the `reusable_` prefix is the public/private boundary for workflows.
 
+Two repository-maintenance workflows are designed for self-healing use:
+
+- `reusable_prettier.yml` — formats with the caller's declared Prettier version and can commit fixes.
+- `reusable_npm-package-lock.yml` — recreates and validates `package-lock.json` and can commit fixes.
+
 ## Documentation
 
 See [docs](./docs/page.mdx) for getting started, the workflow catalog, and repository conventions.
