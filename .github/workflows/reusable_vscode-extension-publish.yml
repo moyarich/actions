@@ -1,0 +1,395 @@
+name: "Reusable · Publish VS Code extension"
+
+on:
+  workflow_call:
+    inputs:
+      target-branch:
+        description: Branch containing the extension version to publish
+        required: false
+        default: main
+        type: string
+      extension-directory:
+        description: Directory containing the extension package.json
+        required: false
+        default: "."
+        type: string
+      extension-name:
+        description: Display/artifact name; empty uses package.json name
+        required: false
+        default: ""
+        type: string
+      version:
+        description: Exact version to verify; empty uses package.json
+        required: false
+        default: ""
+        type: string
+      dry-run:
+        description: Validate and package without Marketplace or GitHub Release mutation
+        required: false
+        default: true
+        type: boolean
+      marketplace-mode:
+        description: publish or already-published
+        required: false
+        default: publish
+        type: string
+      verify-git-tag:
+        description: Require the canonical v<version> Git tag
+        required: false
+        default: true
+        type: boolean
+      publish-github-release:
+        description: Publish the matching GitHub draft after Marketplace success
+        required: false
+        default: true
+        type: boolean
+      release-environment:
+        description: GitHub environment used to approve real publishes
+        required: false
+        default: release
+        type: string
+      node-version:
+        description: Node.js version
+        required: false
+        default: "24"
+        type: string
+      test-command:
+        description: Validation command run before packaging; empty skips it
+        required: false
+        default: npm test
+        type: string
+      package-list-command:
+        description: Package-content validation command; empty skips it
+        required: false
+        default: npm run package:ls
+        type: string
+      vsce-package-args:
+        description: Additional arguments passed to vsce package
+        required: false
+        default: "--allow-missing-repository --no-rewrite-relative-links"
+        type: string
+    outputs:
+      extension-name:
+        description: Resolved extension package name
+        value: ${{ jobs.publish.outputs.extension-name }}
+      extension-version:
+        description: Resolved extension version
+        value: ${{ jobs.publish.outputs.extension-version }}
+      vsix-name:
+        description: Packaged VSIX artifact name
+        value: ${{ jobs.publish.outputs.vsix-name }}
+      marketplace-status:
+        description: Marketplace publication state
+        value: ${{ jobs.publish.outputs.marketplace-status }}
+      github-release-status:
+        description: GitHub Release publication state
+        value: ${{ jobs.publish.outputs.github-release-status }}
+    secrets:
+      vsce-pat:
+        required: false
+
+permissions: {}
+
+jobs:
+  publish-approval:
+    name: "job: Publish approval"
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.release-environment }}
+    steps:
+      - name: Record approval
+        shell: bash
+        run: |
+          {
+            echo "# VS Code extension publish approved"
+            echo
+            echo "A real Marketplace publish was approved through the \`${{ inputs.release-environment }}\` environment."
+            echo
+            echo "> Dry runs do not require environment approval."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: "job: Package and publish extension"
+    needs: publish-approval
+    if: ${{ always() && (inputs.dry-run || needs.publish-approval.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      extension-name: ${{ steps.identity.outputs.name }}
+      extension-version: ${{ steps.identity.outputs.version }}
+      vsix-name: ${{ steps.package.outputs.name }}
+      marketplace-status: ${{ steps.status.outputs.marketplace }}
+      github-release-status: ${{ steps.status.outputs.github-release }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET_BRANCH: ${{ inputs.target-branch }}
+      EXTENSION_DIRECTORY: ${{ inputs.extension-directory }}
+
+    steps:
+      - name: Initialize workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "# Reusable · Publish VS Code extension"
+            echo
+            echo "| Execution | Value |"
+            echo "| --- | --- |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Target branch | \`${{ inputs.target-branch }}\` |"
+            echo "| Extension directory | \`${{ inputs.extension-directory }}\` |"
+            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            echo "| Marketplace mode | \`${{ inputs.marketplace-mode }}\` |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.marketplace-mode }}" in
+            publish|already-published) ;;
+            *)
+              echo "::error::marketplace-mode must be publish or already-published."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout target branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve extension identity
+        id: identity
+        working-directory: ${{ env.EXTENSION_DIRECTORY }}
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_NAME: ${{ inputs.extension-name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          NAME="${REQUESTED_NAME:-$PACKAGE_NAME}"
+          VERSION="${REQUESTED_VERSION:-$PACKAGE_VERSION}"
+          TAG="v$VERSION"
+
+          if [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Requested version $REQUESTED_VERSION does not match package.json version $PACKAGE_VERSION."
+            exit 1
+          fi
+
+          {
+            echo "name=$NAME"
+            echo "package-name=$PACKAGE_NAME"
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify release tag
+        if: ${{ inputs.verify-git-tag }}
+        env:
+          TAG: ${{ steps.identity.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Required release tag $TAG does not exist."
+            exit 1
+          fi
+
+      - name: Verify matching GitHub draft
+        id: draft
+        if: ${{ inputs.publish-github-release }}
+        env:
+          TAG: ${{ steps.identity.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
+              jq -c --arg tag "$TAG" '
+                [.[][] | select(.draft == true and .tag_name == $tag)]
+                | first // empty
+              '
+          )"
+
+          if [ -z "$RELEASE" ]; then
+            echo "::error::No matching GitHub draft release exists for $TAG."
+            exit 1
+          fi
+
+          if [ "$(jq -r '.name' <<< "$RELEASE")" != "$TAG" ]; then
+            echo "::error::Draft release name must match canonical tag $TAG."
+            exit 1
+          fi
+
+          {
+            echo "id=$(jq -r '.id' <<< "$RELEASE")"
+            echo "url=$(jq -r '.html_url' <<< "$RELEASE")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
+        if: ${{ inputs.verify-git-tag }}
+        env:
+          TAG: ${{ steps.identity.outputs.tag }}
+        shell: bash
+        run: git checkout --detach "$TAG"
+
+      - name: Verify tagged extension version
+        if: ${{ inputs.verify-git-tag }}
+        working-directory: ${{ env.EXTENSION_DIRECTORY }}
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAGGED_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAGGED_VERSION" != "$VERSION" ]; then
+            echo "::error::Tagged package version $TAGGED_VERSION does not match expected version $VERSION."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+
+      - name: Run extension tests
+        if: ${{ inputs.test-command != '' }}
+        working-directory: ${{ env.EXTENSION_DIRECTORY }}
+        shell: bash
+        run: ${{ inputs.test-command }}
+
+      - name: Verify extension package contents
+        if: ${{ inputs.package-list-command != '' }}
+        working-directory: ${{ env.EXTENSION_DIRECTORY }}
+        shell: bash
+        run: ${{ inputs.package-list-command }}
+
+      - name: Package VSIX
+        id: package
+        working-directory: ${{ env.EXTENSION_DIRECTORY }}
+        env:
+          EXTENSION_NAME: ${{ steps.identity.outputs.name }}
+          VERSION: ${{ steps.identity.outputs.version }}
+          VSCE_PACKAGE_ARGS: ${{ inputs.vsce-package-args }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SAFE_NAME="$(printf '%s' "$EXTENSION_NAME" | sed 's/^@//; s#[/@]#-#g')"
+          VSIX_PATH="$RUNNER_TEMP/$SAFE_NAME-$VERSION.vsix"
+
+          read -r -a EXTRA_ARGS <<< "$VSCE_PACKAGE_ARGS"
+          npx @vscode/vsce package --out "$VSIX_PATH" "${EXTRA_ARGS[@]}"
+
+          {
+            echo "path=$VSIX_PATH"
+            echo "name=$SAFE_NAME-$VERSION.vsix"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish to VS Code Marketplace
+        id: marketplace
+        if: ${{ !inputs.dry-run && inputs.marketplace-mode == 'publish' }}
+        env:
+          VSCE_PAT: ${{ secrets.vsce-pat }}
+          VSIX_PATH: ${{ steps.package.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::error::vsce-pat is required to publish to the VS Code Marketplace."
+            exit 1
+          fi
+          npx @vscode/vsce publish --packagePath "$VSIX_PATH"
+          echo "status=published" >> "$GITHUB_OUTPUT"
+
+      - name: Record existing Marketplace publication
+        id: marketplace-existing
+        if: ${{ inputs.marketplace-mode == 'already-published' }}
+        shell: bash
+        run: echo "status=already-published" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        id: github-release
+        if: ${{ !inputs.dry-run && inputs.publish-github-release && (inputs.marketplace-mode == 'already-published' || steps.marketplace.outcome == 'success') }}
+        env:
+          RELEASE_ID: ${{ steps.draft.outputs.id }}
+          TAG: ${{ steps.identity.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE="$(
+            gh api --method PATCH "repos/$GH_REPO/releases/$RELEASE_ID"               -f tag_name="$TAG"               -f name="$TAG"               -F draft=false
+          )"
+          test "$(jq -r '.draft' <<< "$RELEASE")" = "false"
+          echo "status=published" >> "$GITHUB_OUTPUT"
+
+      - name: Upload VSIX artifact
+        if: ${{ always() && steps.package.outputs.path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Resolve final statuses
+        id: status
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          MARKETPLACE="${{ steps.marketplace.outputs.status || steps.marketplace-existing.outputs.status }}"
+          GITHUB_RELEASE="${{ steps.github-release.outputs.status }}"
+
+          if [ -z "$MARKETPLACE" ] && [ "${{ inputs.dry-run }}" = "true" ]; then
+            MARKETPLACE="preview-only"
+          fi
+          if [ -z "$GITHUB_RELEASE" ]; then
+            if [ "${{ inputs.publish-github-release }}" != "true" ]; then
+              GITHUB_RELEASE="disabled"
+            elif [ "${{ inputs.dry-run }}" = "true" ]; then
+              GITHUB_RELEASE="unchanged"
+            else
+              GITHUB_RELEASE="draft"
+            fi
+          fi
+
+          {
+            echo "marketplace=$MARKETPLACE"
+            echo "github-release=$GITHUB_RELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "## Extension publish result"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Extension | \`${{ steps.identity.outputs.name || 'unresolved' }}\` |"
+            echo "| Version | \`${{ steps.identity.outputs.version || 'unresolved' }}\` |"
+            echo "| Git tag | \`${{ steps.identity.outputs.tag || 'unresolved' }}\` |"
+            echo "| Draft release | ${{ steps.draft.outputs.url || 'not resolved' }} |"
+            echo "| VSIX artifact | \`${{ steps.package.outputs.name || 'not packaged' }}\` |"
+            echo "| Marketplace | \`${{ steps.status.outputs.marketplace || 'unresolved' }}\` |"
+            echo "| GitHub Release | \`${{ steps.status.outputs.github-release || 'unresolved' }}\` |"
+            echo "| Result | **${{ job.status }}** |"
+            echo
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "> Dry run only. The extension was validated and packaged; Marketplace and GitHub Release state were not changed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

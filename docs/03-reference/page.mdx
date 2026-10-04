@@ -1,0 +1,29 @@
+---
+title: Reference
+description: Repository layout and public API conventions.
+---
+
+# Reference
+
+## Repository layout
+
+```text
+.
+├── .github/
+│   └── workflows/
+│       ├── reusable_*.yml
+│       └── <repository workflows>.yml
+├── actions/
+├── scripts/
+├── docs/
+├── CHANGELOG.md
+└── README.md
+```
+
+## Conventions
+
+- `reusable_*.yml` identifies public reusable workflows.
+- Public reusable workflows must contain a `workflow_call` trigger.
+- Reusable workflows remain directly under `.github/workflows/`; GitHub does not support workflow subdirectories.
+- `actions/*/action.yml` is reserved for public standalone actions.
+- `scripts/*` contains reusable scripts and automation tooling.

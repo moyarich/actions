@@ -1,0 +1,165 @@
+name: "Reusable · Discover Packages"
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages-directory:
+        description: Directory containing workspace packages
+        required: true
+        default: packages
+        type: string
+      include-private:
+        description: Include private packages
+        required: true
+        default: false
+        type: boolean
+      require-publish-config:
+        description: Only include publishable packages
+        required: true
+        default: false
+        type: boolean
+      require-test-script:
+        description: Only include packages with a test script
+        required: true
+        default: false
+        type: boolean
+      require-build-script:
+        description: Only include packages with a build script
+        required: true
+        default: false
+        type: boolean
+      node-version:
+        description: Node.js version
+        required: true
+        default: "24"
+        type: string
+
+  workflow_call:
+    inputs:
+      packages-directory:
+        required: false
+        default: packages
+        type: string
+      include-private:
+        required: false
+        default: false
+        type: boolean
+      require-publish-config:
+        required: false
+        default: false
+        type: boolean
+      require-test-script:
+        required: false
+        default: false
+        type: boolean
+      require-build-script:
+        required: false
+        default: false
+        type: boolean
+      node-version:
+        required: false
+        default: "24"
+        type: string
+    outputs:
+      packages:
+        description: Compact JSON array of discovered packages
+        value: ${{ jobs.discover.outputs.packages }}
+      matrix:
+        description: GitHub Actions matrix object with include array
+        value: ${{ jobs.discover.outputs.matrix }}
+      has-packages:
+        description: Whether any packages matched
+        value: ${{ jobs.discover.outputs.has-packages }}
+      count:
+        description: Number of matching packages
+        value: ${{ jobs.discover.outputs.count }}
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: "job: Discover"
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+      matrix: ${{ steps.packages.outputs.matrix }}
+      has-packages: ${{ steps.packages.outputs.has-packages }}
+      count: ${{ steps.packages.outputs.count }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Prepare package discovery CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOOL_ROOT="$(mktemp -d "$RUNNER_TEMP/workspace-tools.XXXXXX")"
+          npm install \
+            --prefix "$TOOL_ROOT" \
+            --package-lock=false \
+            --ignore-scripts \
+            @moyarich/workspace-tools@latest
+
+          DISCOVERY_CLI="$TOOL_ROOT/node_modules/@moyarich/workspace-tools/dist/bin/discover-packages.mjs"
+          test -f "$DISCOVERY_CLI"
+          echo "DISCOVERY_CLI=$DISCOVERY_CLI" >> "$GITHUB_ENV"
+
+      - id: packages
+        name: Discover packages
+        env:
+          PACKAGES_DIRECTORY: ${{ inputs.packages-directory }}
+          INCLUDE_PRIVATE: ${{ inputs.include-private }}
+          REQUIRE_PUBLISH_CONFIG: ${{ inputs.require-publish-config }}
+          REQUIRE_TEST_SCRIPT: ${{ inputs.require-test-script }}
+          REQUIRE_BUILD_SCRIPT: ${{ inputs.require-build-script }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARGS=("$PACKAGES_DIRECTORY")
+          if [ "$INCLUDE_PRIVATE" = "true" ]; then ARGS+=("--include-private"); fi
+          if [ "$REQUIRE_PUBLISH_CONFIG" = "true" ]; then ARGS+=("--require-publish-config"); fi
+          if [ "$REQUIRE_TEST_SCRIPT" = "true" ]; then ARGS+=("--require-test-script"); fi
+          if [ "$REQUIRE_BUILD_SCRIPT" = "true" ]; then ARGS+=("--require-build-script"); fi
+
+          PACKAGES="$(node "$DISCOVERY_CLI" "${ARGS[@]}" --json)"
+          echo "$PACKAGES" | jq -e 'type == "array"' >/dev/null
+
+          MATRIX="$(jq -cn --argjson packages "$PACKAGES" '{include: $packages}')"
+          COUNT="$(jq 'length' <<< "$PACKAGES")"
+
+          {
+            echo "packages=$PACKAGES"
+            echo "matrix=$MATRIX"
+            echo "count=$COUNT"
+            if [ "$COUNT" -gt 0 ]; then
+              echo "has-packages=true"
+            else
+              echo "has-packages=false"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Package discovery"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Packages directory | \`${{ inputs.packages-directory }}\` |"
+            echo "| Include private | **${{ inputs.include-private }}** |"
+            echo "| Require publish config | **${{ inputs.require-publish-config }}** |"
+            echo "| Require test script | **${{ inputs.require-test-script }}** |"
+            echo "| Require build script | **${{ inputs.require-build-script }}** |"
+            echo "| Count | **$COUNT** |"
+            echo
+            echo "~~~json"
+            jq . <<< "$PACKAGES"
+            echo "~~~"
+          } >> "$GITHUB_STEP_SUMMARY"

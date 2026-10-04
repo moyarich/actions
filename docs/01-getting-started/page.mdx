@@ -1,0 +1,34 @@
+---
+title: Getting Started
+description: Call reusable Moya workflows from another GitHub repository.
+---
+
+# Getting Started
+
+Reusable workflows are called at the job level.
+
+```yaml
+jobs:
+  ci:
+    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v1
+```
+
+Until a stable major tag is published, use an explicit release tag such as `v0.1.0` or a commit SHA.
+
+## Naming contract
+
+Only workflow files prefixed with `reusable_` are part of the supported cross-repository workflow API.
+
+```text
+.github/workflows/
+├── reusable_node-ci.yml
+├── reusable_npm-publish.yml
+├── reusable_vscode-extension-publish.yml
+└── ci.yml
+```
+
+In this example, the first three workflows are public reusable workflows. `ci.yml` is repository-local automation.
+
+## Secrets and permissions
+
+Reusable workflows declare their required inputs, secrets, and permissions through `workflow_call`. The calling repository remains responsible for supplying required secrets and granting compatible permissions.
