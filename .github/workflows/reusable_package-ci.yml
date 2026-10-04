@@ -34,7 +34,7 @@ permissions:
 jobs:
   discover-packages:
     name: "Discover packages"
-    uses: ./.github/workflows/reusable_discover-packages.yml
+    uses: moyarich/actions/.github/workflows/reusable_discover-packages.yml@release/0.1.0-prep
     with:
       packages-directory: ${{ inputs.packages-directory }}
       require-test-script: true
@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover-packages.outputs.matrix || '{"include":[]}') }}
-    uses: ./.github/workflows/reusable_node-ci.yml
+    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@release/0.1.0-prep
     with:
       package-directory: ${{ matrix.directory }}
       node-version: ${{ inputs.node-version }}
