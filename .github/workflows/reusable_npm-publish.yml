@@ -1,0 +1,404 @@
+name: "Reusable · Publish npm package"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Preview publishing without registry mutation
+        required: true
+        default: true
+        type: boolean
+      package-directory:
+        description: Workspace path, directory name, or package name
+        required: true
+        default: packages/workspace-tools
+        type: string
+      version:
+        description: Exact version to publish; empty uses package.json
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Package registry
+        required: true
+        default: github
+        type: choice
+        options:
+          - github
+          - npm
+      tag:
+        description: Distribution tag
+        required: true
+        default: latest
+        type: string
+      verify-git-tag:
+        description: Verify matching package release Git tag before publishing
+        required: true
+        default: true
+        type: boolean
+      node-version:
+        description: Node.js version
+        required: true
+        default: "24"
+        type: string
+  workflow_call:
+    inputs:
+      target-branch:
+        description: Branch containing the package version to publish
+        required: false
+        default: main
+        type: string
+      dry-run:
+        description: Preview publishing without registry mutation
+        required: false
+        default: true
+        type: boolean
+      package-directory:
+        description: Workspace path, directory name, or package name
+        required: true
+        type: string
+      version:
+        description: Exact version to publish; empty uses the current package.json version
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: github or npm
+        required: false
+        default: github
+        type: string
+      tag:
+        description: npm distribution tag
+        required: false
+        default: latest
+        type: string
+      verify-git-tag:
+        description: Verify matching package release Git tag before publishing
+        required: false
+        default: true
+        type: boolean
+      node-version:
+        required: false
+        default: "24"
+        type: string
+    outputs:
+      package-name:
+        description: Resolved package name
+        value: ${{ jobs.publish-package.outputs.package-name }}
+      package-version:
+        description: Resolved package version
+        value: ${{ jobs.publish-package.outputs.package-version }}
+      publish-status:
+        description: Publish result status
+        value: ${{ jobs.publish-package.outputs.publish-status }}
+      can-publish:
+        description: Whether publish readiness checks passed
+        value: ${{ jobs.publish-package.outputs.can-publish }}
+      result-json:
+        description: Complete workspace-publish JSON result
+        value: ${{ jobs.publish-package.outputs.result-json }}
+    secrets:
+      npm-token:
+        required: false
+
+permissions: {}
+
+jobs:
+  publish-package:
+    name: "job: Publish"
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+    outputs:
+      package-name: ${{ steps.plan.outputs.name }}
+      package-version: ${{ steps.plan.outputs.version }}
+      publish-status: ${{ steps.publish.outputs.status }}
+      can-publish: ${{ steps.publish.outputs.can-publish }}
+      result-json: ${{ steps.publish.outputs.result-json }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+    steps:
+      - name: Initialize workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "# Reusable · Publish npm package"
+            echo
+            echo "| Execution | Value |"
+            echo "| --- | --- |"
+            echo "| Workflow | \`Reusable · Publish npm package\` |"
+            echo "| Job | \`${{ github.job }}\` |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Ref | \`${{ github.ref_name }}\` |"
+            echo "| Run | \`#${{ github.run_number }}\` |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v7 # v7
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: https://npm.pkg.github.com
+          scope: "@moyarich"
+      - name: Ensure staged publishing CLI support
+        if: inputs.registry == 'npm'
+        run: npm install --global npm@">=11.15.0 <12"
+      - name: Install workspace dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm ci --include=optional
+
+      - name: Resolve workspace tools CLI
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -f packages/workspace-tools/package.json ]; then
+            npm run build
+            TOOL_PACKAGE_ROOT="$(cd packages/workspace-tools && pwd -P)"
+          else
+            TOOL_ROOT="$RUNNER_TEMP/workspace-tools"
+            rm -rf "$TOOL_ROOT"
+            mkdir -p "$TOOL_ROOT"
+            npm install \
+              --prefix "$TOOL_ROOT" \
+              --package-lock=false \
+              --ignore-scripts \
+              @moyarich/workspace-tools@latest
+            TOOL_PACKAGE_ROOT="$TOOL_ROOT/node_modules/@moyarich/workspace-tools"
+          fi
+          TOOL_BIN_ROOT=""
+          for CANDIDATE in "$TOOL_PACKAGE_ROOT/dist/bin" "$TOOL_PACKAGE_ROOT/bin"; do
+            if [ -f "$CANDIDATE/workspace-publish.mjs" ]; then
+              TOOL_BIN_ROOT="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$TOOL_BIN_ROOT" ]; then
+            echo "Unable to resolve packaged CLI directory under $TOOL_PACKAGE_ROOT." >&2
+            exit 1
+          fi
+
+          echo "WORKSPACE_TOOLS_ROOT=$TOOL_PACKAGE_ROOT" >> "$GITHUB_ENV"
+          echo "WORKSPACE_TOOLS_BIN=$TOOL_BIN_ROOT" >> "$GITHUB_ENV"
+      - name: Resolve publish plan
+        id: plan
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+        shell: bash
+        run: |
+          PLAN="$(
+            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" \
+              "$PACKAGE_SELECTOR" \
+              --registry="${{ inputs.registry }}" \
+              --tag="${{ inputs.tag }}" \
+              --list \
+              --json
+          )"
+
+          echo "$PLAN" | jq -e '
+            type == "object" and
+            (.packages | type == "array" and length >= 1) and
+            (.packages[0].name | type == "string" and length > 0) and
+            (.packages[0].version | type == "string" and length > 0) and
+            (.packages[0].releaseIdentity.tagName | type == "string" and length > 0) and
+            (.packages[0].releaseIdentity.releaseName | type == "string" and length > 0)
+          ' >/dev/null
+
+          {
+            echo "name=$(jq -r '.packages[0].name' <<< "$PLAN")"
+            echo "version=$(jq -r '.packages[0].version' <<< "$PLAN")"
+            echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
+            echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate requested version
+        if: ${{ inputs.version != '' }}
+        env:
+          CURRENT_VERSION: ${{ steps.plan.outputs.version }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$REQUESTED_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
+            exit 1
+          fi
+      - name: Verify matching GitHub draft
+        if: ${{ !inputs.dry-run }}
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
+          RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
+              jq -c --arg tag "$RELEASE_TAG" '
+                [
+                  .[][] |
+                  select(.draft == true and .tag_name == $tag)
+                ]
+                | first // empty
+              '
+          )"
+
+          if [ -z "$RELEASE" ]; then
+            echo "::error::No matching GitHub draft release exists for $RELEASE_TAG."
+            exit 1
+          fi
+
+          DRAFT_NAME="$(jq -r '.name' <<< "$RELEASE")"
+
+          if [ "$DRAFT_NAME" != "$RELEASE_NAME" ]; then
+            echo "::error::Draft release name does not match the canonical release identity."
+            echo "::error::Expected: $RELEASE_NAME"
+            echo "::error::Actual:   $DRAFT_NAME"
+            exit 1
+          fi
+
+          {
+            echo "RELEASE_DRAFT_ID=$(jq -r '.id' <<< "$RELEASE")"
+            echo "RELEASE_DRAFT_URL=$(jq -r '.html_url' <<< "$RELEASE")"
+          } >> "$GITHUB_ENV"
+
+      - name: Publish package
+        id: publish
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
+          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          _GITHUB_TOKEN: ${{ github.token }}
+          _NPM_TOKEN: ${{ secrets.npm-token }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
+          rm -rf "$ARTIFACT_DIRECTORY"
+          mkdir -p "$ARTIFACT_DIRECTORY"
+
+          PUBLISH_ARGS=(
+            "$PACKAGE_SELECTOR"
+            --registry="${{ inputs.registry }}"
+            --tag="${{ inputs.tag }}"
+            --artifact-directory="$ARTIFACT_DIRECTORY"
+            --json
+          )
+
+          if [ "$DRY_RUN" = "true" ]; then
+            PUBLISH_ARGS+=(--dry-run)
+          fi
+
+          if [ "$VERIFY_GIT_TAG" != "true" ]; then
+            PUBLISH_ARGS+=(--no-verify-git-tag)
+          fi
+
+          RESULT="$(
+            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PUBLISH_ARGS[@]}"
+          )"
+
+          echo "$RESULT" | jq -e --argjson dryRun "$DRY_RUN" '
+            type == "object" and
+            .operation == "publish" and
+            .dryRun == $dryRun and
+            (
+              if $dryRun
+              then (.status == "preview" or .status == "warning")
+              else .status == "success"
+              end
+            )
+          ' >/dev/null
+
+          {
+            echo "status=$(jq -r '.status' <<< "$RESULT")"
+            echo "can-publish=$(jq -r 'if has("canPublish") then .canPublish else true end' <<< "$RESULT")"
+            echo "result-json<<EOF"
+            echo "$RESULT" | jq -c .
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "$RESULT" | jq .
+
+      - name: Publish GitHub Release draft
+        id: github-release
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
+        env:
+          RESULT_JSON: ${{ steps.publish.outputs.result-json }}
+          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
+          RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if jq -e '
+            [.results[]? | select(.status == "staged")] | length > 0
+          ' <<< "$RESULT_JSON" >/dev/null; then
+            echo "status=draft" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release remains a draft while staged registry publication awaits completion."
+            exit 0
+          fi
+
+          if ! git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "status=draft" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release remains a draft because the canonical Git tag does not exist."
+            exit 0
+          fi
+
+          RELEASE="$(
+            gh api \
+              --method PATCH \
+              "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$RELEASE_NAME" \
+              -F draft=false
+          )"
+
+          if [ "$(jq -r '.draft' <<< "$RELEASE")" != "false" ]; then
+            echo "::error::GitHub Release remained in draft state."
+            exit 1
+          fi
+
+          echo "status=published" >> "$GITHUB_OUTPUT"
+
+      - name: Upload packed npm artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-${{ steps.plan.outputs.version || 'unresolved' }}
+          path: ${{ runner.temp }}/npm-package-artifacts/*.tgz
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Package publish"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            echo "| Package | \`${{ steps.plan.outputs.name || inputs.package-directory }}\` |"
+            echo "| Package version | \`${{ steps.plan.outputs.version || 'unresolved' }}\` |"
+            echo "| Release tag | \`${{ steps.plan.outputs.release-tag || 'unresolved' }}\` |"
+            echo "| GitHub Release | \`${{ steps.plan.outputs.release-name || 'unresolved' }}\` |"
+            echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
+            echo "| Registry | \`${{ inputs.registry }}\` |"
+            echo "| Distribution tag | \`${{ inputs.tag }}\` |"
+            echo "| Packed artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
+            echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
+            echo "| Node.js | \`${{ inputs.node-version }}\` |"
+            echo "| Publish status | \`${{ steps.publish.outputs.status || 'unresolved' }}\` |"
+            echo "| GitHub Release state | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
+            echo "| Can publish | **${{ steps.publish.outputs.can-publish || 'unresolved' }}** |"
+            echo "| Result | **${{ job.status }}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
