@@ -1,0 +1,162 @@
+name: Reusable ·  Show issue dependency tree
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/show-issue-dependency-tree.yml"
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  dependency-tree:
+    name: Render native issue dependency tree
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Build dependency tree
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          issues_file="$tmp_dir/issues.jsonl"
+          graph_file="$tmp_dir/graph.json"
+          tree_file="$tmp_dir/tree.md"
+
+          gh issue list \
+            --repo "$GH_REPO" \
+            --state all \
+            --limit 1000 \
+            --json number,title,state \
+            --jq '.[] | @json' > "$issues_file"
+
+          echo '{}' > "$graph_file"
+
+          while IFS= read -r issue; do
+            number="$(jq -r '.number' <<<"$issue")"
+
+            details="$(gh issue view "$number" \
+              --repo "$GH_REPO" \
+              --json number,title,state,blockedBy,blocking)"
+
+            jq \
+              --arg key "$number" \
+              --argjson value "$details" \
+              '. + {($key): $value}' \
+              "$graph_file" > "$graph_file.next"
+
+            mv "$graph_file.next" "$graph_file"
+          done < "$issues_file"
+
+          jq -r '
+            to_entries[]
+            | select(
+                (.value.blockedBy.nodes | length) > 0
+                or (.value.blocking.nodes | length) > 0
+              )
+            | .key
+          ' "$graph_file" > "$tmp_dir/dependency-nodes.txt"
+
+          jq -r '
+            to_entries[]
+            | select(
+                (.value.blocking.nodes | length) > 0
+                and (.value.blockedBy.nodes | length) == 0
+              )
+            | .key
+          ' "$graph_file" > "$tmp_dir/roots.txt"
+
+          render_node() {
+            local number="$1"
+            local indent="$2"
+            local ancestors="$3"
+
+            if grep -qE "(^| )$number( |$)" <<<"$ancestors"; then
+              printf '%s- #%s ⚠ cycle detected\n' "$indent" "$number" >> "$tree_file"
+              return
+            fi
+
+            local title state
+            title="$(jq -r --arg key "$number" '.[$key].title' "$graph_file")"
+            state="$(jq -r --arg key "$number" '.[$key].state' "$graph_file")"
+
+            printf '%s- #%s — %s [%s]\n' "$indent" "$number" "$title" "$state" >> "$tree_file"
+
+            while IFS= read -r blocked; do
+              [ -n "$blocked" ] || continue
+              render_node "$blocked" "  $indent" "$ancestors $number"
+            done < <(
+              jq -r \
+                --arg key "$number" \
+                '.[$key].blocking.nodes[]?.number' \
+                "$graph_file"
+            )
+          }
+
+          {
+            echo "# Issue dependency tree"
+            echo
+            echo "Top-down: each issue blocks the indented issues below it."
+            echo
+          } > "$tree_file"
+
+          if [ ! -s "$tmp_dir/dependency-nodes.txt" ]; then
+            echo "_No native issue dependencies found._" >> "$tree_file"
+          else
+            if [ -s "$tmp_dir/roots.txt" ]; then
+              while IFS= read -r root; do
+                render_node "$root" "" ""
+              done < "$tmp_dir/roots.txt"
+            fi
+
+            # Show dependency nodes that are not reachable from a normal root,
+            # such as cycles.
+            rendered_numbers="$(grep -oE '#[0-9]+' "$tree_file" | tr -d '#' | sort -u || true)"
+
+            while IFS= read -r number; do
+              [ -n "$number" ] || continue
+
+              if ! grep -Fxq "$number" <<<"$rendered_numbers"; then
+                echo >> "$tree_file"
+                echo "## Unrooted dependency chain" >> "$tree_file"
+                echo >> "$tree_file"
+                render_node "$number" "" ""
+              fi
+            done < "$tmp_dir/dependency-nodes.txt"
+          fi
+
+          cat "$tree_file" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo
+            echo "## Dependency graph JSON"
+            echo
+            echo '~~~json'
+            jq '
+              with_entries(
+                select(
+                  (.value.blockedBy.nodes | length) > 0
+                  or (.value.blocking.nodes | length) > 0
+                )
+                | .value |= {
+                    number,
+                    title,
+                    state,
+                    blockedBy: [.blockedBy.nodes[]? | {number, title, state, url}],
+                    blocking: [.blocking.nodes[]? | {number, title, state, url}]
+                  }
+              )
+            ' "$graph_file"
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat "$tree_file"
