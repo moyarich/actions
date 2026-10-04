@@ -1,0 +1,27 @@
+{
+  "name": "@moyarich/actions",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reusable GitHub Actions, workflows, scripts, and release automation.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test:workflows && npm test --workspaces --if-present",
+    "test:workflows": "node scripts/validate-reusable-workflows.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "checks": "npm run test:workflows && npm run typecheck && npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  },
+  "license": "MIT"
+}
