@@ -1,6 +1,7 @@
 name: Reusable ·  Show issue dependency tree
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches:
       - main
