@@ -164,7 +164,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Node.js
-        uses: actions/setup-node@7 # v7
+        uses: actions/setup-node@v7 # v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -181,6 +181,7 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         env:
           INSTALL_COMMAND: ${{ inputs.install-command }}
+          NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           bash -lc "$INSTALL_COMMAND"
