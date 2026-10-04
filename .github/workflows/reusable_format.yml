@@ -40,6 +40,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # pull_request runs default to refs/pull/<n>/merge. Formatting must
+          # target the contributor branch so the self-healing commit lands on
+          # the branch that will be checked again.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
           persist-credentials: ${{ inputs.commit }}
           fetch-depth: 1
 
@@ -104,7 +108,8 @@ jobs:
 
           git add --all
           git commit -m "style: format repository"
-          git push origin "HEAD:${{ github.ref_name }}"
+          TARGET_REF="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
+          git push origin "HEAD:$TARGET_REF"
 
       - name: Fail if formatting verification failed
         if: ${{ always() && steps.verify.outcome == 'failure' }}
@@ -125,7 +130,7 @@ jobs:
             printf '| Node.js | `%s` |\n' "${{ inputs.node-version || '24' }}"
             printf '| Prettier | `%s` |\n' "${{ steps.prettier.outputs.version || 'unknown' }}"
             printf '| Commit requested | **%s** |\n' "${{ inputs.commit }}"
-            printf '| Branch | `%s` |\n' "${{ github.ref_name }}"
+            printf '| Branch | `%s` |\n' "${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
             echo "| Changes detected | **${{ steps.format.outputs.changed || 'unknown' }}** |"
             echo "| Verification | **${{ steps.verify.outcome || 'unknown' }}** |"
             echo "| Result | **${{ job.status }}** |"
