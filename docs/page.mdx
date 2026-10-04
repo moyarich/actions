@@ -1,0 +1,19 @@
+---
+title: Moya Actions
+description: Reusable GitHub Actions, workflows, scripts, and release automation for Moya projects.
+---
+
+# Moya Actions
+
+Moya Actions is the shared automation repository for Node.js projects, npm packages, VS Code extensions, documentation sites, and other Moya repositories.
+
+## Public automation surface
+
+| Type | Location | Contract |
+| --- | --- | --- |
+| Reusable workflows | `.github/workflows/reusable_*.yml` | Public |
+| Reusable actions | `actions/*/action.yml` | Public |
+| Scripts and tooling | `scripts/*` | Documented reusable tooling |
+| Repository workflows | `.github/workflows/*.yml` without the `reusable_` prefix | Internal |
+
+Start with [Getting started](./01-getting-started/page.mdx) or browse the [workflow catalog](./02-workflows/page.mdx).
