@@ -1,0 +1,40 @@
+---
+title: Repository structure
+description: How docs, examples, and the playground are organized in Moya Actions.
+---
+
+# Repository structure
+
+Moya Actions follows the same content ownership boundary used by Console and MoyaForge:
+
+```text
+apps/
+└── playground/   # presentation app
+
+docs/             # authoritative documentation
+
+examples/         # authoritative examples
+
+.github/
+└── workflows/    # workflows owned or run by this repository
+```
+
+## Content ownership
+
+`docs/` is the authoritative documentation source.
+
+`examples/` contains authoritative, copyable examples. Examples are organized as first-class content rather than mirroring a consumer repository's `.github/workflows/` path.
+
+`apps/playground/` is presentation only. It may consume documentation and examples from outside its own directory, but it must not duplicate or become the authoritative source for that content.
+
+The playground currently imports `examples/*/workflow.yml` directly as raw source.
+
+## Why examples are not nested under .github/workflows
+
+The example tree describes examples, not the physical repository layout a consumer must use. A workflow example can still explain that its destination in a consuming repository is `.github/workflows/<name>.yml` without encoding that destination path into the source tree itself.
+
+This keeps the repository structure consistent with Console and MoyaForge while preserving copyable workflow content.
+
+## Dependency boundary
+
+Moya Actions is upstream automation infrastructure. The playground must not require MoyaForge in order to build or run, because MoyaForge may itself consume automation from this repository.

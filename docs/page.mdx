@@ -16,10 +16,17 @@ Moya Actions is the shared automation repository for Node.js projects, npm packa
 | Scripts and tooling | `scripts/*` | Documented reusable tooling |
 | Repository workflows | `.github/workflows/*.yml` without the `reusable_` prefix | Internal |
 
-Start with [Getting started](./01-getting-started/page.mdx) or browse the [workflow catalog](./02-workflows/page.mdx).
+Start with [Getting started](./01-getting-started/page.mdx), browse the [workflow catalog](./02-workflows/page.mdx), or see [Development](./04-development/page.mdx) for repository structure and maintainer guidance.
 
 ## Copyable examples
 
-Consumer-ready workflow callers live under `examples/.github/workflows/`. The example tree mirrors the destination path in another repository, so the examples can be copied into `.github/workflows/` without restructuring them.
+Consumer-ready workflow callers live under `examples/`. Each example is a first-class repository example, such as:
 
-`apps/playground` is the repository's private React/Vite playground. It consumes these repository-level examples directly for presentation, while `examples/` remains the authoritative source. The playground follows MoyaForge repository conventions structurally but does not depend on `@moyarich/moyaforge`, keeping this automation repository independently consumable by MoyaForge and other projects.
+```text
+examples/
+├── github-pages/
+│   └── workflow.yml
+├── node-ci/
+│   └── workflow.yml
+└── ...
+```
