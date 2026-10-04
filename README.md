@@ -20,7 +20,7 @@ Two repository-maintenance workflows are designed for self-healing use:
 
 ## Documentation
 
-See [docs](./docs/page.mdx) for getting started, the workflow catalog, and repository conventions. Copyable caller workflows live under [`examples/.github/workflows`](./examples/.github/workflows) and mirror their destination path in consuming repositories. The private [`apps/playground`](./apps/playground) React app consumes those repository-owned examples directly for interactive presentation.
+See [docs](./docs/page.mdx) for getting started, the workflow catalog, and repository conventions. Copyable caller workflows live under [examples](./examples) as first-class examples. The private [apps/playground](./apps/playground) React app consumes those repository-owned examples directly for interactive presentation.
 
 ## Versioning
 

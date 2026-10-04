@@ -1,13 +1,10 @@
 import { useMemo, useState } from "react";
 
-const workflowModules = import.meta.glob(
-  "../../../examples/.github/workflows/*.{yml,yaml}",
-  {
-    eager: true,
-    query: "?raw",
-    import: "default",
-  },
-) as Record<string, string>;
+const workflowModules = import.meta.glob("../../../examples/*/workflow.{yml,yaml}", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+}) as Record<string, string>;
 
 type WorkflowExample = {
   name: string;
@@ -16,10 +13,11 @@ type WorkflowExample = {
 };
 
 function toWorkflowExample([path, source]: [string, string]): WorkflowExample {
-  const name = path.split("/").at(-1) ?? path;
+  const segments = path.split("/");
+  const exampleName = segments.at(-2) ?? segments.at(-1) ?? path;
 
   return {
-    name,
+    name: exampleName,
     path: path.replace("../../../", ""),
     source,
   };
@@ -56,7 +54,7 @@ export function App() {
         <aside className="workflow-list" aria-label="Workflow examples">
           <h2>Workflow examples</h2>
           <p>
-            Source: <code>examples/.github/workflows</code>
+            Source: <code>examples/</code>
           </p>
 
           <nav>
