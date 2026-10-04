@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 
-const workflowModules = import.meta.glob("../../../examples/*/workflow.{yml,yaml}", {
-  eager: true,
-  query: "?raw",
-  import: "default",
-}) as Record<string, string>;
+const workflowModules = import.meta.glob(
+  "../../../examples/*/workflow.{yml,yaml}",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+) as Record<string, string>;
 
 type WorkflowExample = {
   name: string;
@@ -34,7 +37,8 @@ export function App() {
   const [selectedPath, setSelectedPath] = useState(workflows[0]?.path ?? "");
 
   const selectedWorkflow =
-    workflows.find((workflow) => workflow.path === selectedPath) ?? workflows[0];
+    workflows.find((workflow) => workflow.path === selectedPath) ??
+    workflows[0];
 
   return (
     <div className="app-shell">
@@ -63,7 +67,9 @@ export function App() {
                 key={workflow.path}
                 type="button"
                 className={
-                  workflow.path === selectedWorkflow?.path ? "active" : undefined
+                  workflow.path === selectedWorkflow?.path
+                    ? "active"
+                    : undefined
                 }
                 onClick={() => setSelectedPath(workflow.path)}
               >
