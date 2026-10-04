@@ -1,0 +1,186 @@
+name: "Reusable · Node CI"
+
+on:
+  workflow_dispatch:
+    inputs:
+      package-directory:
+        description: Workspace path, directory name, or package name
+        required: true
+        default: "."
+        type: string
+      node-version:
+        description: Node.js version used by CI
+        required: true
+        default: "24"
+        type: string
+  workflow_call:
+    inputs:
+      package-directory:
+        description: Workspace path, directory name, or package name
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: Node.js version used by CI
+        required: false
+        type: string
+        default: "24"
+    secrets:
+      package-token:
+        description: Token used to install packages from GitHub Packages
+        required: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  check-node-project:
+    name: "job: Checks"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Initialize workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "| Execution | Value |"
+            echo "| --- | --- |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Ref | \`${{ github.ref_name }}\` |"
+            echo "| Run | \`#${{ github.run_number }}\` |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v7 # v7
+      - uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+      - name: Install workspace dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
+      - name: Build selected workspace and local dependencies
+        env:
+          WORKSPACE: ${{ inputs.package-directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$WORKSPACE" = "." ]; then
+            npm run build --if-present
+            exit 0
+          fi
+
+          BUILD_ORDER="$(
+            node --input-type=module - "$WORKSPACE" <<'NODE'
+          import { readdirSync, readFileSync } from "node:fs";
+
+          const selector = process.argv[2];
+          const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
+          const patterns = Array.isArray(rootPackage.workspaces)
+            ? rootPackage.workspaces
+            : rootPackage.workspaces?.packages ?? [];
+
+          const workspaceDirs = [];
+          for (const pattern of patterns) {
+            if (!pattern.endsWith("/*")) continue;
+            const base = pattern.slice(0, -2);
+            for (const entry of readdirSync(base, { withFileTypes: true })) {
+              if (entry.isDirectory()) workspaceDirs.push(`${base}/${entry.name}`);
+            }
+          }
+
+          const packages = new Map();
+          for (const dir of workspaceDirs) {
+            try {
+              const manifest = JSON.parse(readFileSync(`${dir}/package.json`, "utf8"));
+              if (manifest.name) packages.set(manifest.name, { dir, manifest });
+            } catch {}
+          }
+
+          let target = [...packages.values()].find(
+            (item) => item.dir === selector || item.manifest.name === selector,
+          );
+
+          if (!target) {
+            const manifest = JSON.parse(readFileSync(`${selector}/package.json`, "utf8"));
+            target = { dir: selector, manifest };
+          }
+
+          const seen = new Set();
+          const order = [];
+
+          const visit = (item) => {
+            if (!item?.manifest?.name || seen.has(item.manifest.name)) return;
+            seen.add(item.manifest.name);
+
+            const deps = {
+              ...item.manifest.dependencies,
+              ...item.manifest.devDependencies,
+              ...item.manifest.optionalDependencies,
+            };
+
+            for (const name of Object.keys(deps ?? {})) {
+              const local = packages.get(name);
+              if (local) visit(local);
+            }
+
+            order.push(item.manifest.name);
+          };
+
+          visit(target);
+          process.stdout.write(order.join("\n"));
+          NODE
+          )"
+
+          while IFS= read -r package; do
+            [ -n "$package" ] || continue
+            echo "::group::Build $package"
+            npm run build --workspace "$package" --if-present
+            echo "::endgroup::"
+          done <<< "$BUILD_ORDER"
+
+      - name: Install Chromium for Storybook tests
+        if: ${{ inputs.package-directory == 'packages/web-components' || inputs.package-directory == '@moyarich/web-components' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        env:
+          WORKSPACE: ${{ inputs.package-directory }}
+        run: |
+          if [ "$WORKSPACE" = "." ]; then
+            npm test
+          else
+            npm test --workspace "$WORKSPACE"
+          fi
+      - name: Lint
+        env:
+          WORKSPACE: ${{ inputs.package-directory }}
+        run: |
+          if [ "$WORKSPACE" = "." ]; then npm run lint --if-present; else npm run lint --workspace "$WORKSPACE" --if-present; fi
+      - name: Typecheck
+        env:
+          WORKSPACE: ${{ inputs.package-directory }}
+        run: |
+          if [ "$WORKSPACE" = "." ]; then npm run typecheck --if-present; else npm run typecheck --workspace "$WORKSPACE" --if-present; fi
+
+      - name: Validate package tarball
+        if: ${{ inputs.package-directory != '.' }}
+        env:
+          WORKSPACE: ${{ inputs.package-directory }}
+        run: npm pack --workspace "$WORKSPACE" --dry-run
+
+      - name: CI summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## CI result"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Workspace | \`${{ inputs.package-directory }}\` |"
+            echo "| Node.js | \`${{ inputs.node-version }}\` |"
+            echo "| Result | **${{ job.status }}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
