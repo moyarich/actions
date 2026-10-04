@@ -20,7 +20,7 @@ Two repository-maintenance workflows are designed for self-healing use:
 
 ## Documentation
 
-See [docs](./docs/page.mdx) for getting started, the workflow catalog, and repository conventions.
+See [docs](./docs/page.mdx) for getting started, the workflow catalog, and repository conventions. Copyable caller workflows live under [`examples/.github/workflows`](./examples/.github/workflows) and mirror their destination path in consuming repositories.
 
 ## Versioning
 
