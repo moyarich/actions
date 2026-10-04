@@ -1,0 +1,17 @@
+{
+  "name": "moya-actions-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @moyarich/actions-playground",
+    "build:playground": "npm run build --workspace @moyarich/actions-playground"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moyarich/actions.git"
+  }
+}
