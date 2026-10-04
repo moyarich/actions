@@ -167,7 +167,6 @@ jobs:
         uses: actions/setup-node@v7 # v7
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
 
       - name: Configure GitHub Pages
         id: pages
