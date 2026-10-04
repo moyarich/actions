@@ -61,3 +61,15 @@ GitHub Packages uses `_GITHUB_TOKEN`. npm publishing uses `_NPM_TOKEN`.
 ## Reusable workflows
 
 The package is the CLI implementation behind the repository's generic npm release and publish workflows. Package-specific workflows should delegate to those generic workflows rather than duplicate their release logic.
+
+## Build
+
+The package owns its executable build process:
+
+```sh
+npm run build --workspace @moyarich/workspace-tools
+```
+
+Its package-local `scripts/build-bin.mjs` uses Vite directly to build the `package.json#bin` entries into `dist/bin/*.mjs`, adds the Node.js shebang, and marks each executable as runnable.
+
+The reusable GitHub workflows do not know about a particular bundler or build plugin. They invoke package scripts such as `npm run build`; build implementation remains the package's responsibility.
