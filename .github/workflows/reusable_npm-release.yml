@@ -1,0 +1,992 @@
+name: "Reusable · Release npm package"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Dry-run — preview without making changes
+        required: true
+        default: true
+        type: boolean
+
+      package:
+        description: Package — package to release
+        required: true
+        default: packages/workspace-tools
+        type: string
+
+      version-mode:
+        description: Version — bump, use package.json, or enter an exact version
+        required: true
+        default: bump
+        type: choice
+        options:
+          - bump
+          - package-json
+          - exact
+
+      version-bump:
+        description: Version — bump amount (used with "bump")
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+
+      exact-version:
+        description: Version — exact version (used with "exact", e.g. 1.2.3)
+        required: false
+        default: ""
+        type: string
+
+      publish:
+        description: Publish — publish after creating the release
+        required: true
+        default: false
+        type: boolean
+
+      registry:
+        description: Publish — registry to publish to
+        required: true
+        default: github
+        type: choice
+        options:
+          - github
+          - npm
+          - both
+
+      dist-tag:
+        description: Publish — package tag (usually "latest")
+        required: true
+        default: latest
+        type: string
+
+      verify-git-tag:
+        description: Publish — verify matching release Git tag before publishing
+        required: true
+        default: true
+        type: boolean
+
+      node-version:
+        description: Advanced — Node.js version
+        required: true
+        default: "24"
+        type: string
+
+  workflow_call:
+    inputs:
+      target-branch:
+        description: Release target branch
+        required: false
+        default: main
+        type: string
+
+      dry-run:
+        description: Dry-run — preview without making changes
+        required: true
+        default: true
+        type: boolean
+
+      package:
+        description: Package — package to release
+        required: true
+        type: string
+
+      version-mode:
+        description: Version — bump, use package.json, or enter an exact version
+        required: false
+        default: bump
+        type: string
+
+      version-bump:
+        description: Version — bump amount (used with "bump")
+        required: false
+        default: patch
+        type: string
+
+      exact-version:
+        description: Version — exact version (used with "exact", e.g. 1.2.3)
+        required: false
+        default: ""
+        type: string
+
+      publish:
+        description: Publish — publish after creating the release
+        required: false
+        default: false
+        type: boolean
+
+      registry:
+        description: Publish — registry to publish to
+        required: false
+        default: github
+        type: string
+
+      dist-tag:
+        description: Publish — package tag (usually "latest")
+        required: false
+        default: latest
+        type: string
+
+      verify-git-tag:
+        description: Publish — verify matching release Git tag before publishing
+        required: false
+        default: true
+        type: boolean
+
+      node-version:
+        description: Advanced — Node.js version
+        required: false
+        default: "24"
+        type: string
+
+    outputs:
+      package-name:
+        description: Released package name
+        value: ${{ jobs.release-package.outputs.package-name }}
+      package-selector:
+        description: Resolved package selector
+        value: ${{ jobs.release-package.outputs.package-selector }}
+      package-version:
+        description: Released or previewed version
+        value: ${{ jobs.release-package.outputs.package-version }}
+      release-status:
+        description: Release result status
+        value: ${{ jobs.release-package.outputs.release-status }}
+      can-release:
+        description: Whether release readiness checks passed
+        value: ${{ jobs.release-package.outputs.can-release }}
+      release-json:
+        description: Complete workspace-release JSON result
+        value: ${{ jobs.release-package.outputs.release-json }}
+      publish-status:
+        description: Publish result status when publishing was requested
+        value: ${{ jobs.release-package.outputs.publish-status }}
+      publish-json:
+        description: Complete workspace-publish JSON result when publishing was requested
+        value: ${{ jobs.release-package.outputs.publish-json }}
+
+    secrets:
+      _NPM_TOKEN:
+        required: false
+
+permissions: {}
+
+jobs:
+  release-package:
+    name: "job: Release"
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+    outputs:
+      package-name: ${{ steps.release.outputs.package-name || steps.preview.outputs.package-name }}
+      package-selector: ${{ steps.release.outputs.package-selector || steps.preview.outputs.package-selector }}
+      package-version: ${{ steps.release.outputs.package-version || steps.preview.outputs.package-version }}
+      release-status: ${{ steps.release.outputs.status || steps.preview.outputs.status }}
+      can-release: ${{ steps.release.outputs.can-release || steps.preview.outputs.can-release }}
+      release-json: ${{ steps.release.outputs.release-json || steps.preview.outputs.release-json }}
+      publish-status: ${{ steps.publish.outputs.status }}
+      publish-json: ${{ steps.publish.outputs.publish-json }}
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+
+    steps:
+      - name: Initialize workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "# Reusable · Release npm package"
+            echo
+            echo "| Execution | Value |"
+            echo "| --- | --- |"
+            echo "| Workflow | \`Reusable · Release npm package\` |"
+            echo "| Job | \`${{ github.job }}\` |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Ref | \`${{ github.ref_name }}\` |"
+            echo "| Run | \`#${{ github.run_number }}\` |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout repository
+        uses: actions/checkout@v7 # v7
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ github.token }}
+
+      - name: Resolve execution mode
+        id: execution
+        env:
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
+          EVENT_DRY_RUN: ${{ github.event.inputs.dry-run }}
+          ACT: ${{ env.ACT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # act can resolve an omitted boolean input as false. Fail safe locally:
+          # only an explicitly supplied workflow_dispatch value of false may
+          # enable a real release under act.
+          if [ "$ACT" = "true" ]; then
+            case "$EVENT_DRY_RUN" in
+              false)
+                DRY_RUN=false
+                ;;
+              true|"")
+                DRY_RUN=true
+                ;;
+              *)
+                echo "::error::Invalid dry-run value: $EVENT_DRY_RUN"
+                exit 1
+                ;;
+            esac
+          elif [ "$INPUT_DRY_RUN" = "false" ]; then
+            DRY_RUN=false
+          else
+            DRY_RUN=true
+          fi
+
+          echo "dry-run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "Dry run: $DRY_RUN"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Execution mode: preview only; repository mutation is disabled."
+          else
+            echo "Execution mode: real release."
+          fi
+
+      - name: Configure GitHub remote
+        if: ${{ steps.execution.outputs.dry-run == 'false' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::A GitHub token is required for release operations."
+            exit 1
+          fi
+
+          git remote set-url origin \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@moyarich"
+
+      - name: Install workspace dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm ci --include=optional
+
+      - name: Resolve workspace tools CLI
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -f packages/workspace-tools/package.json ]; then
+            npm run build
+            TOOL_PACKAGE_ROOT="$(cd packages/workspace-tools && pwd -P)"
+          else
+            TOOL_ROOT="$RUNNER_TEMP/workspace-tools"
+            rm -rf "$TOOL_ROOT"
+            mkdir -p "$TOOL_ROOT"
+            npm install \
+              --prefix "$TOOL_ROOT" \
+              --package-lock=false \
+              --ignore-scripts \
+              @moyarich/workspace-tools@latest
+            TOOL_PACKAGE_ROOT="$TOOL_ROOT/node_modules/@moyarich/workspace-tools"
+          fi
+          TOOL_BIN_ROOT=""
+          for CANDIDATE in "$TOOL_PACKAGE_ROOT/dist/bin" "$TOOL_PACKAGE_ROOT/bin"; do
+            if [ -f "$CANDIDATE/workspace-release.mjs" ] && [ -f "$CANDIDATE/workspace-publish.mjs" ]; then
+              TOOL_BIN_ROOT="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$TOOL_BIN_ROOT" ]; then
+            echo "Unable to resolve packaged CLI directory under $TOOL_PACKAGE_ROOT." >&2
+            exit 1
+          fi
+
+          echo "WORKSPACE_TOOLS_ROOT=$TOOL_PACKAGE_ROOT" >> "$GITHUB_ENV"
+          echo "WORKSPACE_TOOLS_BIN=$TOOL_BIN_ROOT" >> "$GITHUB_ENV"
+
+      - name: Restore tracked files after build
+        run: git restore --worktree -- .
+
+      - name: Validate release inputs
+        env:
+          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
+          REGISTRY: ${{ inputs.registry }}
+          DIST_TAG: ${{ inputs.dist-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$VERSION_MODE" in
+            bump|package-json|exact)
+              ;;
+            *)
+              echo "::error::Version selection must be bump, package-json, or exact."
+              exit 1
+              ;;
+          esac
+
+          case "$VERSION_BUMP" in
+            patch|minor|major|prepatch|preminor|premajor|prerelease)
+              ;;
+            *)
+              echo "::error::Invalid version bump: $VERSION_BUMP"
+              exit 1
+              ;;
+          esac
+
+          if [ "$VERSION_MODE" = "exact" ] && [ -z "$EXACT_VERSION" ]; then
+            echo "::error::Exact version is required when version selection is exact."
+            exit 1
+          fi
+
+          case "$REGISTRY" in
+            github|npm|both)
+              ;;
+            *)
+              echo "::error::Registry must be github, npm, or both."
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$DIST_TAG" ]; then
+            echo "::error::Distribution tag cannot be empty."
+            exit 1
+          fi
+
+      - name: Validate publishing credentials
+        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish }}
+        env:
+          GITHUB_TOKEN_VALUE: ${{ github.token }}
+          NPM_TOKEN_VALUE: ${{ secrets._NPM_TOKEN }}
+          REGISTRY: ${{ inputs.registry }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$REGISTRY" in
+            github)
+              if [ -z "$GITHUB_TOKEN_VALUE" ]; then
+                echo "::error::github.token is required to publish to GitHub Packages."
+                exit 1
+              fi
+              ;;
+
+            npm)
+              if [ -z "$NPM_TOKEN_VALUE" ]; then
+                echo "::error::_NPM_TOKEN is required to publish to npm."
+                exit 1
+              fi
+              ;;
+
+            both)
+              if [ -z "$GITHUB_TOKEN_VALUE" ]; then
+                echo "::error::github.token is required to publish to GitHub Packages."
+                exit 1
+              fi
+
+              if [ -z "$NPM_TOKEN_VALUE" ]; then
+                echo "::error::_NPM_TOKEN is required to publish to npm."
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Configure release author
+        if: ${{ steps.execution.outputs.dry-run == 'false' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve release version
+        env:
+          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$VERSION_MODE" in
+            bump)
+              VERSION_REQUEST="$VERSION_BUMP"
+              ;;
+
+            package-json)
+              VERSION_REQUEST=""
+              ;;
+
+            exact)
+              VERSION_REQUEST="$EXACT_VERSION"
+              ;;
+          esac
+
+          echo "VERSION_REQUEST=$VERSION_REQUEST" >> "$GITHUB_ENV"
+
+      - name: Verify clean working tree
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="$(git status --short)"
+
+          if [ -n "$STATUS" ]; then
+            echo "::error::Working tree is not clean before release."
+            echo
+            echo "$STATUS"
+            echo
+
+            {
+              echo
+              echo "## Working tree"
+              echo
+              echo "> [!CAUTION]"
+              echo "> The release cannot continue because the working tree is not clean."
+              echo
+              echo '```text'
+              echo "$STATUS"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 1
+          fi
+
+          echo "Working tree is clean."
+
+      - name: Capture dry-run repository state
+        if: ${{ steps.execution.outputs.dry-run == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > /tmp/release-head-before
+          git status --porcelain=v1 --untracked-files=all > /tmp/release-status-before
+          git tag --list | sort > /tmp/release-tags-before
+
+      - name: Resolve target release
+        id: preview
+        env:
+          VERSION_MODE: ${{ inputs.version-mode }}
+          PUBLISH: ${{ inputs.publish }}
+          REGISTRY: ${{ inputs.registry }}
+          DIST_TAG: ${{ inputs.dist-tag }}
+          GIT_REF: ${{ env.TARGET_BRANCH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_ARGS=(
+            "${{ inputs.package }}"
+            "--mode=$VERSION_MODE"
+            "--json"
+            "--dry-run"
+          )
+
+          if [ "$VERSION_MODE" != "package-json" ]; then
+            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
+            RELEASE_ARGS+=("--version=$VERSION_REQUEST")
+          fi
+
+          RELEASE_JSON="$(
+            node "$WORKSPACE_TOOLS_BIN/workspace-release.mjs" "${RELEASE_ARGS[@]}"
+          )"
+
+          echo "$RELEASE_JSON" | jq -e '
+            type == "object" and
+            .operation == "release" and
+            .dryRun == true and
+            (.package.name | type == "string" and length > 0) and
+            (.currentVersion | type == "string" and length > 0) and
+            (.nextVersion | type == "string" and length > 0) and
+            (.identity.tagName | type == "string" and length > 0) and
+            (.identity.releaseName | type == "string" and length > 0)
+          ' >/dev/null
+
+          PACKAGE_NAME="$(jq -r '.package.name' <<< "$RELEASE_JSON")"
+          PACKAGE_SELECTOR="$(jq -r '.package.selector' <<< "$RELEASE_JSON")"
+          PACKAGE_DIRECTORY="$(jq -r '.package.directory' <<< "$RELEASE_JSON")"
+          PACKAGE_VERSION="$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
+          RELEASE_TAG="$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
+          RELEASE_NAME="$(jq -r '.identity.releaseName' <<< "$RELEASE_JSON")"
+          CAN_RELEASE="$(jq -r '.canRelease' <<< "$RELEASE_JSON")"
+
+          {
+            echo "PACKAGE_NAME=$PACKAGE_NAME"
+            echo "PACKAGE_SELECTOR=$PACKAGE_SELECTOR"
+            echo "PACKAGE_DIRECTORY=$PACKAGE_DIRECTORY"
+            echo "PACKAGE_VERSION=$PACKAGE_VERSION"
+            echo "RELEASE_TAG=$RELEASE_TAG"
+            echo "RELEASE_NAME=$RELEASE_NAME"
+          } >> "$GITHUB_ENV"
+
+          {
+            echo "package-name=$PACKAGE_NAME"
+            echo "package-selector=$PACKAGE_SELECTOR"
+            echo "package-version=$PACKAGE_VERSION"
+            echo "status=$(jq -r '.status' <<< "$RELEASE_JSON")"
+            echo "can-release=$CAN_RELEASE"
+            echo "release-json<<EOF"
+            echo "$RELEASE_JSON" | jq -c .
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Package release"
+            echo
+            echo "## Target resolution"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Repository | `%s` |\n' "$GH_REPO"
+            printf '| Package | `%s` |\n' "$PACKAGE_NAME"
+            printf '| Package selector | `%s` |\n' "${{ inputs.package }}"
+            printf '| Current version | `%s` |\n' "$(jq -r '.currentVersion' <<< "$RELEASE_JSON")"
+            printf '| Version selection | `%s` |\n' "$VERSION_MODE"
+            printf '| Version request | `%s` |\n' "${VERSION_REQUEST:-package.json version}"
+            printf '| Resolved version | `%s` |\n' "$PACKAGE_VERSION"
+            printf '| Git tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| GitHub Release | `%s` |\n' "$RELEASE_NAME"
+            echo "| Can release | **$CAN_RELEASE** |"
+            echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
+            echo "| Publish after release | **$PUBLISH** |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.execution.outputs.dry-run }}" = "false" ] && [ "$CAN_RELEASE" != "true" ]; then
+            echo "::error::Resolved target is not releasable: $(jq -r '.reason // "unknown reason"' <<< "$RELEASE_JSON")"
+            exit 1
+          fi
+
+      - name: Ensure matching GitHub draft
+        id: draft
+        if: ${{ steps.execution.outputs.dry-run == 'false' }}
+        env:
+          PREVIEW_JSON: ${{ steps.preview.outputs.release-json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASES="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
+          )"
+
+          CANDIDATE_MARKER="<!-- dev-toolkit-release-draft:candidate package=$PACKAGE_NAME -->"
+
+          mapfile -t SUPERSEDED_DRAFTS < <(
+            jq -r \
+              --arg prefix "$PACKAGE_DIRECTORY@" \
+              --arg target "$RELEASE_TAG" \
+              --arg marker "$CANDIDATE_MARKER" '
+                [
+                  .[][] |
+                  select(
+                    .draft == true and
+                    .tag_name != $target and
+                    (.tag_name | startswith($prefix)) and
+                    ((.body // "") | contains($marker))
+                  )
+                ][]
+                | [.id, .tag_name]
+                | @tsv
+              ' <<< "$RELEASES"
+          )
+
+          REMOVED_CANDIDATES=0
+
+          for ITEM in "${SUPERSEDED_DRAFTS[@]}"; do
+            IFS=$'\\t' read -r DRAFT_ID DRAFT_TAG <<< "$ITEM"
+
+            if git rev-parse --verify --quiet "refs/tags/$DRAFT_TAG" >/dev/null; then
+              continue
+            fi
+
+            gh api --method DELETE "repos/$GH_REPO/releases/$DRAFT_ID"
+            REMOVED_CANDIDATES=$((REMOVED_CANDIDATES + 1))
+          done
+
+          if [ "$REMOVED_CANDIDATES" -gt 0 ]; then
+            {
+              echo "## Superseded candidate drafts"
+              echo
+              printf "Removed **%s** automation-owned, untagged candidate draft(s) for `%s`.\n" "$REMOVED_CANDIDATES" "$PACKAGE_NAME"
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            RELEASES="$(
+              gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
+            )"
+          fi
+
+          PUBLISHED_ID="$(
+            jq -r --arg tag "$RELEASE_TAG" '
+              [.[][] | select(.draft == false and .tag_name == $tag)]
+              | first
+              | .id // empty
+            ' <<< "$RELEASES"
+          )"
+
+          if [ -n "$PUBLISHED_ID" ]; then
+            echo "::error::A published GitHub Release already exists for $RELEASE_TAG."
+            exit 1
+          fi
+
+          EXISTING="$(
+            jq -c --arg tag "$RELEASE_TAG" '
+              [.[][] | select(.draft == true and .tag_name == $tag)]
+              | first // empty
+            ' <<< "$RELEASES"
+          )"
+
+          NOTES="$(jq -r '.changelog // ""' <<< "$PREVIEW_JSON" | sed '1{/^## /d;}')"
+
+          BODY="$(
+            {
+              echo "## Release notes"
+              echo
+              if [ -n "$NOTES" ]; then
+                echo "$NOTES"
+              else
+                echo "- No package-specific changes found."
+              fi
+              echo
+              echo "## Install"
+              echo
+              echo '~~~sh'
+              echo "npm install $PACKAGE_NAME@$PACKAGE_VERSION --registry=https://npm.pkg.github.com"
+              echo '~~~'
+            }
+          )"
+
+          if [ -n "$EXISTING" ]; then
+            RELEASE_DRAFT_ID="$(jq -r '.id' <<< "$EXISTING")"
+
+            RELEASE="$(
+              gh api \
+                --method PATCH \
+                "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
+                -f tag_name="$RELEASE_TAG" \
+                -f target_commitish="$TARGET_BRANCH" \
+                -f name="$RELEASE_NAME" \
+                -F draft=true
+            )"
+
+            ACTION="reused"
+          else
+            RELEASE="$(
+              gh api \
+                --method POST \
+                "repos/$GH_REPO/releases" \
+                -f tag_name="$RELEASE_TAG" \
+                -f target_commitish="$TARGET_BRANCH" \
+                -f name="$RELEASE_NAME" \
+                -f body="$BODY" \
+                -F draft=true
+            )"
+
+            RELEASE_DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
+            ACTION="created"
+          fi
+
+          RELEASE_DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+
+          {
+            echo "RELEASE_DRAFT_ID=$RELEASE_DRAFT_ID"
+            echo "RELEASE_DRAFT_URL=$RELEASE_DRAFT_URL"
+          } >> "$GITHUB_ENV"
+
+          {
+            echo "id=$RELEASE_DRAFT_ID"
+            echo "url=$RELEASE_DRAFT_URL"
+            echo "action=$ACTION"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## GitHub Release draft"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Name | `%s` |\n' "$RELEASE_NAME"
+            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
+            echo "| State | **draft** |"
+            echo "| Action | **$ACTION** |"
+            echo "| Draft | [Open release draft]($RELEASE_DRAFT_URL) |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Perform release
+        id: release
+        if: ${{ steps.execution.outputs.dry-run == 'false' }}
+        env:
+          VERSION_MODE: ${{ inputs.version-mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_ARGS=(
+            "${{ inputs.package }}"
+            "--mode=$VERSION_MODE"
+            "--json"
+          )
+
+          if [ "$VERSION_MODE" != "package-json" ]; then
+            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
+            RELEASE_ARGS+=("--version=$VERSION_REQUEST")
+          fi
+
+          RELEASE_JSON="$(
+            node "$WORKSPACE_TOOLS_BIN/workspace-release.mjs" "${RELEASE_ARGS[@]}"
+          )"
+
+          echo "$RELEASE_JSON" | jq -e \
+            --arg expectedTag "$RELEASE_TAG" \
+            --arg expectedName "$RELEASE_NAME" '
+              type == "object" and
+              .operation == "release" and
+              .status == "success" and
+              .identity.tagName == $expectedTag and
+              .identity.releaseName == $expectedName
+            ' >/dev/null
+
+          {
+            echo "package-name=$(jq -r '.package.name' <<< "$RELEASE_JSON")"
+            echo "package-selector=$(jq -r '.package.selector' <<< "$RELEASE_JSON")"
+            echo "package-version=$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
+            echo "status=$(jq -r '.status' <<< "$RELEASE_JSON")"
+            echo "can-release=true"
+            echo "release-json<<EOF"
+            echo "$RELEASE_JSON" | jq -c .
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Release created"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Version | `%s` |\n' "$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
+            printf '| Git tag | `%s` |\n' "$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
+            echo "| GitHub Release | **draft** |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify dry run made no repository changes
+        if: ${{ steps.execution.outputs.dry-run == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git rev-parse HEAD > /tmp/release-head-after
+          git status --porcelain=v1 --untracked-files=all > /tmp/release-status-after
+          git tag --list | sort > /tmp/release-tags-after
+
+          if ! cmp -s /tmp/release-head-before /tmp/release-head-after || \
+             ! cmp -s /tmp/release-status-before /tmp/release-status-after || \
+             ! cmp -s /tmp/release-tags-before /tmp/release-tags-after; then
+            echo "::error::Dry run modified repository state."
+            echo "Repository status after dry run:"
+            git status --short
+            exit 1
+          fi
+
+          echo "Dry-run verification passed: repository state is unchanged."
+
+      - name: Push release commit and tag
+        if: ${{ steps.execution.outputs.dry-run == 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git push origin \
+            "HEAD:${TARGET_BRANCH}" \
+            --follow-tags
+
+      - name: Ensure staged publishing CLI support
+        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish && inputs.registry != 'github' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          npm install --global npm@">=11.15.0 <12"
+
+      - name: Publish released version
+        id: publish
+        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish }}
+        env:
+          _GITHUB_TOKEN: ${{ github.token }}
+          _NPM_TOKEN: ${{ secrets._NPM_TOKEN }}
+          VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PUBLISH_ARGS=(
+            "$PACKAGE_SELECTOR"
+            --registry="${{ inputs.registry }}"
+            --tag="${{ inputs.dist-tag }}"
+            --json
+          )
+
+          if [ "$VERIFY_GIT_TAG" != "true" ]; then
+            PUBLISH_ARGS+=(--no-verify-git-tag)
+          fi
+
+          {
+            echo
+            echo "## Publishing"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Package | \`$PACKAGE_NAME\` |"
+            echo "| Package selector | \`$PACKAGE_SELECTOR\` |"
+            echo "| Registry | \`${{ inputs.registry }}\` |"
+            echo "| Distribution tag | \`${{ inputs.dist-tag }}\` |"
+            echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
+            echo
+            echo '```text'
+
+            PUBLISH_JSON="$(
+              node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PUBLISH_ARGS[@]}"
+            )"
+
+            echo "$PUBLISH_JSON" | jq -e '
+              type == "object" and
+              .operation == "publish" and
+              .status == "success"
+            ' >/dev/null
+
+            {
+              echo "status=$(jq -r '.status' <<< "$PUBLISH_JSON")"
+              echo "publish-json<<EOF"
+              echo "$PUBLISH_JSON" | jq -c .
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+
+            echo "$PUBLISH_JSON" | jq .
+
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish GitHub Release draft
+        id: github-release
+        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish && steps.publish.outcome == 'success' }}
+        env:
+          PUBLISH_JSON: ${{ steps.publish.outputs.publish-json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if jq -e '
+            [.results[]? | select(.status == "staged")] | length > 0
+          ' <<< "$PUBLISH_JSON" >/dev/null; then
+            echo "status=draft" >> "$GITHUB_OUTPUT"
+            echo
+            echo "Package publication includes a staged registry release."
+            echo "The GitHub Release remains a draft until registry publication is complete."
+            exit 0
+          fi
+
+          RELEASE="$(
+            gh api \
+              --method PATCH \
+              "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$RELEASE_NAME" \
+              -F draft=false
+          )"
+
+          if [ "$(jq -r '.draft' <<< "$RELEASE")" != "false" ]; then
+            echo "::error::GitHub Release remained in draft state."
+            exit 1
+          fi
+
+          echo "status=published" >> "$GITHUB_OUTPUT"
+
+          {
+            echo
+            echo "## GitHub Release"
+            echo
+            echo "Published `$RELEASE_NAME` after package publication completed."
+            echo
+            echo "[Open published release]($(jq -r '.html_url' <<< "$RELEASE"))"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Release result
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo
+            echo "## Result"
+            echo
+
+            if [ "${{ job.status }}" != "success" ]; then
+              echo "### ❌ Release failed"
+              echo
+
+              if [ "${{ steps.draft.outcome }}" = "success" ] &&
+                 [ "${{ steps.release.outcome }}" != "success" ]; then
+                echo "Draft prepared: **yes**"
+                echo "Release commit/tag: **not completed**"
+                echo "GitHub Release: **draft retained for retry**"
+                echo
+              fi
+
+              echo "Review the workflow logs above for the failing step."
+
+            elif [ "${{ steps.execution.outputs.dry-run }}" = "true" ]; then
+              echo "### ✅ Release preview completed"
+              echo
+              echo "No files, commits, tags, pushes, or package publishing were performed."
+
+            elif [ "${{ inputs.publish }}" = "true" ]; then
+              if [ "${{ steps.github-release.outputs.status }}" = "published" ]; then
+                echo "### ✅ Release and publish completed"
+                echo
+                echo "Published to: \`${{ inputs.registry }}\`"
+                echo "GitHub Release: **published**"
+              else
+                echo "### ✅ Package publication staged"
+                echo
+                echo "Registry: \`${{ inputs.registry }}\`"
+                echo "GitHub Release: **draft**"
+                echo
+                echo "The GitHub Release remains a draft while staged registry publication awaits completion."
+              fi
+
+            else
+              echo "### ✅ Release completed"
+              echo
+              echo "Git tag: \`$RELEASE_TAG\`"
+              echo "GitHub Release: **draft**"
+              echo "Package publication: **not requested**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
