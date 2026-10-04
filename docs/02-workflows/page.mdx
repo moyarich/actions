@@ -11,12 +11,12 @@ Every public workflow lives directly in `.github/workflows/` and uses the `reusa
 
 - `reusable_node-ci.yml` — Node.js install, build, and test orchestration.
 - `reusable_package-ci.yml` — package discovery plus per-package Node CI.
-- `reusable_format.yml` — formatting checks and optional self-healing formatting.
+- `reusable_prettier.yml` — Prettier formatting with optional self-healing commits.
 - `reusable_discover-packages.yml` — workspace package discovery using `@moyarich/workspace-tools`.
 
 ## npm release and publishing
 
-- `reusable_npm-package-lock.yml` — package-lock maintenance.
+- `reusable_npm-package-lock.yml` — npm lockfile validation and optional self-healing commits.
 - `reusable_npm-prepare-release.yml` — prepare package versions and release state.
 - `reusable_npm-release.yml` — package release orchestration.
 - `reusable_npm-publish.yml` — publish prepared npm packages.
