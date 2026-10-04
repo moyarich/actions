@@ -24,6 +24,6 @@ jobs:
     uses: ./.github/workflows/reusable_github-pages.yml
     with:
       node-version: "24"
-      build-command: npm run build:playground -- --base=/actions/
+      build-command: npm run build:playground
       output-directory: apps/playground/dist
     secrets: inherit
