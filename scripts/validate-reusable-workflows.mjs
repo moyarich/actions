@@ -34,6 +34,12 @@ for (const entry of entries) {
       `${entry.name}: reusable workflow still references dev-toolkit workflow infrastructure`,
     );
   }
+
+  if (source.includes("@release/0.1.0-prep")) {
+    errors.push(
+      `${entry.name}: reusable workflow still references the temporary release branch`,
+    );
+  }
 }
 
 if (!reusable.length) {
