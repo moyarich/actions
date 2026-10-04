@@ -1,0 +1,136 @@
+name: "Reusable · Recreate workspace package-lock.json"
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit recreated package-lock.json
+        required: true
+        default: false
+        type: boolean
+      node-version:
+        description: Node.js version
+        required: true
+        default: "24"
+        type: string
+
+  workflow_call:
+    inputs:
+      commit:
+        description: Commit recreated package-lock.json
+        required: false
+        default: false
+        type: boolean
+      node-version:
+        description: Node.js version
+        required: false
+        default: "24"
+        type: string
+    secrets:
+      package-token:
+        required: false
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  recreate-lockfile:
+    name: "Recreate workspace package-lock.json"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: ${{ inputs.commit }}
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@moyarich"
+
+      - name: Recreate package-lock.json
+        id: recreate
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp package-lock.json /tmp/package-lock.before.json
+
+          npm install \
+            --package-lock-only \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund
+
+          if git diff --quiet -- package-lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            printf '%s\n' '{"operation":"package-lock","status":"unchanged"}' \
+              | tee /tmp/package-lock-result.json
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat -- package-lock.json | tee /tmp/package-lock-stat.txt
+            git diff -- package-lock.json > /tmp/package-lock.diff
+            printf '%s\n' '{"operation":"package-lock","status":"updated"}' \
+              | tee /tmp/package-lock-result.json
+          fi
+
+      - name: Validate recreated lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Commit recreated package-lock.json
+        if: ${{ inputs.commit && steps.recreate.outputs.changed == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add package-lock.json
+          git commit -m "chore: recreate workspace package-lock.json"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Package-lock summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "# Recreate workspace package-lock.json"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Node.js | \`${{ inputs.node-version }}\` |"
+            echo "| Changed | **${{ steps.recreate.outputs.changed || 'unknown' }}** |"
+            echo "| Commit requested | **${{ inputs.commit }}** |"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
+            echo "| Result | **${{ job.status }}** |"
+
+            if [ -s /tmp/package-lock-stat.txt ]; then
+              echo
+              echo "## Lockfile changes"
+              echo
+              echo '\`\`\`text'
+              cat /tmp/package-lock-stat.txt
+              echo '\`\`\`'
+            fi
+
+            if [ -s /tmp/package-lock-result.json ]; then
+              echo
+              echo "## Result"
+              echo
+              echo '\`\`\`json'
+              cat /tmp/package-lock-result.json
+              echo '\`\`\`'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
