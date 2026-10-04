@@ -1,0 +1,183 @@
+name: "Reusable · Publish Codemod"
+
+on:
+  workflow_dispatch:
+    inputs:
+      target-branch:
+        description: Branch containing the codemod to publish
+        required: true
+        default: main
+        type: string
+      codemod-directory:
+        description: Repository-relative codemod package directory
+        required: true
+        default: packages/code-mod-jest-to-vitest
+        type: string
+      dry-run:
+        description: Validate/build/test without publishing to the Codemod Registry
+        required: true
+        default: true
+        type: boolean
+      registry:
+        description: Codemod Registry URL
+        required: true
+        default: https://codemod.com
+        type: string
+      node-version:
+        description: Node.js version
+        required: true
+        default: "24"
+        type: string
+
+  workflow_call:
+    inputs:
+      target-branch:
+        required: false
+        default: main
+        type: string
+      codemod-directory:
+        required: true
+        type: string
+      dry-run:
+        required: false
+        default: true
+        type: boolean
+      registry:
+        required: false
+        default: https://codemod.com
+        type: string
+      node-version:
+        required: false
+        default: "24"
+        type: string
+
+permissions: {}
+
+jobs:
+  validate:
+    name: "job: Validate Codemod"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Validate codemod directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="${{ inputs.codemod-directory }}"
+          if [[ "$dir" == /* || "$dir" == *".."* ]]; then
+            echo "::error::codemod-directory must be repository-relative and cannot contain '..'."
+            exit 1
+          fi
+          test -d "$dir"
+          test -f "$dir/package.json"
+          test -f "$dir/codemod.yaml"
+          test -f "$dir/workflow.yaml"
+
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+
+      - name: Resolve package name
+        id: package
+        working-directory: ${{ inputs.codemod-directory }}
+        shell: bash
+        run: echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
+
+      - name: Build codemod package
+        run: npm run build --workspace "${{ steps.package.outputs.name }}" --if-present
+
+      - name: Typecheck codemod package
+        run: npm run typecheck --workspace "${{ steps.package.outputs.name }}" --if-present
+
+      - name: Test codemod package
+        run: npm test --workspace "${{ steps.package.outputs.name }}" --if-present
+
+      - name: Validate Codemod workflow
+        working-directory: ${{ inputs.codemod-directory }}
+        run: npx --yes codemod workflow validate -w workflow.yaml
+
+      - name: Validate identifiers
+        working-directory: ${{ inputs.codemod-directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm_name="$(node -p "require('./package.json').name")"
+          codemod_name="$(node -e "
+            const fs = require('node:fs');
+            const text = fs.readFileSync('codemod.yaml', 'utf8');
+            const match = text.match(/^name:\s*[\"']?([^\"'\n]+)[\"']?/m);
+            if (!match) process.exit(2);
+            process.stdout.write(match[1].trim());
+          ")"
+          if [[ "$npm_name" != "$codemod_name" ]]; then
+            echo "::error::package.json name ($npm_name) does not match codemod.yaml name ($codemod_name)."
+            exit 1
+          fi
+          echo "Validated identifier: $npm_name"
+
+      - name: Validation summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# Reusable · Publish Codemod"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Directory | `${{ inputs.codemod-directory }}` |"
+            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            echo "| Registry | `${{ inputs.registry }}` |"
+            echo "| Result | **${{ job.status }}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: "job: Publish Codemod"
+    needs: validate
+    if: ${{ !inputs.dry-run && needs.validate.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish to Codemod Registry
+        uses: codemod/publish-action@v1
+        with:
+          path: ${{ inputs.codemod-directory }}
+          registry: ${{ inputs.registry }}
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Codemod Registry publish"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Directory | `${{ inputs.codemod-directory }}` |"
+            echo "| Registry | `${{ inputs.registry }}` |"
+            echo "| Environment | `release` |"
+            echo "| Result | **${{ job.status }}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
