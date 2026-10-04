@@ -1,0 +1,22 @@
+name: Publish package
+on:
+  workflow_dispatch:
+    inputs:
+      package-directory:
+        description: Package directory or workspace name
+        required: true
+        default: packages/my-package
+        type: string
+permissions:
+  contents: write
+  packages: write
+jobs:
+  publish:
+    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    with:
+      package-directory: ${{ inputs.package-directory }}
+      target-branch: main
+      registry: github
+      tag: latest
+      node-version: "24"
+    secrets: inherit

@@ -1,0 +1,29 @@
+name: Release package
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory or workspace name
+        required: true
+        default: packages/my-package
+        type: string
+      dry-run:
+        description: Preview without making changes
+        required: true
+        default: true
+        type: boolean
+permissions:
+  contents: write
+  packages: write
+jobs:
+  release:
+    uses: moyarich/actions/.github/workflows/reusable_npm-release.yml@v0.1.0
+    with:
+      package: ${{ inputs.package }}
+      target-branch: main
+      dry-run: ${{ inputs.dry-run }}
+      version-mode: bump
+      version-bump: patch
+      publish: false
+      node-version: "24"
+    secrets: inherit

@@ -1,0 +1,15 @@
+name: Update README screenshots
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  packages: read
+jobs:
+  screenshots:
+    uses: moyarich/actions/.github/workflows/reusable_readme-screenshots.yml@v0.1.0
+    with:
+      start-command: npm run dev:playground -- --host 127.0.0.1
+      url: http://127.0.0.1:5173
+      output-directory: docs/screenshots
+      node-version: "24"
+    secrets: inherit

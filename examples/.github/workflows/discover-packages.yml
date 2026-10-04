@@ -1,0 +1,10 @@
+name: Discover packages
+on:
+  workflow_dispatch:
+jobs:
+  discover:
+    uses: moyarich/actions/.github/workflows/reusable_discover-packages.yml@v0.1.0
+    with:
+      packages-directory: packages
+      require-test-script: true
+      node-version: "24"
