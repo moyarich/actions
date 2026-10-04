@@ -64,7 +64,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          cp package-lock.json /tmp/package-lock.before.json
+          if [ -f package-lock.json ]; then
+            cp package-lock.json /tmp/package-lock.before.json
+          else
+            : > /tmp/package-lock.before.json
+          fi
 
           npm install \
             --package-lock-only \
@@ -72,7 +76,7 @@ jobs:
             --no-audit \
             --no-fund
 
-          if git diff --quiet -- package-lock.json; then
+          if [ -f package-lock.json ] && git diff --quiet -- package-lock.json && ! git ls-files --others --exclude-standard -- package-lock.json | grep -q .; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             printf '%s\n' '{"operation":"package-lock","status":"unchanged"}' \
               | tee /tmp/package-lock-result.json
