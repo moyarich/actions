@@ -1,0 +1,37 @@
+name: Self-heal · package-lock
+
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "apps/**/package.json"
+      - ".github/workflows/npm-package-lock.yml"
+      - ".github/workflows/reusable_npm-package-lock.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "apps/**/package.json"
+      - ".github/workflows/npm-package-lock.yml"
+      - ".github/workflows/reusable_npm-package-lock.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: self-heal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-lock:
+    uses: ./.github/workflows/reusable_npm-package-lock.yml
+    with:
+      commit: true
+      node-version: "24"
+    secrets:
+      package-token: ${{ secrets._GITHUB_TOKEN }}
