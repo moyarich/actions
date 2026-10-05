@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { buildDependencyGraph, type DependencyGraph } from "./core";
+import { buildDependencyGraph, type DependencyGraph } from "./issue-dependency-tree";
 
 function gh(args: string[]): string {
   return execFileSync("gh", args, { encoding: "utf8" });
