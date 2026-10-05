@@ -16,21 +16,19 @@ docs/             # authoritative documentation
 examples/         # authoritative copyable callers
 
 src/
+├── actions/
+│   ├── discover-packages.ts
+│   ├── issue-dependency-tree.ts
+│   └── release-draft-sync.ts
 ├── discover-packages/
 │   ├── discover-packages.ts
-│   ├── discover-packages-cli.ts
-│   ├── action.ts
-│   └── index.ts
+│   └── discover-packages-cli.ts
 ├── issue-dependency-tree/
 │   ├── issue-dependency-tree.ts
 │   ├── issue-dependency-tree-cli.ts
-│   ├── github.ts
-│   ├── action.ts
-│   └── index.ts
+│   └── github.ts
 ├── release-draft-sync/
-│   ├── release-draft-sync.ts
-│   ├── action.ts
-│   └── index.ts
+│   └── release-draft-sync.ts
 ├── dependency-check/
 │   ├── dependency-check.ts
 │   └── dependency-check-cli.ts
@@ -86,17 +84,16 @@ The playground currently imports `examples/*/workflow.yml` directly as raw sourc
 
 `.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. Other workflows in that directory are repository-local callers or maintenance automation.
 
-Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. Their maintainable TypeScript source lives under `src/<action>/`, Vite writes the committed runtime to `dist/<action>/`, and a top-level `<action>/action.yml` keeps the consumer path concise.
+Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. GitHub Action adapters live under `src/actions/*.ts`, reusable feature implementations live under `src/<feature>/`, Vite auto-discovers the action entrypoints and writes committed runtimes to `dist/<action>/`, and a top-level `<action>/action.yml` keeps the consumer path concise.
 
 For example:
 
 ```text
-src/<action>/
-├── <action>.ts
-├── action.ts
-└── index.ts
+src/actions/<action>.ts
+        ↓ imports
+src/<action>/<action>.ts
         ↓ vite build
-dist/<action>/
+dist/<action>/index.mjs
         ↑
 <action>/action.yml
 ```
@@ -130,9 +127,9 @@ The Vite bundle is generated separately with `npm run build:actions`; CI then ve
 Use the same boundary for every standalone JavaScript action:
 
 - `<feature>.ts` contains reusable program logic and does not depend on GitHub Actions environment variables.
-- `action.ts` adapts action inputs, outputs, summaries, and files to the feature implementation.
+- `src/actions/<action>.ts` adapts GitHub Action inputs, outputs, summaries, and files to the feature implementation.
 - `index.ts` is a minimal runtime entry point.
-- `tests/<action>/` contains Vitest coverage for both feature behavior and the action adapter.
+- `tests/<action>/` contains Vitest coverage for feature behavior; Action adapter tests import the matching `src/actions/<action>.ts` entrypoint.
 - Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
 - `<action>/action.yml` exposes the short consumer path `moyarich/workspace-tools/<action>@<ref>`.
 - Actions that also expose a terminal interface may add `<feature>-cli.ts`; the CLI delegates to the same feature implementation rather than duplicating behavior.
