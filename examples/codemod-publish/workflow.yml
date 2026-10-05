@@ -9,7 +9,7 @@ on:
         type: boolean
 jobs:
   publish:
-    uses: moyarich/actions/.github/workflows/reusable_codemod-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_codemod-publish.yml@v0.1.0
     with:
       target-branch: main
       codemod-directory: packages/my-codemod
