@@ -4,10 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       packages-directory:
-        description: Directory containing workspace packages
+        description: Directory containing direct-child packages when workspace discovery is disabled
         required: true
         default: packages
         type: string
+      use-workspaces:
+        description: Discover packages from root package.json workspaces patterns
+        required: true
+        default: false
+        type: boolean
+      include-root-package:
+        description: Include the repository root package.json when it matches the filters
+        required: true
+        default: false
+        type: boolean
       include-private:
         description: Include private packages
         required: true
@@ -40,6 +50,14 @@ on:
         required: false
         default: packages
         type: string
+      use-workspaces:
+        required: false
+        default: false
+        type: boolean
+      include-root-package:
+        required: false
+        default: false
+        type: boolean
       include-private:
         required: false
         default: false
@@ -116,6 +134,8 @@ jobs:
         name: Discover packages
         env:
           PACKAGES_DIRECTORY: ${{ inputs.packages-directory }}
+          USE_WORKSPACES: ${{ inputs.use-workspaces }}
+          INCLUDE_ROOT_PACKAGE: ${{ inputs.include-root-package }}
           INCLUDE_PRIVATE: ${{ inputs.include-private }}
           REQUIRE_PUBLISH_CONFIG: ${{ inputs.require-publish-config }}
           REQUIRE_TEST_SCRIPT: ${{ inputs.require-test-script }}
@@ -124,14 +144,128 @@ jobs:
         run: |
           set -euo pipefail
 
-          ARGS=("$PACKAGES_DIRECTORY")
-          if [ "$INCLUDE_PRIVATE" = "true" ]; then ARGS+=("--include-private"); fi
-          if [ "$REQUIRE_PUBLISH_CONFIG" = "true" ]; then ARGS+=("--require-publish-config"); fi
-          if [ "$REQUIRE_TEST_SCRIPT" = "true" ]; then ARGS+=("--require-test-script"); fi
-          if [ "$REQUIRE_BUILD_SCRIPT" = "true" ]; then ARGS+=("--require-build-script"); fi
+          if [ "$USE_WORKSPACES" = "true" ]; then
+            PACKAGES="$(
+              INCLUDE_PRIVATE="$INCLUDE_PRIVATE" \
+              REQUIRE_PUBLISH_CONFIG="$REQUIRE_PUBLISH_CONFIG" \
+              REQUIRE_TEST_SCRIPT="$REQUIRE_TEST_SCRIPT" \
+              REQUIRE_BUILD_SCRIPT="$REQUIRE_BUILD_SCRIPT" \
+              node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { readFileSync } from "node:fs";
+          import path from "node:path";
 
-          PACKAGES="$(node "$DISCOVERY_CLI" "${ARGS[@]}" --json)"
+          const root = JSON.parse(readFileSync("package.json", "utf8"));
+          const raw = Array.isArray(root.workspaces)
+            ? root.workspaces
+            : Array.isArray(root.workspaces?.packages)
+              ? root.workspaces.packages
+              : [];
+
+          const patterns = raw
+            .map((value) => String(value).replace(/\/$/, ""))
+            .filter(Boolean);
+
+          const includePrivate = process.env.INCLUDE_PRIVATE === "true";
+          const requirePublishConfig =
+            process.env.REQUIRE_PUBLISH_CONFIG === "true";
+          const requireTestScript =
+            process.env.REQUIRE_TEST_SCRIPT === "true";
+          const requireBuildScript =
+            process.env.REQUIRE_BUILD_SCRIPT === "true";
+
+          const files = new Set();
+
+          for (const pattern of patterns) {
+            const spec = `:(glob)${pattern}/package.json`;
+            const output = execFileSync(
+              "git",
+              ["ls-files", "--cached", "-z", "--", spec],
+              { encoding: "utf8" },
+            );
+
+            for (const file of output.split("\0").filter(Boolean)) {
+              files.add(file);
+            }
+          }
+
+          const packages = [];
+
+          for (const file of files) {
+            const manifest = JSON.parse(readFileSync(file, "utf8"));
+            const directory = path.posix.dirname(file);
+            const pkg = {
+              directory,
+              name: manifest.name ?? path.posix.basename(directory),
+              version: manifest.version ?? "0.0.0",
+              private: manifest.private === true,
+              publishable:
+                manifest.private !== true &&
+                typeof manifest.publishConfig?.registry === "string",
+              hasTest: typeof manifest.scripts?.test === "string",
+              hasBuild: typeof manifest.scripts?.build === "string",
+            };
+
+            if (!includePrivate && pkg.private) continue;
+            if (requirePublishConfig && !pkg.publishable) continue;
+            if (requireTestScript && !pkg.hasTest) continue;
+            if (requireBuildScript && !pkg.hasBuild) continue;
+
+            packages.push(pkg);
+          }
+
+          packages.sort((a, b) => a.name.localeCompare(b.name));
+          process.stdout.write(JSON.stringify(packages));
+          NODE
+            )"
+          else
+            ARGS=("$PACKAGES_DIRECTORY")
+            if [ "$INCLUDE_PRIVATE" = "true" ]; then ARGS+=("--include-private"); fi
+            if [ "$REQUIRE_PUBLISH_CONFIG" = "true" ]; then ARGS+=("--require-publish-config"); fi
+            if [ "$REQUIRE_TEST_SCRIPT" = "true" ]; then ARGS+=("--require-test-script"); fi
+            if [ "$REQUIRE_BUILD_SCRIPT" = "true" ]; then ARGS+=("--require-build-script"); fi
+
+            PACKAGES="$(node "$DISCOVERY_CLI" "${ARGS[@]}" --json)"
+          fi
+
           echo "$PACKAGES" | jq -e 'type == "array"' >/dev/null
+
+          if [ "$INCLUDE_ROOT_PACKAGE" = "true" ] && [ -f package.json ]; then
+            ROOT_PACKAGE="$(
+              node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+
+          const manifest = JSON.parse(readFileSync("package.json", "utf8"));
+
+          const includePrivate = process.env.INCLUDE_PRIVATE === "true";
+          const requirePublishConfig = process.env.REQUIRE_PUBLISH_CONFIG === "true";
+          const requireTestScript = process.env.REQUIRE_TEST_SCRIPT === "true";
+          const requireBuildScript = process.env.REQUIRE_BUILD_SCRIPT === "true";
+
+          const matches =
+            typeof manifest.name === "string" &&
+            (!manifest.private || includePrivate) &&
+            (!requirePublishConfig || Boolean(manifest.publishConfig)) &&
+            (!requireTestScript || Boolean(manifest.scripts?.test)) &&
+            (!requireBuildScript || Boolean(manifest.scripts?.build));
+
+          if (matches) {
+            process.stdout.write(
+              JSON.stringify({
+                name: manifest.name,
+                version: manifest.version || "0.0.0",
+                directory: ".",
+                private: Boolean(manifest.private),
+              }),
+            );
+          }
+          NODE
+            )"
+
+            if [ -n "$ROOT_PACKAGE" ]; then
+              PACKAGES="$(jq -c --argjson root "$ROOT_PACKAGE" '[$root] + .' <<< "$PACKAGES")"
+            fi
+          fi
 
           MATRIX="$(jq -cn --argjson packages "$PACKAGES" '{include: $packages}')"
           COUNT="$(jq 'length' <<< "$PACKAGES")"
