@@ -113,7 +113,9 @@ function splitGeneratedRegion(body: string) {
 function pullRequestMarkers(body: string): Set<string> {
   const markers = new Set<string>();
 
-  for (const match of body.matchAll(/<!--\s*release-draft-sync:pr=(\d+)\s*-->/g)) {
+  for (const match of body.matchAll(
+    /<!--\s*release-draft-sync:pr=(\d+)\s*-->/g,
+  )) {
     markers.add(match[1]);
   }
 

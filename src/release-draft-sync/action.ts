@@ -1,4 +1,9 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import process from "node:process";
 import { reconcileReleaseBody } from "./core";
 

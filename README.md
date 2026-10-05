@@ -38,8 +38,8 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 
 ## Standalone actions
 
-| Action | Use it to |
-| --- | --- |
+| Action               | Use it to                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `release-draft-sync` | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
 
 Use the standalone action directly when you need the lower-level release draft reconciliation behavior:
