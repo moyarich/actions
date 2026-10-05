@@ -147,6 +147,5 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
-
-# Generated build output outside the committed root action runtime
+# Ignore nested generated dist folders; root /dist is committed action runtime
 **/*/dist/
