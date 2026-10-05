@@ -21,6 +21,8 @@ jobs:
     with:
       commit: true
       node-version: "24"
+    secrets:
+      repository-token: ${{ secrets._GITHUB_TOKEN }}
 
   package-lock:
     needs: prettier
@@ -30,7 +32,6 @@ jobs:
       node-version: "24"
     secrets:
       package-token: ${{ secrets._GITHUB_TOKEN }}
-
 
   action-dist:
     name: Build action dist
