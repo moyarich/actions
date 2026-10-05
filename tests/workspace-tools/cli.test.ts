@@ -50,7 +50,10 @@ test("package discovery preserves its default directory and JSON output", () => 
   expect(result.status).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ name: "@moyarich/workspace-tools", directory: "." }),
+      expect.objectContaining({
+        name: "@moyarich/workspace-tools",
+        directory: ".",
+      }),
     ]),
   );
 });
