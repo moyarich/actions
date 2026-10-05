@@ -82,5 +82,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run ci.yml --ref "$TARGET_REF"
+          gh workflow run ci.yml --repo "${{ github.repository }}" --ref "$TARGET_REF"
           echo "Dispatched CI for healed head on $TARGET_REF."
