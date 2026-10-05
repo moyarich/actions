@@ -14,8 +14,8 @@ export type ReconcileOptions = {
 type SeedSource = "changelog" | "release-drafter" | "commits" | "minimal";
 type SeedResult = { source: SeedSource; body: string };
 
-export const GENERATED_START = "<!-- moya-release:generated:start -->";
-export const GENERATED_END = "<!-- moya-release:generated:end -->";
+export const GENERATED_START = "<!-- release-draft-sync:generated:start -->";
+export const GENERATED_END = "<!-- release-draft-sync:generated:end -->";
 
 function changelogSection(markdown: string, version: string): string {
   if (!version) return "";
@@ -113,7 +113,7 @@ function splitGeneratedRegion(body: string) {
 function pullRequestMarkers(body: string): Set<string> {
   const markers = new Set<string>();
 
-  for (const match of body.matchAll(/<!--\s*moya-release:pr=(\d+)\s*-->/g)) {
+  for (const match of body.matchAll(/<!--\s*release-draft-sync:pr=(\d+)\s*-->/g)) {
     markers.add(match[1]);
   }
 
@@ -132,7 +132,7 @@ function generatedEntries(body: string): Map<string, string[]> {
       continue;
     }
 
-    if (/^\s*[-*]\s+.+<!--\s*moya-release:pr=\d+\s*-->\s*$/.test(line)) {
+    if (/^\s*[-*]\s+.+<!--\s*release-draft-sync:pr=\d+\s*-->\s*$/.test(line)) {
       const entries = groups.get(category) ?? [];
       entries.push(line.trim());
       groups.set(category, entries);
@@ -187,12 +187,12 @@ function mergeGeneratedEntries(
 
   for (const [category, entries] of generatedEntries(latestGenerated)) {
     const missing = entries.filter((entry) => {
-      const match = entry.match(/moya-release:pr=(\d+)/);
+      const match = entry.match(/release-draft-sync:pr=(\d+)/);
       return match && !seen.has(match[1]);
     });
 
     for (const entry of missing) {
-      const match = entry.match(/moya-release:pr=(\d+)/);
+      const match = entry.match(/release-draft-sync:pr=(\d+)/);
       if (match) seen.add(match[1]);
     }
 
@@ -216,14 +216,14 @@ function ensureMetadata(
 ): string {
   let result = body.trim();
 
-  if (!/<!--\s*moya-release:target=/.test(result)) {
-    result = `<!-- moya-release:target=${targetKey} -->\n${result}`;
+  if (!/<!--\s*release-draft-sync:target=/.test(result)) {
+    result = `<!-- release-draft-sync:target=${targetKey} -->\n${result}`;
   }
 
-  if (seedSha && !/<!--\s*moya-release:seed-sha=/.test(result)) {
+  if (seedSha && !/<!--\s*release-draft-sync:seed-sha=/.test(result)) {
     result = result.replace(
-      /^(<!--\s*moya-release:target=.*?-->)/,
-      `$1\n<!-- moya-release:seed-sha=${seedSha} source=${source} -->`,
+      /^(<!--\s*release-draft-sync:target=.*?-->)/,
+      `$1\n<!-- release-draft-sync:seed-sha=${seedSha} source=${source} -->`,
     );
   }
 
@@ -284,7 +284,7 @@ export function reconcileReleaseBody(options: ReconcileOptions): string {
 
       for (const [category, entries] of generatedEntries(generated)) {
         const missing = entries.filter((entry) => {
-          const match = entry.match(/moya-release:pr=(\d+)/);
+          const match = entry.match(/release-draft-sync:pr=(\d+)/);
           return match && !existingMarkers.has(match[1]);
         });
 
