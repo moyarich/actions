@@ -1,0 +1,17 @@
+name: Issue Dependency Tree
+description: Render native GitHub issue blocking relationships as a cycle-aware dependency tree.
+
+inputs:
+  repo:
+    description: Optional owner/repository override. Defaults to the current repository.
+    required: false
+
+outputs:
+  tree:
+    description: Rendered Markdown dependency tree.
+  graph-json:
+    description: Normalized dependency graph JSON.
+
+runs:
+  using: node24
+  main: ../../dist/actions/issue-dependency-tree/index.mjs
