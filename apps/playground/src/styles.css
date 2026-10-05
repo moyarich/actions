@@ -1,165 +1,137 @@
-* {
-  box-sizing: border-box;
-}
-
 :root {
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  color: #18181b;
-  background: #f4f4f5;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033;
+  background: #f6f7fb;
 }
 
-body {
-  margin: 0;
-}
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #3157c8; }
+code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 
-button,
-a {
-  font: inherit;
-}
-
-a {
-  color: inherit;
-}
-
-code,
-pre {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-}
-
-.app-shell {
-  min-height: 100vh;
-}
+.app-shell { min-height: 100vh; }
 
 .site-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 2rem;
-  padding: 2rem;
-  border-bottom: 1px solid #d4d4d8;
-  background: #ffffff;
+  padding: 2rem clamp(1rem, 4vw, 4rem);
+  border-bottom: 1px solid #dfe3ec;
+  background: #fff;
 }
 
-.site-header h1,
-.workflow-list h2,
-.workflow-source h2 {
-  margin: 0;
-}
-
-.site-header p {
-  max-width: 48rem;
-  margin-bottom: 0;
-  color: #52525b;
-}
+.site-header h1 { margin: 0.15rem 0 0.35rem; font-size: clamp(1.8rem, 4vw, 2.7rem); }
+.site-header p { margin: 0; color: #5e687d; }
 
 .eyebrow {
-  margin: 0 0 0.4rem;
-  color: #71717a;
-  font-size: 0.75rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: #69748b;
 }
 
-.playground {
+.playground-layout {
   display: grid;
-  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
-  min-height: calc(100vh - 9rem);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  min-height: calc(100vh - 132px);
 }
 
-.workflow-list {
-  padding: 1.5rem;
-  border-right: 1px solid #d4d4d8;
-  background: #fafafa;
+.sidebar {
+  padding: 1.5rem 1rem 3rem;
+  border-right: 1px solid #dfe3ec;
+  background: #fff;
 }
 
-.workflow-list > p {
-  color: #71717a;
-  font-size: 0.875rem;
+.sidebar-section + .sidebar-section { margin-top: 1.75rem; }
+
+.sidebar-section h2 {
+  margin: 0 0 0.55rem;
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #69748b;
 }
 
-.workflow-list nav {
-  display: grid;
-  gap: 0.25rem;
-  margin-top: 1rem;
+.sidebar nav { display: grid; gap: 0.15rem; }
+
+.sidebar nav a {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.45rem;
+  color: #283247;
+  text-decoration: none;
 }
 
-.workflow-list button {
+.sidebar nav a:hover { background: #f0f3f9; }
+
+.content { min-width: 0; padding: clamp(1.5rem, 4vw, 4rem); }
+
+.content-page {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+.content-page h1,
+.content-page h2,
+.content-page h3 { line-height: 1.25; color: #101828; }
+
+.content-page h1 { font-size: clamp(2rem, 4vw, 3rem); }
+
+.content-page table {
   width: 100%;
-  padding: 0.7rem 0.8rem;
-  border: 0;
-  border-radius: 0.4rem;
-  background: transparent;
-  color: #3f3f46;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+}
+
+.content-page th,
+.content-page td {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #dfe3ec;
   text-align: left;
-  cursor: pointer;
+  vertical-align: top;
 }
 
-.workflow-list button:hover,
-.workflow-list button.active {
-  background: #e4e4e7;
-  color: #18181b;
+.content-page :not(pre) > code {
+  padding: 0.12rem 0.3rem;
+  border-radius: 0.3rem;
+  background: #edf0f6;
+  font-size: 0.9em;
 }
 
-.workflow-list button.active {
-  font-weight: 600;
+.content-page pre {
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: #111827;
+  color: #e5e7eb;
+  line-height: 1.55;
 }
 
-.workflow-source {
-  min-width: 0;
-  padding: 1.5rem;
+.workflow-example {
+  margin: 1.5rem 0;
+  border: 1px solid #dfe3ec;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
 }
 
-.source-header {
+.workflow-example-header {
   display: flex;
-  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #dfe3ec;
+  background: #f8f9fc;
 }
 
-.source-header > code {
-  color: #71717a;
-  font-size: 0.8rem;
-}
+.workflow-example pre { margin: 0; border-radius: 0; }
 
-pre {
-  min-height: 30rem;
-  margin: 0;
-  padding: 1.25rem;
-  overflow: auto;
-  border-radius: 0.6rem;
-  background: #18181b;
-  color: #f4f4f5;
-  font-size: 0.875rem;
-  line-height: 1.6;
-}
-
-@media (max-width: 760px) {
-  .site-header,
-  .source-header {
-    display: block;
-  }
-
-  .site-header a,
-  .source-header > code {
-    display: inline-block;
-    margin-top: 1rem;
-  }
-
-  .playground {
-    grid-template-columns: 1fr;
-  }
-
-  .workflow-list {
-    border-right: 0;
-    border-bottom: 1px solid #d4d4d8;
-  }
+@media (max-width: 800px) {
+  .site-header { flex-direction: column; }
+  .playground-layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: 0; border-bottom: 1px solid #dfe3ec; }
 }
