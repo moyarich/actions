@@ -6,7 +6,7 @@ permissions:
   packages: read
 jobs:
   screenshots:
-    uses: moyarich/actions/.github/workflows/reusable_readme-screenshots.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_readme-screenshots.yml@v0.1.0
     with:
       start-command: npm run dev:playground -- --host 127.0.0.1
       url: http://127.0.0.1:5173
