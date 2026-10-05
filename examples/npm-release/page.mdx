@@ -3,6 +3,14 @@ title: npm Release
 description: Copyable npm Release caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_npm-release.yml?raw";
+
 # npm Release
 
-<WorkflowExample name="npm-release" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_npm-release.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
