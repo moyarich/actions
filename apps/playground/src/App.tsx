@@ -44,7 +44,9 @@ function MdxLink({
 
 function ContentRoute() {
   const location = useLocation();
-  const page = allPages.find((candidate) => candidate.route === location.pathname);
+  const page = allPages.find(
+    (candidate) => candidate.route === location.pathname,
+  );
 
   if (!page) {
     return (

@@ -29,7 +29,9 @@ function humanize(value: string) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function createPages(modules: Record<string, ContentPageModule>): ContentPage[] {
+function createPages(
+  modules: Record<string, ContentPageModule>,
+): ContentPage[] {
   return Object.entries(modules)
     .map(([path, pageModule]) => {
       const sourcePath = path.replace("../../../", "");
