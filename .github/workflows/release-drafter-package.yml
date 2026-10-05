@@ -43,7 +43,7 @@ jobs:
       packages-directory: packages
       use-workspaces: true
       include-root-package: true
-      require-publish-config: false
+      require-publish-config: true
       node-version: "24"
 
   select-packages:
