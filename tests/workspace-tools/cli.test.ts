@@ -73,10 +73,7 @@ test("release accepts both separated and equals option values", () => {
 });
 
 test("publish rejects values assigned to boolean flags", () => {
-  const result = invoke(
-    "dist/bin/workspace-publish.mjs",
-    "--dry-run=invalid",
-  );
+  const result = invoke("dist/bin/workspace-publish.mjs", "--dry-run=invalid");
   expect(result.status).toBe(1);
   expect(result.stderr).toMatch(/unknown option '--dry-run=invalid'/);
 });
