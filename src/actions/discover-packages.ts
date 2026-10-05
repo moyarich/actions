@@ -76,7 +76,6 @@ export function runAction(): void {
   writeSummary(options, packages);
 }
 
-
 function runEntryPoint(): void {
   try {
     runAction();

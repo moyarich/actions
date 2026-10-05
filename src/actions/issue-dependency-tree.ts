@@ -40,7 +40,6 @@ export function runAction(): void {
   process.stdout.write(tree);
 }
 
-
 function runEntryPoint(): void {
   try {
     runAction();

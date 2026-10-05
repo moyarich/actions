@@ -58,7 +58,6 @@ export function runAction(): void {
   setOutput("seed-sha", seedSha);
 }
 
-
 function runEntryPoint(): void {
   try {
     runAction();
