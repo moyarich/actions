@@ -23,7 +23,11 @@ export function Playground({ files }: PlaygroundProps) {
 
   return (
     <section className="example-playground">
-      <div className="example-playground-tabs" role="tablist" aria-label="Source files">
+      <div
+        className="example-playground-tabs"
+        role="tablist"
+        aria-label="Source files"
+      >
         {files.map((file) => (
           <button
             key={file.name}
