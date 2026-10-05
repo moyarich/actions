@@ -23,5 +23,11 @@
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
+  },
+  "bin": {
+    "issue-dependency-tree": "dist/bin/issue-dependency-tree.mjs"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
   }
 }
