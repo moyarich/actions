@@ -66,6 +66,19 @@ issue-dependency-tree --json
 
 Interactive mode uses the external `fzf` executable with multi-select. `fzf` is optional; non-interactive tree and JSON output do not require it.
 
+The repository also owns the workspace release/publishing CLIs used by its reusable workflows:
+
+```sh
+discover-packages
+workspace-dependency-check
+workspace-package-lock
+workspace-release-identity
+workspace-release
+workspace-publish
+```
+
+These commands are built from `src/workspace-tools/` into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/actions` ref instead of installing a separate workspace-tools package.
+
 ## Using a workflow
 
 Create a workflow in the consuming repository and call the reusable workflow with `uses`:
