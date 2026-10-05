@@ -41,11 +41,13 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 | Action               | Use it to                                                                                                                                |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `release-draft-sync` | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
+| `discover-packages`  | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
 
-Use the standalone action directly when you need the lower-level release draft reconciliation behavior:
+Use standalone actions directly when you need the lower-level executable behavior:
 
 ```yaml
 - uses: moyarich/actions/release-draft-sync@v1
+- uses: moyarich/actions/discover-packages@v1
 ```
 
 ## Using a workflow
