@@ -33,7 +33,7 @@ jobs:
     steps:
       - id: tree
         name: Render dependency tree
-        uses: $/issue-dependency-tree
+        uses: $/actions/issue-dependency-tree
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
