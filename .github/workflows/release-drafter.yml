@@ -1,0 +1,42 @@
+name: Release Draft
+
+run-name: >-
+  Moya Actions Draft · v${{ inputs.version }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Draft version without the v prefix
+        required: true
+        default: "0.1.0"
+        type: string
+      target-branch:
+        description: Draft target branch
+        required: true
+        default: main
+        type: string
+      dry-run:
+        description: Preview without creating or modifying a release draft
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: release-draft-${{ inputs.target-branch }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  draft:
+    name: "repository: moyarich/actions"
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release-drafter.yml
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      version: ${{ inputs.version }}
+      release-name: Moya Actions v${{ inputs.version }}
+      changelog-path: CHANGELOG.md
+      dry-run: ${{ inputs.dry-run }}
