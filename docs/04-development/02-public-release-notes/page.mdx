@@ -9,86 +9,83 @@ Treat `CHANGELOG.md` and GitHub Releases as product-facing documentation.
 
 A reader should learn **what changed for users**, not how maintainers shipped it.
 
+## Product boundary
+
+Document capabilities exposed by the released product. For Moya Actions, reusable CI, release, publishing, Pages, repository-maintenance, and other `reusable_*.yml` workflows are user-facing product capabilities and belong in release notes when they are added or materially changed.
+
+Do not confuse those public workflows with this repository's own CI, release orchestration, tests, formatting, packaging checks, or Release Drafter maintenance. Those implementation details stay out of public release notes unless they change observable behavior for workflow consumers.
+
 ## Initial draft source
 
 `CHANGELOG.md` is the canonical source used to seed the **initial** GitHub Release draft.
 
-That initial generated body must stay within the same public boundary as the changelog and must not add pull-request titles, commit summaries, CI details, migration history, or other repository-maintenance information.
+When no draft exists, release automation chooses the first useful source in this order:
 
-After the draft exists, its body is preserved. Later release runs may refresh release identity such as the tag or name, but they must not overwrite maintainer edits to the existing draft body.
+1. the matching changelog version;
+2. Release Drafter pull-request history;
+3. Git commit history scoped to the release target when applicable;
+4. a minimal `Initial release.` body.
+
+The changelog is preferred because it is the curated public capability summary.
 
 ## Include
 
 Document changes that a package, extension, CLI, workflow consumer, or application user can directly experience:
 
-- new features;
-- new commands or settings;
-- new supported workflows;
-- user-visible improvements;
+- new features, commands, settings, or supported workflows;
+- user-visible behavior changes;
 - compatibility improvements;
 - meaningful bug fixes; and
 - changes to documented public behavior.
 
 Write entries in terms of what the product can now do.
 
-For example:
-
-> Adds automatic synchronization, project workflows, normalized diffs, conversion tools, dependency handling, and configurable workspace behavior.
-
 ## Exclude
 
-Do not put repository implementation or maintenance details in the public changelog or GitHub Release, including:
+Do not put repository implementation or maintenance details in the public changelog or GitHub Release when they are not themselves part of the released product, including:
 
-- CI changes;
-- test implementation;
-- coverage changes;
-- formatting or linting changes;
-- Release Drafter configuration;
-- publish workflows;
-- release automation;
-- build-pipeline refactors;
-- packaging verification;
+- this repository's CI changes;
+- test or coverage implementation;
+- formatting or linting maintenance;
+- Release Drafter configuration maintenance;
+- this repository's own publish/release orchestration;
+- build-pipeline refactors or packaging verification;
 - internal architecture changes with no user-visible effect;
-- migration history;
-- repository moves;
-- statements that something is already published; or
-- historical explanations of how the current implementation replaced an older one.
+- migration history or repository moves; and
+- statements such as "already published" or historical bookkeeping.
 
 Move useful maintainer details to Development documentation instead.
 
 ## Initial releases
 
-An initial release should summarize the product's real capabilities.
+An initial release should summarize the product's real capabilities rather than narrating its development history.
 
-Do not make the initial release read like a development diary.
+For Moya Actions, that includes the supported reusable workflow families: CI and self-healing automation, package discovery, GitHub Pages, release drafting, npm release/publishing, VS Code extension publishing, codemod publishing, README screenshots, and issue dependency tooling.
 
-Prefer capability-oriented wording such as:
+## Persistent GitHub Release drafts
 
-> Adds reusable CI, self-healing repository workflows, workspace discovery, GitHub Pages deployment, documentation tooling, and issue dependency management.
+A release draft is persistent state, not disposable generated output.
 
-Avoid entries centered on release workflows, CI fixes, repository migration, packaging validation, test restructuring, or release-generation configuration.
+After a draft exists:
 
-## GitHub Release drafts
+- maintainer-authored text is authoritative and must not be overwritten;
+- existing generated entries are retained;
+- newly merged, release-worthy PRs may be appended to the automation-managed region;
+- stable hidden PR markers prevent duplicate entries;
+- the seed SHA prevents history already represented by the initial draft from being replayed; and
+- release identity such as version, tag, or name may be refreshed without regenerating the body.
 
-The GitHub Release draft follows the same public boundary as the changelog.
+Release Drafter is responsible for PR discovery, categorization, path filtering, and semantic-version resolution. The reconciliation helper owns preservation of the persistent draft body.
 
-When creating the initial draft, release automation may:
-
-1. resolve the release version;
-2. select the matching changelog entry;
-3. format that public content for the GitHub Release; and
-4. append stable user-facing information such as installation instructions.
-
-It must not synthesize extra release-note bullets from internal pull requests or commits.
-
-If a matching draft already exists, release automation preserves its body rather than regenerating it from the changelog.
+PRs that represent only docs, tests, CI, chores, maintenance, builds, release plumbing, formatting, or internal refactors must be excluded from generated public notes. If a maintenance PR has no conventional prefix, label it with the appropriate exclusion label (for example `ci`, `chore`, `maintenance`, `docs`, `test`, `build`, `release`, or `skip-release`) so it cannot enter the draft.
 
 ## Review checklist
 
 Before publishing a release, verify that:
 
-- every bullet describes a user-visible capability, behavior change, compatibility improvement, or meaningful fix;
-- maintainer-only work is absent;
-- the initial GitHub Release draft matches the changelog's public boundary;
-- an initial release reads as a capability overview; and
-- the notes do not describe historical migration or shipping mechanics.
+- every bullet describes a consumer-visible capability, behavior change, compatibility improvement, or meaningful fix;
+- reusable release/publish workflows are treated as product capabilities, while repository-local shipping mechanics are absent;
+- the initial GitHub Release draft reflects the changelog's public boundary;
+- existing manual draft text has not been replaced;
+- newly appended PR entries are genuinely release-worthy and not duplicated; and
+- an initial release reads as a capability overview rather than a development diary.
