@@ -9,13 +9,13 @@ Treat `CHANGELOG.md` and GitHub Releases as product-facing documentation.
 
 A reader should learn **what changed for users**, not how maintainers shipped it.
 
-## Canonical source
+## Initial draft source
 
-`CHANGELOG.md` is the canonical source for public release notes.
+`CHANGELOG.md` is the canonical source used to seed the **initial** GitHub Release draft.
 
-Generated GitHub Release drafts must use changelog content and must not add pull-request titles, commit summaries, CI details, migration history, or other repository-maintenance information.
+That initial generated body must stay within the same public boundary as the changelog and must not add pull-request titles, commit summaries, CI details, migration history, or other repository-maintenance information.
 
-When an existing draft release is refreshed, its body must be regenerated from the same changelog-derived release notes rather than preserving stale generated content.
+After the draft exists, its body is preserved. Later release runs may refresh release identity such as the tag or name, but they must not overwrite maintainer edits to the existing draft body.
 
 ## Include
 
@@ -72,7 +72,7 @@ Avoid entries centered on release workflows, CI fixes, repository migration, pac
 
 The GitHub Release draft follows the same public boundary as the changelog.
 
-Release automation may:
+When creating the initial draft, release automation may:
 
 1. resolve the release version;
 2. select the matching changelog entry;
@@ -81,12 +81,14 @@ Release automation may:
 
 It must not synthesize extra release-note bullets from internal pull requests or commits.
 
+If a matching draft already exists, release automation preserves its body rather than regenerating it from the changelog.
+
 ## Review checklist
 
 Before publishing a release, verify that:
 
 - every bullet describes a user-visible capability, behavior change, compatibility improvement, or meaningful fix;
 - maintainer-only work is absent;
-- the GitHub Release body matches the changelog's public boundary;
+- the initial GitHub Release draft matches the changelog's public boundary;
 - an initial release reads as a capability overview; and
 - the notes do not describe historical migration or shipping mechanics.
