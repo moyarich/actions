@@ -27,7 +27,7 @@ describe("reconcileReleaseBody", () => {
     const result = reconcileReleaseBody({
       existingBody: "",
       generatedBody:
-        "### Features\n\n- New feature (#12) @dev <!-- moya-release:pr=12 -->",
+        "### Features\n\n- New feature (#12) @dev <!-- release-draft-sync:pr=12 -->",
       changelogPath: "/missing/CHANGELOG.md",
       version: "0.1.0",
       targetKey: "root",
@@ -35,11 +35,11 @@ describe("reconcileReleaseBody", () => {
       targetPath: "",
     });
 
-    expect(result).toContain("<!-- moya-release:target=root -->");
+    expect(result).toContain("<!-- release-draft-sync:target=root -->");
     expect(result).toContain(
-      "<!-- moya-release:seed-sha=abc123 source=release-drafter -->",
+      "<!-- release-draft-sync:seed-sha=abc123 source=release-drafter -->",
     );
-    expect(result).toContain("<!-- moya-release:pr=12 -->");
+    expect(result).toContain("<!-- release-draft-sync:pr=12 -->");
   });
 
   it("prefers a matching changelog version when seeding a missing draft", () => {
@@ -64,7 +64,7 @@ describe("reconcileReleaseBody", () => {
     const result = reconcileReleaseBody({
       existingBody: "",
       generatedBody:
-        "### Features\n\n- New feature (#12) @dev <!-- moya-release:pr=12 -->",
+        "### Features\n\n- New feature (#12) @dev <!-- release-draft-sync:pr=12 -->",
       changelogPath,
       version: "0.1.0",
       targetKey: "root",
@@ -74,14 +74,14 @@ describe("reconcileReleaseBody", () => {
 
     expect(result).toContain("Initial public capability.");
     expect(result).not.toContain("Older notes.");
-    expect(result).not.toContain("moya-release:pr=12");
+    expect(result).not.toContain("release-draft-sync:pr=12");
     expect(result).toContain("source=changelog");
   });
 
   it("preserves manual text and appends only unseen PR entries", () => {
     const existing = [
-      "<!-- moya-release:target=root -->",
-      "<!-- moya-release:seed-sha=abc123 source=release-drafter -->",
+      "<!-- release-draft-sync:target=root -->",
+      "<!-- release-draft-sync:seed-sha=abc123 source=release-drafter -->",
       "",
       "Reviewer introduction.",
       "",
@@ -89,7 +89,7 @@ describe("reconcileReleaseBody", () => {
       "",
       "### Features",
       "",
-      "- Existing (#12) @dev <!-- moya-release:pr=12 -->",
+      "- Existing (#12) @dev <!-- release-draft-sync:pr=12 -->",
       "",
       GENERATED_END,
       "",
@@ -99,8 +99,8 @@ describe("reconcileReleaseBody", () => {
     const generated = [
       "### Features",
       "",
-      "- Existing (#12) @dev <!-- moya-release:pr=12 -->",
-      "- Added later (#13) @dev <!-- moya-release:pr=13 -->",
+      "- Existing (#12) @dev <!-- release-draft-sync:pr=12 -->",
+      "- Added later (#13) @dev <!-- release-draft-sync:pr=13 -->",
     ].join("\n");
 
     const result = reconcileReleaseBody({
@@ -115,13 +115,13 @@ describe("reconcileReleaseBody", () => {
 
     expect(result).toContain("Reviewer introduction.");
     expect(result).toContain("Manual footer.");
-    expect(result.match(/moya-release:pr=12/g)).toHaveLength(1);
-    expect(result.match(/moya-release:pr=13/g)).toHaveLength(1);
+    expect(result.match(/release-draft-sync:pr=12/g)).toHaveLength(1);
+    expect(result.match(/release-draft-sync:pr=13/g)).toHaveLength(1);
   });
 
   it("is idempotent when the same generated PRs are reconciled again", () => {
     const generated =
-      "### Bug fixes\n\n- Fix issue (#21) @dev <!-- moya-release:pr=21 -->";
+      "### Bug fixes\n\n- Fix issue (#21) @dev <!-- release-draft-sync:pr=21 -->";
 
     const first = reconcileReleaseBody({
       existingBody: "Maintainer notes.",
@@ -144,23 +144,23 @@ describe("reconcileReleaseBody", () => {
     });
 
     expect(second).toBe(first);
-    expect(second.match(/moya-release:pr=21/g)).toHaveLength(1);
+    expect(second.match(/release-draft-sync:pr=21/g)).toHaveLength(1);
   });
 
   it("appends a newly discovered category without rewriting existing generated text", () => {
     const existing = [
-      "<!-- moya-release:target=root -->",
+      "<!-- release-draft-sync:target=root -->",
       GENERATED_START,
       "### Features",
       "",
-      "- Feature (#1) @dev <!-- moya-release:pr=1 -->",
+      "- Feature (#1) @dev <!-- release-draft-sync:pr=1 -->",
       GENERATED_END,
     ].join("\n\n");
 
     const result = reconcileReleaseBody({
       existingBody: existing,
       generatedBody:
-        "### Bug fixes\n\n- Fix (#2) @dev <!-- moya-release:pr=2 -->",
+        "### Bug fixes\n\n- Fix (#2) @dev <!-- release-draft-sync:pr=2 -->",
       changelogPath: "",
       version: "0.1.0",
       targetKey: "root",
@@ -169,8 +169,8 @@ describe("reconcileReleaseBody", () => {
     });
 
     expect(result).toContain("### Features");
-    expect(result).toContain("moya-release:pr=1");
+    expect(result).toContain("release-draft-sync:pr=1");
     expect(result).toContain("### Bug fixes");
-    expect(result).toContain("moya-release:pr=2");
+    expect(result).toContain("release-draft-sync:pr=2");
   });
 });
