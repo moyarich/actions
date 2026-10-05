@@ -3,6 +3,14 @@ title: Show Issue Dependency Tree
 description: Copyable Show Issue Dependency Tree caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_show-issue-dependency-tree.yml?raw";
+
 # Show Issue Dependency Tree
 
-<WorkflowExample name="show-issue-dependency-tree" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_show-issue-dependency-tree.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
