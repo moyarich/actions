@@ -1,5 +1,5 @@
-import process from "node:process";
 import { existsSync, readdirSync, readFileSync, appendFileSync } from "node:fs";
+import process from "node:process";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 function readManifest(file) {
@@ -141,11 +141,19 @@ function runAction() {
   setOutput("has-packages", String(packages.length > 0));
   writeSummary(options, packages);
 }
-try {
-  runAction();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`discover-packages: ${message}
+function runEntryPoint() {
+  try {
+    runAction();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`discover-packages: ${message}
 `);
-  process.exitCode = 1;
+    process.exitCode = 1;
+  }
 }
+if (process.env.GITHUB_ACTIONS === "true") {
+  runEntryPoint();
+}
+export {
+  runAction
+};

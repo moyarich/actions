@@ -1,10 +1,17 @@
+import { readdirSync } from "node:fs";
+import { basename, extname, resolve } from "node:path";
 import { defineConfig } from "vite";
 
-const entries = {
-  "release-draft-sync": "src/release-draft-sync/index.ts",
-  "discover-packages": "src/discover-packages/index.ts",
-  "issue-dependency-tree": "src/issue-dependency-tree/index.ts",
-};
+const actionsDirectory = resolve("src/actions");
+
+const entries = Object.fromEntries(
+  readdirSync(actionsDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && extname(entry.name) === ".ts")
+    .map((entry) => [
+      basename(entry.name, ".ts"),
+      resolve(actionsDirectory, entry.name),
+    ]),
+);
 
 export default defineConfig({
   build: {

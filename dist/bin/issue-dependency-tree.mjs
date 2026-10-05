@@ -207,7 +207,7 @@ async function runCli(argv = process.argv) {
       "",
       "Examples:",
       "  issue-dependency-tree",
-      "  issue-dependency-tree --repo moyarich/actions",
+      "  issue-dependency-tree --repo moyarich/workspace-tools",
       "  issue-dependency-tree --root 12 --root 18",
       "  issue-dependency-tree --interactive",
       "  issue-dependency-tree --json"

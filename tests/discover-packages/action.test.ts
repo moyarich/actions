@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runAction } from "../../src/discover-packages/action";
+import { runAction } from "../../src/actions/discover-packages";
 
 const originalEnv = { ...process.env };
 const originalCwd = process.cwd();

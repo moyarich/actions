@@ -1,5 +1,5 @@
-import process from "node:process";
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import process from "node:process";
 import { execFileSync } from "node:child_process";
 const GENERATED_START = "<!-- release-draft-sync:generated:start -->";
 const GENERATED_END = "<!-- release-draft-sync:generated:end -->";
@@ -249,11 +249,19 @@ function runAction() {
   setOutput("body-file", outputFile);
   setOutput("seed-sha", seedSha);
 }
-try {
-  runAction();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`release-draft-sync: ${message}
+function runEntryPoint() {
+  try {
+    runAction();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`release-draft-sync: ${message}
 `);
-  process.exitCode = 1;
+    process.exitCode = 1;
+  }
 }
+if (process.env.GITHUB_ACTIONS === "true") {
+  runEntryPoint();
+}
+export {
+  runAction
+};
