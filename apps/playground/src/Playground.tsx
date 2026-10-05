@@ -1,3 +1,4 @@
+import Editor from "@monaco-editor/react";
 import { useMemo, useState } from "react";
 
 export type PlaygroundFile = {
@@ -42,9 +43,20 @@ export function Playground({ files }: PlaygroundProps) {
         ))}
       </div>
       <div className="example-playground-editor" role="tabpanel">
-        <pre>
-          <code>{activeFile.source}</code>
-        </pre>
+        <Editor
+          height="520px"
+          path={activeFile.name}
+          language={activeFile.language}
+          value={activeFile.source}
+          theme="vs-dark"
+          options={{
+            readOnly: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            wordWrap: "on",
+          }}
+        />
       </div>
     </section>
   );
