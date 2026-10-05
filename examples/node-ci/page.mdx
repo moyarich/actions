@@ -3,6 +3,14 @@ title: Node CI
 description: Copyable Node CI caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_node-ci.yml?raw";
+
 # Node CI
 
-<WorkflowExample name="node-ci" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_node-ci.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
