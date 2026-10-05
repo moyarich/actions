@@ -67,7 +67,7 @@ import {
   assertDependencies,
   dependencyCheck,
   printDependencyCheck,
-} from "./dependency-check.ts";
+} from "../dependency-check/dependency-check.ts";
 
 /**
  * @typedef {"github" | "npm"} Registry
