@@ -206,7 +206,11 @@ jobs:
         shell: bash
         run: |
           {
-            echo "# Reusable · Release npm package"
+            echo "# Reusable · Release npm package (deprecated)"
+            echo
+            echo "> [!WARNING]"
+            echo "> This workflow is deprecated and retained for compatibility."
+            echo "> Use `reusable_release-draft.yml` for persistent Release Drafter-based draft management."
             echo
             echo "| Execution | Value |"
             echo "| --- | --- |"
