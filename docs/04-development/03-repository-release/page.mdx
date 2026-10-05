@@ -108,3 +108,28 @@ reusable_npm-release.yml      # performs the npm package release lifecycle
 `reusable_npm-release.yml` is not deprecated and is not replaced by Release Drafter. Existing callers should continue using it for release operations.
 
 The Release Drafter workflows prepare release-note state only. The npm release workflow remains responsible for versioning, release commits/tags, package publishing, and final release lifecycle behavior.
+
+## Persistent draft contract
+
+A release draft is persistent state, not generated output.
+
+When no draft exists, the reusable workflow chooses the first available seed in this order:
+
+1. the matching changelog version;
+2. Release Drafter pull-request history;
+3. scoped Git commit history;
+4. a minimal `Initial release.` body.
+
+Once a draft exists, its body is authoritative. Maintainer-authored text is preserved.
+
+Release Drafter runs in dry-run mode to discover newly merged pull requests. Generated pull-request entries include stable hidden markers such as:
+
+```html
+<!-- moya-release:pr=123 -->
+```
+
+The reconciliation helper appends only entries whose PR marker is not already present. Existing generated entries and manual text are not removed or regenerated.
+
+The draft also records a seed SHA. Release Drafter uses that baseline so pull requests already represented by the initial seed are not replayed on later runs.
+
+For older drafts created before seed metadata existed, the workflow derives a migration baseline from the draft's last update time and then adds the persistent metadata without discarding the existing body.

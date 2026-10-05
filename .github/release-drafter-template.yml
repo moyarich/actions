@@ -28,7 +28,8 @@ exclude-labels:
   - ci
   - tests
 
-change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- moya-release:pr=$NUMBER -->"
+no-changes-template: ""
 
 version-resolver:
   major:
