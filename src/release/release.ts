@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import {
   execFileSync,
@@ -16,7 +14,7 @@ import {
   assertDependencies,
   dependencyCheck,
   printDependencyCheck,
-} from "./dependency-check.ts";
+} from "../dependency-check/dependency-check.ts";
 
 /**
  * Supported semantic-version bump types.
