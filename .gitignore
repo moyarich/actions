@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+
+# Committed GitHub Action runtime
+!/dist/
+/dist/*
+!/dist/release-draft-sync/
+!/dist/release-draft-sync/**
