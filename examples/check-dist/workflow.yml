@@ -1,0 +1,17 @@
+name: Check dist
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-dist:
+    uses: moyarich/workspace-tools/.github/workflows/reusable_check-dist.yml@v1
+    with:
+      dist-path: dist/
+      build-command: npm run build
+      node-version: "24"
