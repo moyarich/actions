@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Argument, program } from "commander";
 import { runDependencyCheck } from "../dependency-check.ts";
 
