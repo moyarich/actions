@@ -186,7 +186,7 @@ jobs:
           )"
 
           EXISTING="$(
-            jq -c --arg marker "<!-- moya-release:target=$TARGET_KEY -->" '
+            jq -c --arg marker "<!-- release-draft-sync:target=$TARGET_KEY -->" '
               [
                 .[][] |
                 select(
@@ -234,7 +234,7 @@ jobs:
             jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
 
             SEED_SHA="$(
-              sed -n 's/.*moya-release:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
                 head -n 1
             )"
 
