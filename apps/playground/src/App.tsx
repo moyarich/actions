@@ -82,14 +82,14 @@ export function App() {
     <div className="app-shell">
       <header className="site-header">
         <div>
-          <p className="eyebrow">moyarich/actions</p>
+          <p className="eyebrow">moyarich/workspace-tools</p>
           <h1>Reusable GitHub Actions</h1>
           <p>
             Documentation and real, copyable caller workflows for every
             supported reusable workflow.
           </p>
         </div>
-        <a href="https://github.com/moyarich/actions">GitHub repository</a>
+        <a href="https://github.com/moyarich/workspace-tools">GitHub repository</a>
       </header>
 
       <div className="playground-layout">
