@@ -666,9 +666,9 @@ jobs:
             ' <<< "$RELEASES"
           )"
 
-          # CHANGELOG content is the canonical public release narrative.
-          # Do not synthesize release-note bullets from commits, pull requests,
-          # CI, tests, packaging, or other maintainer-only implementation work.
+          # CHANGELOG content seeds a newly created GitHub Release draft.
+          # Reused drafts preserve their existing body so maintainers can edit
+          # the draft without later release runs overwriting those changes.
           NOTES="$(jq -r '.changelog // ""' <<< "$PREVIEW_JSON" | sed '1{/^## /d;}')"
 
           BODY="$(
@@ -699,7 +699,6 @@ jobs:
                 -f tag_name="$RELEASE_TAG" \
                 -f target_commitish="$TARGET_BRANCH" \
                 -f name="$RELEASE_NAME" \
-                -f body="$BODY" \
                 -F draft=true
             )"
 
