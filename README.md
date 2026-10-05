@@ -38,11 +38,11 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 
 ## Standalone actions
 
-| Action               | Use it to                                                                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `release-draft-sync` | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
-| `discover-packages`      | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
-| `issue-dependency-tree`   | Render native GitHub issue blocking relationships as a cycle-aware dependency tree.                                                     |
+| Action                  | Use it to                                                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `release-draft-sync`    | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
+| `discover-packages`     | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
+| `issue-dependency-tree` | Render native GitHub issue blocking relationships as a cycle-aware dependency tree.                                                      |
 
 Use standalone actions directly when you need the lower-level executable behavior:
 

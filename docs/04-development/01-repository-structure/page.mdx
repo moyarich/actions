@@ -132,10 +132,10 @@ Reusable workflows remain the orchestration API. A workflow should delegate to a
 
 Current action-backed workflows:
 
-| Workflow                         | JavaScript action    | Reason                                                                                              |
-| -------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
-| `reusable_release-drafter.yml`   | `release-draft-sync` | Persistent draft reconciliation, seeding, marker deduplication, and append-only generated state.    |
-| `reusable_discover-packages.yml` | `discover-packages` | Workspace/direct-child discovery, package filtering, metadata normalization, and matrix generation. |
+| Workflow                                  | JavaScript action       | Reason                                                                                              |
+| ----------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `reusable_release-drafter.yml`            | `release-draft-sync`    | Persistent draft reconciliation, seeding, marker deduplication, and append-only generated state.    |
+| `reusable_discover-packages.yml`          | `discover-packages`     | Workspace/direct-child discovery, package filtering, metadata normalization, and matrix generation. |
 | `reusable_show-issue-dependency-tree.yml` | `issue-dependency-tree` | Dependency graph normalization, cycle-aware traversal, Markdown rendering, and reusable CLI output. |
 
 The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/Node fragments primarily coordinate external tools, Git operations, package managers, publishing, Pages, or existing actions rather than exposing an independent reusable JavaScript capability.
