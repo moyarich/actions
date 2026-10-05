@@ -19,6 +19,7 @@ export type ContentPage = {
 type ContentSection = {
   id: "docs" | "examples";
   label: string;
+  description: string;
   pages: ContentPage[];
 };
 
@@ -60,6 +61,16 @@ const exampleModules = import.meta.glob("../../../examples/**/page.mdx", {
 }) as Record<string, ContentPageModule>;
 
 export const CONTENT_SECTIONS: ContentSection[] = [
-  { id: "docs", label: "Docs", pages: createPages(docsModules) },
-  { id: "examples", label: "Examples", pages: createPages(exampleModules) },
+  {
+    id: "docs",
+    label: "Docs",
+    description: "Authoritative documentation for the reusable workflows.",
+    pages: createPages(docsModules),
+  },
+  {
+    id: "examples",
+    label: "Real usages",
+    description: "Copyable caller workflows loaded directly from examples.",
+    pages: createPages(exampleModules),
+  },
 ];
