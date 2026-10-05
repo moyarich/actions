@@ -125,3 +125,10 @@ export async function runCli(argv = process.argv): Promise<void> {
 
   await program.parseAsync(argv);
 }
+
+
+runCli().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`issue-dependency-tree: ${message}\n`);
+  process.exitCode = 1;
+});
