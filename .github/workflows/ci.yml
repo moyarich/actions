@@ -23,8 +23,26 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
       - name: Validate reusable workflows
         run: node scripts/validate-reusable-workflows.mjs
 
-      - name: Test persistent release draft reconciliation
-        run: node scripts/release-draft.mjs self-test
+      - name: Build action runtime
+        run: npm run build:actions
+
+      - name: Test action runtime
+        run: npm run test:actions
+
+      - name: Check committed action dist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
+            echo "::error::Committed dist/ does not match the Vite build."
+            git status --short -- dist/
+            git diff --text -- dist/
+            exit 1
+          fi
