@@ -32,7 +32,10 @@ function selectWithFzf(graph: DependencyGraph): number[] {
     },
   );
 
-  if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") {
+  if (
+    result.error &&
+    (result.error as NodeJS.ErrnoException).code === "ENOENT"
+  ) {
     throw new Error(
       "fzf is required for --interactive. Install fzf or run without --interactive.",
     );
@@ -68,8 +71,16 @@ export async function runCli(argv = process.argv): Promise<void> {
     .name("issue-dependency-tree")
     .description("Render and explore native GitHub issue dependency trees")
     .option("-R, --repo <owner/name>", "GitHub repository")
-    .option("-r, --root <issue>", "Render from a specific issue root", (value, previous: string[]) => [...previous, value], [])
-    .option("-i, --interactive", "Select one or more roots interactively with fzf")
+    .option(
+      "-r, --root <issue>",
+      "Render from a specific issue root",
+      (value, previous: string[]) => [...previous, value],
+      [],
+    )
+    .option(
+      "-i, --interactive",
+      "Select one or more roots interactively with fzf",
+    )
     .option("--json", "Print dependency graph JSON instead of Markdown")
     .addHelpText(
       "after",
@@ -83,32 +94,34 @@ export async function runCli(argv = process.argv): Promise<void> {
         "  issue-dependency-tree --json",
       ].join("\n"),
     )
-    .action((options: {
-      repo?: string;
-      root: string[];
-      interactive?: boolean;
-      json?: boolean;
-    }) => {
-      const repo = resolveRepository(options.repo);
-      const graph = fetchDependencyGraph(repo);
+    .action(
+      (options: {
+        repo?: string;
+        root: string[];
+        interactive?: boolean;
+        json?: boolean;
+      }) => {
+        const repo = resolveRepository(options.repo);
+        const graph = fetchDependencyGraph(repo);
 
-      if (options.json) {
-        process.stdout.write(`${dependencyGraphJson(graph)}\n`);
-        return;
-      }
+        if (options.json) {
+          process.stdout.write(`${dependencyGraphJson(graph)}\n`);
+          return;
+        }
 
-      const explicitRoots = parseRoots(options.root);
-      const selectedRoots = options.interactive
-        ? selectWithFzf(graph)
-        : explicitRoots;
+        const explicitRoots = parseRoots(options.root);
+        const selectedRoots = options.interactive
+          ? selectWithFzf(graph)
+          : explicitRoots;
 
-      process.stdout.write(
-        renderDependencyTree(
-          graph,
-          selectedRoots.length > 0 ? selectedRoots : undefined,
-        ),
-      );
-    });
+        process.stdout.write(
+          renderDependencyTree(
+            graph,
+            selectedRoots.length > 0 ? selectedRoots : undefined,
+          ),
+        );
+      },
+    );
 
   await program.parseAsync(argv);
 }

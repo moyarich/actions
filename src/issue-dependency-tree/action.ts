@@ -1,9 +1,6 @@
 import { appendFileSync } from "node:fs";
 import process from "node:process";
-import {
-  dependencyGraphJson,
-  renderDependencyTree,
-} from "./core";
+import { dependencyGraphJson, renderDependencyTree } from "./core";
 import { fetchDependencyGraph } from "./github";
 
 function input(name: string): string {
@@ -20,10 +17,7 @@ function setOutput(name: string, value: string): void {
   if (!outputFile) return;
 
   const delimiter = `ISSUE_DEPENDENCY_TREE_${name.toUpperCase()}`;
-  appendFileSync(
-    outputFile,
-    `${name}<<${delimiter}\n${value}\n${delimiter}\n`,
-  );
+  appendFileSync(outputFile, `${name}<<${delimiter}\n${value}\n${delimiter}\n`);
 }
 
 export function runAction(): void {

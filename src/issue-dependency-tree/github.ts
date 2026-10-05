@@ -10,7 +10,14 @@ export function resolveRepository(explicit?: string): string {
   if (process.env.GH_REPO) return process.env.GH_REPO;
   if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
 
-  return gh(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).trim();
+  return gh([
+    "repo",
+    "view",
+    "--json",
+    "nameWithOwner",
+    "--jq",
+    ".nameWithOwner",
+  ]).trim();
 }
 
 export function fetchDependencyGraph(repository?: string): DependencyGraph {

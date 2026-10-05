@@ -12,7 +12,8 @@ export type DependencyNode = DependencyIssue & {
 
 export type DependencyGraph = Record<string, DependencyNode>;
 
-type RawRelation = { nodes?: DependencyIssue[] } | DependencyIssue[] | null | undefined;
+type RawRelation =
+  { nodes?: DependencyIssue[] } | DependencyIssue[] | null | undefined;
 
 function relation(value: RawRelation): DependencyIssue[] {
   if (Array.isArray(value)) return value;
@@ -113,7 +114,9 @@ export function renderDependencyTree(
   }
 
   const roots =
-    selectedRoots && selectedRoots.length > 0 ? selectedRoots : rootNumbers(graph);
+    selectedRoots && selectedRoots.length > 0
+      ? selectedRoots
+      : rootNumbers(graph);
   const rendered = new Set<number>();
   const lines = [
     "# Issue dependency tree",
@@ -140,7 +143,9 @@ export function renderDependencyTree(
 export function dependencyGraphJson(graph: DependencyGraph): string {
   const filtered = Object.fromEntries(
     Object.entries(graph)
-      .filter(([, node]) => node.blockedBy.length > 0 || node.blocking.length > 0)
+      .filter(
+        ([, node]) => node.blockedBy.length > 0 || node.blocking.length > 0,
+      )
       .map(([key, node]) => [
         key,
         {
