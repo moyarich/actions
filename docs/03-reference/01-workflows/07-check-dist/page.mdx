@@ -17,13 +17,13 @@ The workflow:
 
 ## Inputs
 
-| Input | Default | Description |
-| --- | --- | --- |
-| `dist-path` | `dist/` | Distribution directory to compare. |
-| `build-command` | `npm run build` | Command that rebuilds the distribution output. |
-| `node-version` | `24` | Node.js version used for the rebuild. |
-| `node-caching` | `npm` | Cache mode passed to `actions/setup-node`; use an empty string to disable caching. |
-| `artifact-name` | `dist` | Name of the uploaded rebuilt artifact when the comparison fails. |
+| Input           | Default         | Description                                                                        |
+| --------------- | --------------- | ---------------------------------------------------------------------------------- |
+| `dist-path`     | `dist/`         | Distribution directory to compare.                                                 |
+| `build-command` | `npm run build` | Command that rebuilds the distribution output.                                     |
+| `node-version`  | `24`            | Node.js version used for the rebuild.                                              |
+| `node-caching`  | `npm`           | Cache mode passed to `actions/setup-node`; use an empty string to disable caching. |
+| `artifact-name` | `dist`          | Name of the uploaded rebuilt artifact when the comparison fails.                   |
 
 ## Example
 
