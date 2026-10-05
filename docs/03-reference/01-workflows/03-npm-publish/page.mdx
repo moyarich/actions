@@ -19,7 +19,7 @@ on:
 
 jobs:
   publish:
-    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_npm-publish.yml@v0.1.0
     with:
       package: ${{ inputs.package }}
       registry: github
@@ -48,7 +48,7 @@ on:
 
 jobs:
   publish:
-    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_npm-publish.yml@v0.1.0
     with:
       package: ${{ inputs.package }}
       registry: npm
