@@ -9,7 +9,7 @@ permissions:
   id-token: write
 jobs:
   pages:
-    uses: moyarich/actions/.github/workflows/reusable_github-pages.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_github-pages.yml@v0.1.0
     with:
       node-version: "24"
       build-command: npm run build:playground -- --base=/my-project/
