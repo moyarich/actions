@@ -2,51 +2,51 @@ name-template: "{{RELEASE_NAME_TEMPLATE}}"
 tag-template: "{{TAG_TEMPLATE}}"
 
 categories:
+  - type: pre-exclude
+    when:
+      labels:
+        - skip-changelog
+        - chore
+        - maintenance
+        - ci
+        - tests
+
   - title: "Features"
-    labels:
-      - enhancement
-      - feature
+    semver-increment: minor
+    when:
+      labels:
+        - enhancement
+        - feature
 
   - title: "Bug fixes"
-    labels:
-      - bug
-      - fix
+    semver-increment: patch
+    when:
+      labels:
+        - bug
+        - fix
 
   - title: "Documentation"
-    labels:
-      - documentation
-      - docs
+    semver-increment: patch
+    when:
+      labels:
+        - documentation
+        - docs
 
   - title: "Dependencies"
-    labels:
-      - dependencies
+    semver-increment: patch
+    when:
+      label: dependencies
 
-exclude-labels:
-  - skip-changelog
-  - chore
-  - maintenance
-  - ci
-  - tests
+  - type: version-resolver
+    semver-increment: major
+    when:
+      label: breaking
+
+  - type: version-resolver
+    semver-increment: patch
 
 change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- moya-release:pr=$NUMBER -->"
 no-changes-template: ""
-
-version-resolver:
-  major:
-    labels:
-      - breaking
-  minor:
-    labels:
-      - enhancement
-      - feature
-  patch:
-    labels:
-      - bug
-      - fix
-      - dependencies
-      - documentation
-      - docs
-  default: patch
 
 template: |
   ## Release notes
