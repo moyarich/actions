@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/actions-playground",
     "build:playground": "npm run build --workspace @moyarich/actions-playground",
-    "build:actions": "vite build --config vite.actions.config.ts && vite build --config vite.cli.config.ts",
+    "build:actions": "vite build --config vite.actions.config.ts && npm run build:clis",
     "test:actions": "vitest run tests",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity"
   },
   "license": "MIT",
   "repository": {
@@ -25,7 +26,13 @@
     "registry": "https://npm.pkg.github.com"
   },
   "bin": {
-    "issue-dependency-tree": "dist/bin/issue-dependency-tree.mjs"
+    "issue-dependency-tree": "dist/bin/issue-dependency-tree.mjs",
+    "discover-packages": "dist/bin/discover-packages.mjs",
+    "workspace-release": "dist/bin/workspace-release.mjs",
+    "workspace-publish": "dist/bin/workspace-publish.mjs",
+    "workspace-dependency-check": "dist/bin/workspace-dependency-check.mjs",
+    "workspace-package-lock": "dist/bin/workspace-package-lock.mjs",
+    "workspace-release-identity": "dist/bin/workspace-release-identity.mjs"
   },
   "dependencies": {
     "commander": "^15.0.0"
