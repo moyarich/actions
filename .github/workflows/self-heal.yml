@@ -21,8 +21,6 @@ jobs:
     with:
       commit: true
       node-version: "24"
-    secrets:
-      repository-token: ${{ secrets._GITHUB_TOKEN }}
 
   package-lock:
     needs: prettier
