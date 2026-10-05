@@ -49,20 +49,23 @@ src/
 
 tests/            # mirrors source capability directories
 
-dist/
-├── release-draft-sync/
+actions/
 ├── discover-packages/
+│   └── action.yml
 ├── issue-dependency-tree/
+│   └── action.yml
+└── release-draft-sync/
+    └── action.yml
+
+dist/
+├── actions/
+│   ├── discover-packages/
+│   │   └── index.mjs
+│   ├── issue-dependency-tree/
+│   │   └── index.mjs
+│   └── release-draft-sync/
+│       └── index.mjs
 └── bin/
-
-release-draft-sync/
-└── action.yml
-
-discover-packages/
-└── action.yml
-
-issue-dependency-tree/
-└── action.yml
 
 scripts/          # repository tooling that is not an action runtime
 
@@ -84,7 +87,7 @@ The playground currently imports `examples/*/workflow.yml` directly as raw sourc
 
 `.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. Other workflows in that directory are repository-local callers or maintenance automation.
 
-Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. GitHub Action adapters live under `src/actions/*.ts`, reusable feature implementations live under `src/<feature>/`, Vite auto-discovers the action entrypoints and writes committed runtimes to `dist/<action>/`, and a top-level `<action>/action.yml` keeps the consumer path concise.
+Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. GitHub Action adapters live under `src/actions/*.ts`, reusable feature implementations live under `src/<feature>/`, Vite auto-discovers the action entrypoints and writes committed runtimes to `dist/actions/<action>/`. Public Action manifests live under `actions/<action>/action.yml`.
 
 For example:
 
@@ -93,9 +96,9 @@ src/actions/<action>.ts
         ↓ imports
 src/<action>/<action>.ts
         ↓ vite build
-dist/<action>/index.mjs
+dist/actions/<action>/index.mjs
         ↑
-<action>/action.yml
+actions/<action>/action.yml
 ```
 
 The committed `dist/` output lets repository-local workflows use the exact action implementation at the running commit and lets external consumers pin released refs. CI rebuilds action bundles and fails when the committed runtime is stale.
@@ -128,10 +131,9 @@ Use the same boundary for every standalone JavaScript action:
 
 - `<feature>.ts` contains reusable program logic and does not depend on GitHub Actions environment variables.
 - `src/actions/<action>.ts` adapts GitHub Action inputs, outputs, summaries, and files to the feature implementation.
-- `index.ts` is a minimal runtime entry point.
 - `tests/<action>/` contains Vitest coverage for feature behavior; Action adapter tests import the matching `src/actions/<action>.ts` entrypoint.
-- Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
-- `<action>/action.yml` exposes the short consumer path `moyarich/workspace-tools/<action>@<ref>`.
+- Vite bundles every action entry point into committed `dist/actions/<action>/index.mjs`.
+- `actions/<action>/action.yml` exposes the consumer path `moyarich/workspace-tools/actions/<action>@<ref>`.
 - Actions that also expose a terminal interface may add `<feature>-cli.ts`; the CLI delegates to the same feature implementation rather than duplicating behavior.
 - CLI bundles live under `dist/bin/` and are published through the package `bin` map.
 - Interactive terminal integrations such as `fzf` remain optional external tools and do not leak into the non-interactive Action runtime.
@@ -151,3 +153,26 @@ Current action-backed workflows:
 | `reusable_show-issue-dependency-tree.yml` | `issue-dependency-tree` | Dependency graph normalization, cycle-aware traversal, Markdown rendering, and reusable CLI output. |
 
 The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/Node fragments primarily coordinate external tools, Git operations, package managers, publishing, Pages, or existing actions rather than exposing an independent reusable JavaScript capability.
+
+
+## Distribution surfaces
+
+Workspace Tools has three separate consumer-facing surfaces:
+
+| Surface | Repository location | Consumer syntax |
+| --- | --- | --- |
+| Reusable workflow | `.github/workflows/reusable_*.yml` | `moyarich/workspace-tools/.github/workflows/reusable_*.yml@<ref>` |
+| GitHub Action | `actions/<action>/action.yml` | `moyarich/workspace-tools/actions/<action>@<ref>` |
+| npm CLI | `dist/bin/*.mjs` | installed through `@moyarich/workspace-tools` |
+
+Action manifests are intentionally separate from compiled runtimes. The manifest declares the GitHub Action interface, while `dist/actions/<action>/index.mjs` is the committed Node.js bundle executed by GitHub.
+
+For example:
+
+```text
+actions/discover-packages/action.yml
+        ↓ runs.main
+../../dist/actions/discover-packages/index.mjs
+```
+
+Reusable workflows remain under `.github/workflows/` because GitHub requires reusable workflow files there. They are not distributed through the npm package.
