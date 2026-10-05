@@ -35,6 +35,30 @@ jobs:
       - name: Test action runtime
         run: npm run test:actions
 
+      - name: Prepare packaged action smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'Maintainer-authored release text.' > /tmp/existing-release-body.md
+          printf '%s\n' '## Changes' '- Added generated entry.' > /tmp/generated-release-body.md
+          : > /tmp/reconciled-release-body.md
+
+      - name: Run packaged release draft sync action
+        uses: ./release-draft-sync
+        with:
+          existing-body-file: /tmp/existing-release-body.md
+          generated-body-file: /tmp/generated-release-body.md
+          output-file: /tmp/reconciled-release-body.md
+          target-key: smoke-test
+          seed-sha: ${{ github.sha }}
+
+      - name: Verify packaged action output
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'Maintainer-authored release text.' /tmp/reconciled-release-body.md
+          grep -F 'Added generated entry.' /tmp/reconciled-release-body.md
+
       - name: Check committed action dist
         shell: bash
         run: |
