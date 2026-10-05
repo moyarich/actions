@@ -117,32 +117,12 @@ jobs:
         run: npm ci --include=optional --prefer-offline
 
       - name: Resolve workspace tools CLI
+        id: workspace-tools
+        uses: $/workspace-tools
+
+      - name: Export workspace tools CLI path
         shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f packages/workspace-tools/package.json ]; then
-            npm run build
-            TOOL_PACKAGE_ROOT="$(cd packages/workspace-tools && pwd -P)"
-          else
-            TOOL_ROOT="$(mktemp -d "$RUNNER_TEMP/workspace-tools.XXXXXX")"
-            npm install --prefix "$TOOL_ROOT" --package-lock=false --ignore-scripts @moyarich/workspace-tools@latest
-            TOOL_PACKAGE_ROOT="$TOOL_ROOT/node_modules/@moyarich/workspace-tools"
-          fi
-          TOOL_BIN_ROOT=""
-          for CANDIDATE in "$TOOL_PACKAGE_ROOT/dist/bin" "$TOOL_PACKAGE_ROOT/bin"; do
-            if [ -f "$CANDIDATE/workspace-release.mjs" ]; then
-              TOOL_BIN_ROOT="$CANDIDATE"
-              break
-            fi
-          done
-
-          if [ -z "$TOOL_BIN_ROOT" ]; then
-            echo "Unable to resolve packaged CLI directory under $TOOL_PACKAGE_ROOT." >&2
-            exit 1
-          fi
-
-          echo "WORKSPACE_TOOLS_ROOT=$TOOL_PACKAGE_ROOT" >> "$GITHUB_ENV"
-          echo "WORKSPACE_TOOLS_BIN=$TOOL_BIN_ROOT" >> "$GITHUB_ENV"
+        run: echo "WORKSPACE_TOOLS_BIN=${{ steps.workspace-tools.outputs.bin-dir }}" >> "$GITHUB_ENV"
 
       - name: Validate release inputs
         env:
