@@ -2,7 +2,7 @@ import { MDXProvider } from "@mdx-js/react";
 import type { ComponentPropsWithoutRef } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
-import { WorkflowExample } from "./WorkflowExample";
+import { Playground } from "./Playground";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
@@ -67,7 +67,7 @@ function ContentRoute() {
       <p className="eyebrow">{page.sourcePath}</p>
       <MDXProvider
         components={{
-          WorkflowExample,
+          Playground,
           a: (props) => <MdxLink {...props} page={page} />,
         }}
       >
