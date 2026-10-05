@@ -44,7 +44,6 @@ jobs:
       use-workspaces: true
       include-root-package: true
       require-publish-config: true
-      node-version: "24"
 
   select-packages:
     name: Select packages for drafting
