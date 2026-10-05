@@ -36,7 +36,10 @@ function readJson(file: string): PackageJson {
   return JSON.parse(readFileSync(file, "utf8")) as PackageJson;
 }
 
-function toPackage(directory: string, manifest: PackageJson): DiscoveredPackage {
+function toPackage(
+  directory: string,
+  manifest: PackageJson,
+): DiscoveredPackage {
   return {
     directory,
     name: manifest.name ?? path.posix.basename(directory),
@@ -66,7 +69,10 @@ function discoverWorkspaceFiles(cwd: string, root: PackageJson) {
       : [];
 
   const files = new Set<string>();
-  for (const value of raw.map(String).map((v) => v.replace(/\/$/, "")).filter(Boolean)) {
+  for (const value of raw
+    .map(String)
+    .map((v) => v.replace(/\/$/, ""))
+    .filter(Boolean)) {
     const output = execFileSync(
       "git",
       ["ls-files", "--cached", "-z", "--", `:(glob)${value}/package.json`],
@@ -90,7 +96,9 @@ export function discoverPackages(options: DiscoverPackagesOptions = {}) {
         if (!existsSync(directory)) return [];
         return readdirSync(directory, { withFileTypes: true })
           .filter((entry) => entry.isDirectory())
-          .map((entry) => path.posix.join(packagesDirectory, entry.name, "package.json"))
+          .map((entry) =>
+            path.posix.join(packagesDirectory, entry.name, "package.json"),
+          )
           .filter((file) => existsSync(path.join(cwd, file)));
       })();
 
@@ -101,7 +109,11 @@ export function discoverPackages(options: DiscoverPackagesOptions = {}) {
     })
     .filter((pkg) => matches(pkg, options));
 
-  if (options.includeRootPackage && existsSync(rootPath) && typeof root.name === "string") {
+  if (
+    options.includeRootPackage &&
+    existsSync(rootPath) &&
+    typeof root.name === "string"
+  ) {
     const rootPackage = toPackage(".", root);
     if (matches(rootPackage, options)) packages.unshift(rootPackage);
   }
