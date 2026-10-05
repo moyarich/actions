@@ -1,7 +1,7 @@
 name: Release Draft
 
 run-name: >-
-  Moya Workspace Tools Draft · v${{ inputs.version }} · dry-run=${{ inputs.dry-run }}
+  Workspace Tools Draft · v${{ inputs.version }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
@@ -37,6 +37,6 @@ jobs:
     with:
       target-branch: ${{ inputs.target-branch }}
       version: ${{ inputs.version }}
-      release-name: Moya Workspace Tools v${{ inputs.version }}
+      release-name: Workspace Tools v${{ inputs.version }}
       changelog-path: CHANGELOG.md
       dry-run: ${{ inputs.dry-run }}
