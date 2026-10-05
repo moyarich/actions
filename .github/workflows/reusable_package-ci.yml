@@ -38,7 +38,6 @@ jobs:
     with:
       packages-directory: ${{ inputs.packages-directory }}
       require-test-script: true
-      node-version: ${{ inputs.node-version }}
 
   check-packages:
     name: "package: ${{ matrix.name }} | dir: ${{ matrix.directory }}"
