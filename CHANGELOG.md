@@ -18,6 +18,6 @@ The changelog is the canonical source for public GitHub Release notes. It descri
 
 ### Compatibility and consumer tooling
 
-- Resolve published workspace tooling from consumer repositories without requiring a `dev-toolkit` checkout.
+- Resolve published workspace tooling directly in consumer repositories.
 - Use documented copyable caller examples for supported reusable workflows.
 - Build documentation sites and consumer workflows against repository-relative Pages base paths.
