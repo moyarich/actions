@@ -1,30 +1,64 @@
 # Moya Actions
 
-Reusable GitHub Actions, workflows, scripts, and release automation for Node.js, npm packages, VS Code extensions, documentation sites, and other Moya projects.
+Reusable GitHub Actions workflows for CI, package discovery, releases, publishing, GitHub Pages, repository maintenance, and developer tooling.
 
-## Public API
+## Reusable workflows
 
-This repository uses directory and naming conventions to make the supported automation surface explicit:
+Use these workflows from another repository with GitHub Actions `workflow_call`.
 
-- `.github/workflows/reusable_*.yml` — public reusable workflows
-- `actions/*/action.yml` — public reusable actions
-- `scripts/*` — reusable scripts and repository tooling
-- non-`reusable_*` workflows — automation used by this repository itself
+### CI and package automation
 
-Reusable workflows must live directly in `.github/workflows/`, so the `reusable_` prefix is the public/private boundary for workflows.
+| Workflow                         | Use it to                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `reusable_node-ci.yml`           | Run configurable Node.js CI.                                              |
+| `reusable_package-ci.yml`        | Run CI for a package or workspace target.                                 |
+| `reusable_discover-packages.yml` | Discover publishable root and workspace packages for downstream jobs.     |
+| `reusable_prettier.yml`          | Check Prettier formatting and optionally commit formatting fixes.         |
+| `reusable_npm-package-lock.yml`  | Validate `package-lock.json` and optionally commit regenerated lockfiles. |
 
-Two repository-maintenance workflows are designed for self-healing use:
+### Releases and publishing
 
-- `reusable_prettier.yml` — formats with the caller's declared Prettier version and can commit fixes.
-- `reusable_npm-package-lock.yml` — recreates and validates `package-lock.json` and can commit fixes.
+| Workflow                                | Use it to                                                                                       |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `reusable_release-drafter.yml`          | Create and update persistent GitHub Release drafts for repositories or scoped monorepo targets. |
+| `reusable_npm-prepare-release.yml`      | Prepare an npm package release, including version and release state.                            |
+| `reusable_npm-publish.yml`              | Publish selected npm packages and verify the published release.                                 |
+| `reusable_npm-release.yml`              | Run the complete npm release lifecycle through one reusable workflow.                           |
+| `reusable_vscode-extension-publish.yml` | Validate, package, and publish a VS Code extension and its matching GitHub Release.             |
+| `reusable_codemod-publish.yml`          | Validate and publish a Codemod Registry package.                                                |
 
-## Documentation
+### Sites and repository tooling
 
-See [docs](./docs/page.mdx) for getting started, examples, workflow reference, and development documentation.
+| Workflow                                  | Use it to                                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `reusable_github-pages.yml`               | Build and deploy a static site to GitHub Pages with repository-relative base-path support. |
+| `reusable_readme-screenshots.yml`         | Generate README screenshots through a reusable workflow.                                   |
+| `reusable_manage-issue-dependencies.yml`  | Manage native GitHub issue blocking relationships.                                         |
+| `reusable_show-issue-dependency-tree.yml` | Render an issue dependency tree, including cycle-aware output.                             |
+
+## Using a workflow
+
+Create a workflow in the consuming repository and call the reusable workflow with `uses`:
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v0.1.0
+```
+
+Each reusable workflow defines its supported inputs, outputs, secrets, and permissions. See the [documentation](./docs/page.mdx) and [examples](./examples) for workflow-specific configuration and copyable callers.
 
 ## Versioning
 
-Consumers should pin a release tag or stable major tag when available:
+Pin callers to a release tag. Stable major tags may be used when available.
 
 ```yaml
 jobs:

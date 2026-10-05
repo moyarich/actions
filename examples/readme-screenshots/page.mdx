@@ -3,6 +3,18 @@ title: README Screenshots
 description: Copyable README Screenshots caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_readme-screenshots.yml?raw";
+
 # README Screenshots
 
-<WorkflowExample name="readme-screenshots" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    {
+      name: "reusable_readme-screenshots.yml",
+      source: reusableWorkflow,
+      language: "yaml",
+    },
+  ]}
+/>

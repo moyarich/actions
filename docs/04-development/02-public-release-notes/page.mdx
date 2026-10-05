@@ -1,94 +1,76 @@
 ---
 title: Public changelog and release notes
-description: Rules for keeping changelog entries and GitHub Releases focused on user-visible product changes.
+description: Rules for keeping changelog entries and GitHub Releases focused on changes that matter to reusable-workflow consumers.
 ---
 
 # Public changelog and release notes
 
-Treat `CHANGELOG.md` and GitHub Releases as product-facing documentation.
+Treat `CHANGELOG.md` and GitHub Releases as consumer-facing documentation.
 
-A reader should learn **what changed for users**, not how maintainers shipped it.
+A reader should be able to answer:
 
-## Initial draft source
+- Which reusable workflows are available?
+- What can each workflow do?
+- What new behavior, options, compatibility, or fixes are available to callers?
+- Does a change require callers to do anything differently?
 
-`CHANGELOG.md` is the canonical source used to seed the **initial** GitHub Release draft.
+## Release-note boundary
 
-That initial generated body must stay within the same public boundary as the changelog and must not add pull-request titles, commit summaries, CI details, migration history, or other repository-maintenance information.
+Document changes to the reusable workflows that callers can use or observe.
 
-After the draft exists, its body is preserved. Later release runs may refresh release identity such as the tag or name, but they must not overwrite maintainer edits to the existing draft body.
+Include:
 
-## Include
-
-Document changes that a package, extension, CLI, workflow consumer, or application user can directly experience:
-
-- new features;
-- new commands or settings;
-- new supported workflows;
-- user-visible improvements;
+- new reusable workflows;
+- new supported use cases;
+- new or changed workflow inputs, outputs, secrets, permissions, or configuration;
+- meaningful workflow behavior changes;
 - compatibility improvements;
-- meaningful bug fixes; and
-- changes to documented public behavior.
+- caller-visible bug fixes; and
+- breaking changes or migration steps required by callers.
 
-Write entries in terms of what the product can now do.
+Do not include changes that do not affect consumers, such as repository maintenance, documentation-only housekeeping, test changes, formatting changes, or other work with no caller-visible effect.
 
-For example:
+Write entries in terms of what a caller can now do or what behavior changed.
 
-> Adds automatic synchronization, project workflows, normalized diffs, conversion tools, dependency handling, and configurable workspace behavior.
+## Initial release
 
-## Exclude
+The first release should be a concise capability overview of the reusable workflows.
 
-Do not put repository implementation or maintenance details in the public changelog or GitHub Release, including:
+Group related workflows so consumers can quickly understand the available CI, package, release, publishing, Pages, and repository-tooling capabilities. Avoid narrating the repository's development history.
 
-- CI changes;
-- test implementation;
-- coverage changes;
-- formatting or linting changes;
-- Release Drafter configuration;
-- publish workflows;
-- release automation;
-- build-pipeline refactors;
-- packaging verification;
-- internal architecture changes with no user-visible effect;
-- migration history;
-- repository moves;
-- statements that something is already published; or
-- historical explanations of how the current implementation replaced an older one.
+## Initial release draft
 
-Move useful maintainer details to Development documentation instead.
+When the first release draft does not yet exist, use the best available public release information in this order:
 
-## Initial releases
+1. the matching changelog version;
+2. release-worthy pull-request history;
+3. release-worthy commit history for the release target;
+4. a minimal `Initial release.` body.
 
-An initial release should summarize the product's real capabilities.
+The matching changelog is preferred because it is the curated description of the released capabilities.
 
-Do not make the initial release read like a development diary.
+## Existing release drafts
 
-Prefer capability-oriented wording such as:
+Once a release draft exists, preserve it.
 
-> Adds reusable CI, self-healing repository workflows, workspace discovery, GitHub Pages deployment, documentation tooling, and issue dependency management.
+- Do not replace existing maintainer-authored text.
+- Do not erase existing release entries.
+- Append newly merged, release-worthy changes that are not already represented.
+- Do not add the same pull request more than once.
+- Do not replay changes that were already represented when the initial draft was created.
+- Updating the release version, tag, or name must not discard the existing body.
+- Dry-run previews must show the proposed result without changing the draft.
 
-Avoid entries centered on release workflows, CI fixes, repository migration, packaging validation, test restructuring, or release-generation configuration.
-
-## GitHub Release drafts
-
-The GitHub Release draft follows the same public boundary as the changelog.
-
-When creating the initial draft, release automation may:
-
-1. resolve the release version;
-2. select the matching changelog entry;
-3. format that public content for the GitHub Release; and
-4. append stable user-facing information such as installation instructions.
-
-It must not synthesize extra release-note bullets from internal pull requests or commits.
-
-If a matching draft already exists, release automation preserves its body rather than regenerating it from the changelog.
+A pull request belongs in the public draft only when it changes something reusable-workflow consumers can use or observe.
 
 ## Review checklist
 
 Before publishing a release, verify that:
 
-- every bullet describes a user-visible capability, behavior change, compatibility improvement, or meaningful fix;
-- maintainer-only work is absent;
-- the initial GitHub Release draft matches the changelog's public boundary;
-- an initial release reads as a capability overview; and
-- the notes do not describe historical migration or shipping mechanics.
+- every entry describes a reusable workflow capability or caller-visible change;
+- the available workflows and their purpose are easy to understand;
+- new inputs, outputs, supported use cases, compatibility changes, and meaningful fixes are represented;
+- repository-only maintenance is absent;
+- existing draft text has been preserved;
+- newly added pull-request entries are release-worthy and not duplicated; and
+- an initial release reads as a product capability overview rather than a development diary.

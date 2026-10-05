@@ -3,6 +3,18 @@ title: Codemod Publish
 description: Copyable Codemod Publish caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_codemod-publish.yml?raw";
+
 # Codemod Publish
 
-<WorkflowExample name="codemod-publish" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    {
+      name: "reusable_codemod-publish.yml",
+      source: reusableWorkflow,
+      language: "yaml",
+    },
+  ]}
+/>
