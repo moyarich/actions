@@ -2,8 +2,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
-const packageRoot = resolve(import.meta.dirname, "..");
-const repositoryRoot = resolve(packageRoot, "../..");
+const repositoryRoot = resolve(import.meta.dirname, "../..");
 
 function invoke(script: string, ...args: string[]) {
   const result = spawnSync(process.execPath, [script, ...args], {

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Argument, Option, program } from "commander";
 import { releaseIdentity } from "../release-identity.ts";
 import { packageInfo, repositoryRoot } from "../workspace.ts";
