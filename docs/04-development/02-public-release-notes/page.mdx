@@ -1,0 +1,92 @@
+---
+title: Public changelog and release notes
+description: Rules for keeping changelog entries and GitHub Releases focused on user-visible product changes.
+---
+
+# Public changelog and release notes
+
+Treat `CHANGELOG.md` and GitHub Releases as product-facing documentation.
+
+A reader should learn **what changed for users**, not how maintainers shipped it.
+
+## Canonical source
+
+`CHANGELOG.md` is the canonical source for public release notes.
+
+Generated GitHub Release drafts must use changelog content and must not add pull-request titles, commit summaries, CI details, migration history, or other repository-maintenance information.
+
+When an existing draft release is refreshed, its body must be regenerated from the same changelog-derived release notes rather than preserving stale generated content.
+
+## Include
+
+Document changes that a package, extension, CLI, workflow consumer, or application user can directly experience:
+
+- new features;
+- new commands or settings;
+- new supported workflows;
+- user-visible improvements;
+- compatibility improvements;
+- meaningful bug fixes; and
+- changes to documented public behavior.
+
+Write entries in terms of what the product can now do.
+
+For example:
+
+> Adds automatic synchronization, project workflows, normalized diffs, conversion tools, dependency handling, and configurable workspace behavior.
+
+## Exclude
+
+Do not put repository implementation or maintenance details in the public changelog or GitHub Release, including:
+
+- CI changes;
+- test implementation;
+- coverage changes;
+- formatting or linting changes;
+- Release Drafter configuration;
+- publish workflows;
+- release automation;
+- build-pipeline refactors;
+- packaging verification;
+- internal architecture changes with no user-visible effect;
+- migration history;
+- repository moves;
+- statements that something is already published; or
+- historical explanations of how the current implementation replaced an older one.
+
+Move useful maintainer details to Development documentation instead.
+
+## Initial releases
+
+An initial release should summarize the product's real capabilities.
+
+Do not make the initial release read like a development diary.
+
+Prefer capability-oriented wording such as:
+
+> Adds reusable CI, self-healing repository workflows, workspace discovery, GitHub Pages deployment, documentation tooling, and issue dependency management.
+
+Avoid entries centered on release workflows, CI fixes, repository migration, packaging validation, test restructuring, or release-generation configuration.
+
+## GitHub Release drafts
+
+The GitHub Release draft follows the same public boundary as the changelog.
+
+Release automation may:
+
+1. resolve the release version;
+2. select the matching changelog entry;
+3. format that public content for the GitHub Release; and
+4. append stable user-facing information such as installation instructions.
+
+It must not synthesize extra release-note bullets from internal pull requests or commits.
+
+## Review checklist
+
+Before publishing a release, verify that:
+
+- every bullet describes a user-visible capability, behavior change, compatibility improvement, or meaningful fix;
+- maintainer-only work is absent;
+- the GitHub Release body matches the changelog's public boundary;
+- an initial release reads as a capability overview; and
+- the notes do not describe historical migration or shipping mechanics.
