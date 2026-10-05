@@ -228,12 +228,14 @@ jobs:
           EXISTING_ID=""
           EXISTING_URL=""
           EXISTING_TAG=""
+          EXISTING_UPDATED_AT=""
           SEED_SHA=""
 
           if [ -n "$EXISTING" ]; then
             EXISTING_ID="$(jq -r '.id' <<< "$EXISTING")"
             EXISTING_URL="$(jq -r '.html_url' <<< "$EXISTING")"
             EXISTING_TAG="$(jq -r '.tag_name' <<< "$EXISTING")"
+            EXISTING_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$EXISTING")"
             jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
 
             SEED_SHA="$(
@@ -242,10 +244,16 @@ jobs:
             )"
 
             # Existing unmarked drafts are authoritative. Establish a migration
-            # baseline immediately before the current target commit so old PR
-            # history is not replayed, while the newest merged change can append.
+            # baseline from the draft's last update so historical PRs are not
+            # replayed, while PRs merged after that draft state can append.
             if [ -z "$SEED_SHA" ]; then
-              SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+              if [ -n "$EXISTING_UPDATED_AT" ]; then
+                SEED_SHA="$(git rev-list -1 --before="$EXISTING_UPDATED_AT" HEAD)"
+              fi
+
+              if [ -z "$SEED_SHA" ]; then
+                SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+              fi
             fi
           fi
 
@@ -271,7 +279,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          GENERATED="$RUNNER_TEMP/release-drafter-generated.yml"
+          GENERATED=".github/release-drafter-generated.yml"
 
           SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INPUT_VERSION="$INPUT_VERSION"           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
@@ -299,7 +307,7 @@ jobs:
           echo "path=$GENERATED" >> "$GITHUB_OUTPUT"
         env:
           SOURCE_TEMPLATE: ${{ steps.assets.outputs.template }}
-          GENERATED: ${{ runner.temp }}/release-drafter-generated.yml
+          GENERATED: .github/release-drafter-generated.yml
 
       - name: Discover release changes
         id: drafter
