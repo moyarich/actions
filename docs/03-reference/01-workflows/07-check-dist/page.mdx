@@ -1,0 +1,40 @@
+---
+title: Check dist
+description: Verify that committed distribution output matches a clean rebuild.
+---
+
+# Check dist
+
+Use `reusable_check-dist.yml` when generated distribution files are committed to the repository and must stay synchronized with their source.
+
+The workflow:
+
+- checks out the caller repository;
+- installs dependencies with `npm ci --ignore-scripts`;
+- runs the configured build command;
+- compares the configured distribution path using `git status --porcelain`, which catches modified, deleted, and untracked generated files;
+- uploads the rebuilt distribution directory when the comparison fails.
+
+## Inputs
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `dist-path` | `dist/` | Distribution directory to compare. |
+| `build-command` | `npm run build` | Command that rebuilds the distribution output. |
+| `node-version` | `24` | Node.js version used for the rebuild. |
+| `node-caching` | `npm` | Cache mode passed to `actions/setup-node`; use an empty string to disable caching. |
+| `artifact-name` | `dist` | Name of the uploaded rebuilt artifact when the comparison fails. |
+
+## Example
+
+```yaml
+jobs:
+  check-dist:
+    uses: moyarich/workspace-tools/.github/workflows/reusable_check-dist.yml@v1
+    with:
+      dist-path: dist/
+      build-command: npm run build:actions
+      node-version: "24"
+```
+
+This validation complements self-healing workflows: CI reports stale committed output and preserves the expected rebuilt artifact, while a separate self-heal workflow may regenerate and commit it.
