@@ -116,7 +116,7 @@ jobs:
                       (file === candidate.directory ||
                         file.startsWith(`${candidate.directory}/`)),
                   ) &&
-                  file !== ".github/workflows/release-drafter-package.yml",
+                  file !== ".github/workflows/release-draft.yml",
               );
             }
 
