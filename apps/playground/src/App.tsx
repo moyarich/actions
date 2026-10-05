@@ -1,104 +1,113 @@
-import { useMemo, useState } from "react";
+import { MDXProvider } from "@mdx-js/react";
+import type { ComponentPropsWithoutRef } from "react";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { CONTENT_SECTIONS, type ContentPage } from "./content";
+import { WorkflowExample } from "./WorkflowExample";
 
-const workflowModules = import.meta.glob(
-  "../../../examples/*/workflow.{yml,yaml}",
-  {
-    eager: true,
-    query: "?raw",
-    import: "default",
-  },
-) as Record<string, string>;
+const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
-type WorkflowExample = {
-  name: string;
-  path: string;
-  source: string;
-};
+function resolveMdxHref(sourcePath: string, href?: string) {
+  if (!href || !href.endsWith(".mdx")) {
+    return null;
+  }
 
-function toWorkflowExample([path, source]: [string, string]): WorkflowExample {
-  const segments = path.split("/");
-  const exampleName = segments.at(-2) ?? segments.at(-1) ?? path;
+  const segments = sourcePath.split("/").slice(0, -1);
 
-  return {
-    name: exampleName,
-    path: path.replace("../../../", ""),
-    source,
-  };
+  for (const segment of href.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      segments.pop();
+      continue;
+    }
+    segments.push(segment);
+  }
+
+  return `/${segments.join("/").replace(/\/page\.mdx$/, "")}`;
+}
+
+function MdxLink({
+  page,
+  href,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
+  const route = resolveMdxHref(page.sourcePath, href);
+
+  return route ? (
+    <Link to={route}>{children}</Link>
+  ) : (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  );
+}
+
+function ContentRoute() {
+  const location = useLocation();
+  const page = allPages.find((candidate) => candidate.route === location.pathname);
+
+  if (!page) {
+    return (
+      <article className="content-page">
+        <p className="eyebrow">Not found</p>
+        <h1>Page not found</h1>
+        <p>Choose a documentation or example page from the navigation.</p>
+      </article>
+    );
+  }
+
+  const Page = page.Component;
+
+  return (
+    <article className="content-page">
+      <p className="eyebrow">{page.sourcePath}</p>
+      <MDXProvider
+        components={{
+          WorkflowExample,
+          a: (props) => <MdxLink {...props} page={page} />,
+        }}
+      >
+        <Page />
+      </MDXProvider>
+    </article>
+  );
 }
 
 export function App() {
-  const workflows = useMemo(
-    () =>
-      Object.entries(workflowModules)
-        .map(toWorkflowExample)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [],
-  );
-  const [selectedPath, setSelectedPath] = useState(workflows[0]?.path ?? "");
-
-  const selectedWorkflow =
-    workflows.find((workflow) => workflow.path === selectedPath) ??
-    workflows[0];
-
   return (
     <div className="app-shell">
       <header className="site-header">
         <div>
           <p className="eyebrow">moyarich/actions</p>
-          <h1>GitHub Actions Playground</h1>
-          <p>
-            Browse the repository-owned caller examples that demonstrate the
-            reusable workflows published by this repository.
-          </p>
+          <h1>GitHub Actions</h1>
+          <p>Reusable workflow documentation and copyable callers.</p>
         </div>
         <a href="https://github.com/moyarich/actions">GitHub repository</a>
       </header>
 
-      <main className="playground">
-        <aside className="workflow-list" aria-label="Workflow examples">
-          <h2>Workflow examples</h2>
-          <p>
-            Source: <code>examples/</code>
-          </p>
-
-          <nav>
-            {workflows.map((workflow) => (
-              <button
-                key={workflow.path}
-                type="button"
-                className={
-                  workflow.path === selectedWorkflow?.path
-                    ? "active"
-                    : undefined
-                }
-                onClick={() => setSelectedPath(workflow.path)}
-              >
-                {workflow.name}
-              </button>
-            ))}
-          </nav>
+      <div className="playground-layout">
+        <aside className="sidebar" aria-label="Documentation navigation">
+          {CONTENT_SECTIONS.map((section) => (
+            <section key={section.id} className="sidebar-section">
+              <h2>{section.label}</h2>
+              <nav>
+                {section.pages.map((page) => (
+                  <Link key={page.route} to={page.route}>
+                    {page.title}
+                  </Link>
+                ))}
+              </nav>
+            </section>
+          ))}
         </aside>
 
-        <section className="workflow-source">
-          {selectedWorkflow ? (
-            <>
-              <div className="source-header">
-                <div>
-                  <p className="eyebrow">Copyable caller</p>
-                  <h2>{selectedWorkflow.name}</h2>
-                </div>
-                <code>{selectedWorkflow.path}</code>
-              </div>
-
-              <pre>
-                <code>{selectedWorkflow.source}</code>
-              </pre>
-            </>
-          ) : (
-            <p>No workflow examples were found.</p>
-          )}
-        </section>
-      </main>
+        <main className="content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/docs" replace />} />
+            <Route path="*" element={<ContentRoute />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
