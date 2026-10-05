@@ -1,0 +1,43 @@
+name: Release Draft Sync
+description: Reconcile persistent GitHub Release draft content without overwriting maintainer-authored text.
+
+inputs:
+  existing-body-file:
+    description: Path to the current GitHub Release draft body.
+    required: true
+  generated-body-file:
+    description: Path to the latest Release Drafter-generated body.
+    required: true
+  output-file:
+    description: Path where the reconciled release body should be written.
+    required: true
+  changelog-path:
+    description: Changelog used only when seeding a missing draft.
+    required: false
+    default: CHANGELOG.md
+  version:
+    description: Release version being reconciled.
+    required: false
+    default: ""
+  target-key:
+    description: Stable identifier for the release target.
+    required: false
+    default: root
+  seed-sha:
+    description: Commit SHA establishing the initial draft baseline.
+    required: false
+    default: ""
+  target-path:
+    description: Optional repository path used for commit-history fallback.
+    required: false
+    default: ""
+
+outputs:
+  body-file:
+    description: Path to the reconciled release body.
+  seed-sha:
+    description: Seed SHA carried into the reconciled draft metadata.
+
+runs:
+  using: node24
+  main: dist/index.mjs
