@@ -2,7 +2,7 @@
 
 All notable user-facing changes to this project will be documented in this file.
 
-The changelog is the canonical source for public GitHub Release notes. It describes what consumers can do with Moya Actions, not how maintainers build, test, or publish it.
+The changelog is the canonical source used to seed the initial GitHub Release draft. It describes what consumers can do with Moya Actions, not how maintainers build, test, or publish it.
 
 ## [0.1.0] - Initial Release
 
