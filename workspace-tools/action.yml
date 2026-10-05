@@ -1,0 +1,14 @@
+name: Workspace Tools
+description: Resolve the bundled Moya workspace tooling CLI directory for reusable workflows.
+
+outputs:
+  bin-dir:
+    description: Absolute path to the bundled workspace CLI directory.
+    value: ${{ steps.resolve.outputs.bin-dir }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      run: echo "bin-dir=${{ github.action_path }}/../dist/bin" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,59 @@
+---
+title: Workspace CLI
+description: Command reference for workspace automation shipped by Moya Actions.
+---
+
+# Workspace CLI reference
+
+## discover-packages
+
+```sh
+discover-packages [directory] [--workspaces] [--include-root-package] [--include-private] [--require-publish-config] [--require-test-script] [--require-build-script] [--json|--pretty-json]
+```
+
+Uses the same package-discovery core as the `discover-packages` GitHub Action.
+
+## workspace-dependency-check
+
+```sh
+workspace-dependency-check [package] [--all] [--json] [--no-assert] [--no-fzf]
+```
+
+Checks registry dependency freshness and internal workspace dependency versions. Interactive package selection uses `fzf` when available.
+
+## workspace-package-lock
+
+```sh
+workspace-package-lock [--dry-run] [--json] [--commit] [--branch=<branch>]
+```
+
+Reviews or regenerates the root `package-lock.json`, validates required CI platform packages, and can optionally commit and push the resulting lockfile.
+
+## workspace-release-identity
+
+```sh
+workspace-release-identity <package> [--version=<version>] [--json|--pretty-json]
+```
+
+Returns the canonical package release identity. The Git tag is `<package-directory>@<version>`; the GitHub Release name is `<package-name> v<version>`.
+
+## workspace-release
+
+```sh
+workspace-release <package>=<version|major|minor|patch|premajor|preminor|prepatch|prerelease>
+workspace-release <package> --mode=package-json
+```
+
+Release modes are `bump`, `exact`, and `package-json`. `package-json` reads the current manifest version and tags `HEAD` without invoking `npm version`.
+
+`--dry-run` reports registry and exact Git-tag conflicts without modifying repository state. Interactive package/version selection uses `fzf` unless disabled with `--no-fzf`.
+
+## workspace-publish
+
+```sh
+workspace-publish [package] [--registry=github|npm|both] [--tag=latest] [--access=public|restricted] [--dry-run] [--with-dependencies] [--no-verify-git-tag]
+```
+
+Matching Git release tag verification defaults to enabled. A real publish requires `<package-directory>@<package.json.version>` to point to `HEAD`.
+
+`--dry-run` never publishes to a registry. With a selector it previews that package; without a selector it previews every publishable package.
