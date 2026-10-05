@@ -25,3 +25,6 @@ jobs:
 
       - name: Validate reusable workflows
         run: node scripts/validate-reusable-workflows.mjs
+
+      - name: Test persistent release draft engine
+        run: node scripts/release-draft.mjs self-test
