@@ -59,7 +59,7 @@ The package also ships an `issue-dependency-tree` CLI built from the same depend
 
 ```sh
 issue-dependency-tree
-issue-dependency-tree --repo moyarich/actions
+issue-dependency-tree --repo moyarich/workspace-tools
 issue-dependency-tree --root 29
 issue-dependency-tree --interactive
 issue-dependency-tree --json
