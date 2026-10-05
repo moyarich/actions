@@ -53,7 +53,7 @@ function ContentRoute() {
       <article className="content-page">
         <p className="eyebrow">Not found</p>
         <h1>Page not found</h1>
-        <p>Choose a documentation or example page from the navigation.</p>
+        <p>Choose documentation or a real workflow usage from the navigation.</p>
       </article>
     );
   }
@@ -81,8 +81,11 @@ export function App() {
       <header className="site-header">
         <div>
           <p className="eyebrow">moyarich/actions</p>
-          <h1>GitHub Actions</h1>
-          <p>Reusable workflow documentation and copyable callers.</p>
+          <h1>Reusable GitHub Actions</h1>
+          <p>
+            Documentation and real, copyable caller workflows for every
+            supported reusable workflow.
+          </p>
         </div>
         <a href="https://github.com/moyarich/actions">GitHub repository</a>
       </header>
@@ -92,6 +95,7 @@ export function App() {
           {CONTENT_SECTIONS.map((section) => (
             <section key={section.id} className="sidebar-section">
               <h2>{section.label}</h2>
+              <p>{section.description}</p>
               <nav>
                 {section.pages.map((page) => (
                   <Link key={page.route} to={page.route}>
