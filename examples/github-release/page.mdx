@@ -3,6 +3,14 @@ title: GitHub Release
 description: Copyable GitHub Release caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_release-drafter.yml?raw";
+
 # GitHub Release
 
-<WorkflowExample name="github-release" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_release-drafter.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
