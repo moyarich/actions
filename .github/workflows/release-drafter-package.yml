@@ -27,6 +27,10 @@ on:
         default: true
         type: boolean
 
+  push:
+    branches:
+      - main
+
 permissions: {}
 
 jobs:
@@ -39,7 +43,7 @@ jobs:
       packages-directory: packages
       use-workspaces: true
       include-root-package: true
-      require-publish-config: true
+      require-publish-config: false
       node-version: "24"
 
   select-packages:
