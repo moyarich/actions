@@ -574,24 +574,15 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            printf '| Repository | `%s` |
-' "$GH_REPO"
-            printf '| Package | `%s` |
-' "$PACKAGE_NAME"
-            printf '| Package selector | `%s` |
-' "${{ inputs.package }}"
-            printf '| Current version | `%s` |
-' "$(jq -r '.currentVersion' <<< "$RELEASE_JSON")"
-            printf '| Version selection | `%s` |
-' "$VERSION_MODE"
-            printf '| Version request | `%s` |
-' "${VERSION_REQUEST:-package.json version}"
-            printf '| Resolved version | `%s` |
-' "$PACKAGE_VERSION"
-            printf '| Git tag | `%s` |
-' "$RELEASE_TAG"
-            printf '| GitHub Release | `%s` |
-' "$RELEASE_NAME"
+            printf '| Repository | `%s` |\n' "$GH_REPO"
+            printf '| Package | `%s` |\n' "$PACKAGE_NAME"
+            printf '| Package selector | `%s` |\n' "${{ inputs.package }}"
+            printf '| Current version | `%s` |\n' "$(jq -r '.currentVersion' <<< "$RELEASE_JSON")"
+            printf '| Version selection | `%s` |\n' "$VERSION_MODE"
+            printf '| Version request | `%s` |\n' "${VERSION_REQUEST:-package.json version}"
+            printf '| Resolved version | `%s` |\n' "$PACKAGE_VERSION"
+            printf '| Git tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| GitHub Release | `%s` |\n' "$RELEASE_NAME"
             echo "| Can release | **$CAN_RELEASE** |"
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo "| Publish after release | **$PUBLISH** |"
@@ -654,8 +645,7 @@ jobs:
             {
               echo "## Superseded candidate drafts"
               echo
-              printf "Removed **%s** automation-owned, untagged candidate draft(s) for `%s`.
-" "$REMOVED_CANDIDATES" "$PACKAGE_NAME"
+              printf "Removed **%s** automation-owned, untagged candidate draft(s) for `%s`.\n" "$REMOVED_CANDIDATES" "$PACKAGE_NAME"
               echo
             } >> "$GITHUB_STEP_SUMMARY"
 
@@ -752,10 +742,8 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            printf '| Name | `%s` |
-' "$RELEASE_NAME"
-            printf '| Tag | `%s` |
-' "$RELEASE_TAG"
+            printf '| Name | `%s` |\n' "$RELEASE_NAME"
+            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
             echo "| State | **draft** |"
             echo "| Action | **$ACTION** |"
             echo "| Draft | [Open release draft]($RELEASE_DRAFT_URL) |"
@@ -812,10 +800,8 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            printf '| Version | `%s` |
-' "$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
-            printf '| Git tag | `%s` |
-' "$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
+            printf '| Version | `%s` |\n' "$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
+            printf '| Git tag | `%s` |\n' "$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
             echo "| GitHub Release | **draft** |"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
