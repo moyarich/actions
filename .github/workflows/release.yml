@@ -1,0 +1,86 @@
+name: Release
+
+run-name: >-
+  Release · ${{ inputs.package }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package selector
+        required: true
+        default: "."
+        type: string
+      version-mode:
+        description: Version mode
+        required: true
+        default: bump
+        type: choice
+        options:
+          - bump
+          - package-json
+          - exact
+      version-bump:
+        description: Version bump
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+      exact-version:
+        description: Exact version when version-mode is exact
+        required: false
+        default: ""
+        type: string
+      publish:
+        description: Publish after creating the release
+        required: true
+        default: false
+        type: boolean
+      registry:
+        description: Registry used when publishing
+        required: true
+        default: github
+        type: choice
+        options:
+          - github
+          - npm
+          - both
+      dist-tag:
+        description: Distribution tag
+        required: true
+        default: latest
+        type: string
+      dry-run:
+        description: Preview without repository or registry mutation
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-release.yml
+    with:
+      target-branch: main
+      package: ${{ inputs.package }}
+      version-mode: ${{ inputs.version-mode }}
+      version-bump: ${{ inputs.version-bump }}
+      exact-version: ${{ inputs.exact-version }}
+      publish: ${{ inputs.publish }}
+      registry: ${{ inputs.registry }}
+      dist-tag: ${{ inputs.dist-tag }}
+      dry-run: ${{ inputs.dry-run }}
+      verify-git-tag: true
+      node-version: "24"
+    secrets: inherit
