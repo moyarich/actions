@@ -41,7 +41,7 @@ describe("runAction", () => {
     writeFileSync(existingFile, "Maintainer introduction.\n");
     writeFileSync(
       generatedFile,
-      "### Features\n\n- New action (#25) @dev <!-- moya-release:pr=25 -->\n",
+      "### Features\n\n- New action (#25) @dev <!-- release-draft-sync:pr=25 -->\n",
     );
 
     process.env.INPUT_EXISTING_BODY_FILE = existingFile;
@@ -60,8 +60,8 @@ describe("runAction", () => {
     const outputs = readFileSync(githubOutput, "utf8");
 
     expect(body).toContain("Maintainer introduction.");
-    expect(body).toContain("moya-release:pr=25");
-    expect(body).toContain("moya-release:seed-sha=abc123");
+    expect(body).toContain("release-draft-sync:pr=25");
+    expect(body).toContain("release-draft-sync:seed-sha=abc123");
     expect(outputs).toContain(`body-file=${outputFile}`);
     expect(outputs).toContain("seed-sha=abc123");
   });
