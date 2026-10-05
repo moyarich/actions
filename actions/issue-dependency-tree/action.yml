@@ -14,4 +14,4 @@ outputs:
 
 runs:
   using: node24
-  main: ../dist/issue-dependency-tree/index.mjs
+  main: ../../dist/actions/issue-dependency-tree/index.mjs

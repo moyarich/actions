@@ -104,7 +104,7 @@ jobs:
 
       - id: packages
         name: Discover packages
-        uses: $/discover-packages
+        uses: $/actions/discover-packages
         with:
           packages-directory: ${{ inputs.packages-directory }}
           use-workspaces: ${{ inputs.use-workspaces }}

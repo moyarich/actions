@@ -40,4 +40,4 @@ outputs:
 
 runs:
   using: node24
-  main: ../dist/release-draft-sync/index.mjs
+  main: ../../dist/actions/release-draft-sync/index.mjs

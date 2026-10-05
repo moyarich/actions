@@ -389,7 +389,7 @@ jobs:
 
       - name: Reconcile persistent draft body
         id: reconcile
-        uses: $/release-draft-sync
+        uses: $/actions/release-draft-sync
         with:
           existing-body-file: ${{ steps.history.outputs.existing-body-file }}
           generated-body-file: ${{ steps.reconcile-inputs.outputs.generated-file }}

@@ -43,4 +43,4 @@ outputs:
 
 runs:
   using: node24
-  main: ../dist/discover-packages/index.mjs
+  main: ../../dist/actions/discover-packages/index.mjs

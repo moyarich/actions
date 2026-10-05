@@ -1,7 +1,7 @@
-name: Draft package releases
+name: Release Draft
 
 run-name: >-
-  Draft package releases · ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'changed' }}
+  Release draft · ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'changed' }}
 
 on:
   workflow_dispatch:
@@ -116,7 +116,7 @@ jobs:
                       (file === candidate.directory ||
                         file.startsWith(`${candidate.directory}/`)),
                   ) &&
-                  file !== ".github/workflows/release-drafter-package.yml",
+                  file !== ".github/workflows/release-draft.yml",
               );
             }
 

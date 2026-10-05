@@ -48,9 +48,9 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 Use standalone actions directly when you need the lower-level executable behavior:
 
 ```yaml
-- uses: moyarich/workspace-tools/release-draft-sync@v1
-- uses: moyarich/workspace-tools/discover-packages@v1
-- uses: moyarich/workspace-tools/issue-dependency-tree@v1
+- uses: moyarich/workspace-tools/actions/release-draft-sync@v1
+- uses: moyarich/workspace-tools/actions/discover-packages@v1
+- uses: moyarich/workspace-tools/actions/issue-dependency-tree@v1
 ```
 
 ## CLI
