@@ -20,9 +20,9 @@ function invoke(script: string, ...args: string[]) {
 }
 
 for (const command of [
-  "packages/workspace-tools/dist/bin/workspace-release.mjs",
-  "packages/workspace-tools/dist/bin/workspace-publish.mjs",
-  "packages/workspace-tools/dist/bin/discover-packages.mjs",
+  "dist/bin/workspace-release.mjs",
+  "dist/bin/workspace-publish.mjs",
+  "dist/bin/discover-packages.mjs",
 ]) {
   describe(command, () => {
     test("shows help without running its action", () => {
@@ -41,19 +41,17 @@ for (const command of [
 }
 
 test("package discovery preserves its default directory and JSON output", () => {
-  const implicit = invoke(
-    "packages/workspace-tools/dist/bin/discover-packages.mjs",
+  const result = invoke(
+    "dist/bin/discover-packages.mjs",
+    "--workspaces",
+    "--include-root-package",
+    "--include-private",
+    "--json",
   );
-  const explicit = invoke(
-    "packages/workspace-tools/dist/bin/discover-packages.mjs",
-    "packages",
-  );
-  expect(implicit.status).toBe(0);
-  expect(explicit.status).toBe(0);
-  expect(JSON.parse(implicit.stdout)).toEqual(JSON.parse(explicit.stdout));
-  expect(JSON.parse(implicit.stdout)).toEqual(
+  expect(result.status).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ name: "@moyarich/workspace-tools" }),
+      expect.objectContaining({ name: "@moyarich/actions", directory: "." }),
     ]),
   );
 });
@@ -64,7 +62,7 @@ test("release accepts both separated and equals option values", () => {
     ["--mode", "exact", "--version", "invalid"],
   ]) {
     const result = invoke(
-      "packages/workspace-tools/dist/bin/workspace-release.mjs",
+      "dist/bin/workspace-release.mjs",
       "workspace-tools=patch",
       "--dry-run",
       ...args,
@@ -76,7 +74,7 @@ test("release accepts both separated and equals option values", () => {
 
 test("publish rejects values assigned to boolean flags", () => {
   const result = invoke(
-    "packages/workspace-tools/dist/bin/workspace-publish.mjs",
+    "dist/bin/workspace-publish.mjs",
     "--dry-run=invalid",
   );
   expect(result.status).toBe(1);
