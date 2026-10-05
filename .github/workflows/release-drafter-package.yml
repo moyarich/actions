@@ -214,7 +214,7 @@ jobs:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
       initial-version: "0.1.0"
       tag-prefix: ${{ matrix.directory == '.' && format('{0}@', matrix.name) || format('{0}@', matrix.directory) }}
-      release-name: ${{ format('{0} v{{VERSION}}', matrix.name) }}
+      release-name: ${{ format('{0} v$RESOLVED_VERSION', matrix.name) }}
       changelog-path: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
       template-path: .github/release-drafter-package-template.yml
       package-name: ${{ matrix.name }}
