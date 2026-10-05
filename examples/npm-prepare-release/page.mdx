@@ -3,6 +3,14 @@ title: npm Prepare Release
 description: Copyable npm Prepare Release caller workflow.
 ---
 
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_npm-prepare-release.yml?raw";
+
 # npm Prepare Release
 
-<WorkflowExample name="npm-prepare-release" />
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_npm-prepare-release.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
