@@ -1,0 +1,6 @@
+name: Discover Packages
+description: Discover repository packages and emit GitHub Actions matrix outputs.
+
+runs:
+  using: node24
+  main: ../dist/discover-packages/index.mjs
