@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Argument, Option, program } from "commander";
-import { discoverPackages } from "../core";
+import { discoverPackages } from "./core";
 
 program
   .name("discover-packages")
