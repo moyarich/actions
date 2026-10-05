@@ -1,0 +1,46 @@
+name: Discover Packages
+description: Discover repository packages and emit normalized package and matrix metadata.
+
+inputs:
+  packages-directory:
+    description: Directory containing direct-child packages when workspace discovery is disabled.
+    required: false
+    default: packages
+  use-workspaces:
+    description: Discover packages from root package.json workspace patterns.
+    required: false
+    default: "false"
+  include-root-package:
+    description: Include the repository root package when it matches the filters.
+    required: false
+    default: "false"
+  include-private:
+    description: Include private packages.
+    required: false
+    default: "false"
+  require-publish-config:
+    description: Only include packages with a publish registry configuration.
+    required: false
+    default: "false"
+  require-test-script:
+    description: Only include packages with a test script.
+    required: false
+    default: "false"
+  require-build-script:
+    description: Only include packages with a build script.
+    required: false
+    default: "false"
+
+outputs:
+  packages:
+    description: Compact JSON array of discovered packages.
+  matrix:
+    description: GitHub Actions matrix object with an include array.
+  has-packages:
+    description: Whether any packages matched.
+  count:
+    description: Number of matching packages.
+
+runs:
+  using: node24
+  main: ../dist/discover-packages/index.mjs
