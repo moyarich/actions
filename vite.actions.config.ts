@@ -24,7 +24,7 @@ export default defineConfig({
     rollupOptions: {
       input: entries,
       output: {
-        entryFileNames: "[name]/index.mjs",
+        entryFileNames: "actions/[name]/index.mjs",
       },
     },
   },
