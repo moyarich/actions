@@ -16,7 +16,13 @@ docs/             # authoritative documentation
 examples/         # authoritative copyable callers
 
 src/
-└── release-draft-sync/   # maintainable TypeScript action source
+└── release-draft-sync/
+    ├── core.ts           # reusable release-draft behavior
+    ├── action.ts         # GitHub Actions input/output adapter
+    └── index.ts          # runtime entry point
+
+tests/
+└── release-draft-sync/   # Vitest coverage for core + action adapter
 
 dist/
 └── release-draft-sync/   # Vite-built runtime committed for GitHub Actions
@@ -50,6 +56,9 @@ For example:
 
 ```text
 src/release-draft-sync/
+├── core.ts
+├── action.ts
+└── index.ts
         ↓ vite build
 dist/release-draft-sync/
         ↑
@@ -69,3 +78,14 @@ This keeps the repository structure consistent with Console and MoyaForge while 
 ## Dependency boundary
 
 Moya Actions is upstream automation infrastructure. The playground must not require MoyaForge in order to build or run, because MoyaForge may itself consume automation from this repository.
+
+
+## Action tests
+
+Action source is tested with Vitest under `tests/<action>/`. Keep behavioral reconciliation tests against `core.ts` and GitHub Actions environment/file adapter tests against `action.ts`.
+
+```sh
+npm run test:actions
+```
+
+The Vite bundle is generated separately with `npm run build:actions`; CI then verifies the committed `dist/` output matches that build.
