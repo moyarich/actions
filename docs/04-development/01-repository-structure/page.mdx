@@ -16,19 +16,28 @@ docs/             # authoritative documentation
 examples/         # authoritative copyable callers
 
 src/
-└── release-draft-sync/
-    ├── core.ts           # reusable release-draft behavior
-    ├── action.ts         # GitHub Actions input/output adapter
-    └── index.ts          # runtime entry point
+├── release-draft-sync/
+│   ├── core.ts
+│   ├── action.ts
+│   └── index.ts
+└── discover-packages/
+    ├── core.ts
+    ├── action.ts
+    └── index.ts
 
 tests/
-└── release-draft-sync/   # Vitest coverage for core + action adapter
+├── release-draft-sync/
+└── discover-packages/
 
 dist/
-└── release-draft-sync/   # Vite-built runtime committed for GitHub Actions
+├── release-draft-sync/
+└── discover-packages/
 
 release-draft-sync/
-└── action.yml            # public standalone action entry point
+└── action.yml
+
+discover-packages/
+└── action.yml
 
 scripts/                  # repository tooling that is not an action runtime
 
@@ -55,14 +64,14 @@ Standalone JavaScript actions expose reusable executable behavior beneath the wo
 For example:
 
 ```text
-src/release-draft-sync/
+src/<action>/
 ├── core.ts
 ├── action.ts
 └── index.ts
         ↓ vite build
-dist/release-draft-sync/
+dist/<action>/
         ↑
-release-draft-sync/action.yml
+<action>/action.yml
 ```
 
 The committed `dist/` output lets repository-local workflows use the exact action implementation at the running commit and lets external consumers pin released refs. CI rebuilds action bundles and fails when the committed runtime is stale.
@@ -88,3 +97,29 @@ npm run test:actions
 ```
 
 The Vite bundle is generated separately with `npm run build:actions`; CI then verifies the committed `dist/` output matches that build.
+
+## JavaScript action convention
+
+Use the same boundary for every standalone JavaScript action:
+
+- `core.ts` contains reusable program logic and does not depend on GitHub Actions environment variables.
+- `action.ts` adapts action inputs, outputs, summaries, and files to the core API.
+- `index.ts` is a minimal runtime entry point.
+- `tests/<action>/` contains Vitest coverage for both core behavior and the action adapter.
+- Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
+- `<action>/action.yml` exposes the short consumer path `moyarich/actions/<action>@<ref>`.
+
+The root `dist/` directory is intentionally committed. Nested application/package `dist/` folders remain generated build output and are ignored. Prettier ignores every `dist/` directory because bundled runtimes are generated.
+
+## Reusable workflow review
+
+Reusable workflows remain the orchestration API. A workflow should delegate to a JavaScript action when it contains substantial reusable program logic rather than ordinary command orchestration.
+
+Current action-backed workflows:
+
+| Workflow                         | JavaScript action    | Reason                                                                                              |
+| -------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
+| `reusable_release-drafter.yml`   | `release-draft-sync` | Persistent draft reconciliation, seeding, marker deduplication, and append-only generated state.    |
+| `reusable_discover-packages.yml` | `discover-packages`  | Workspace/direct-child discovery, package filtering, metadata normalization, and matrix generation. |
+
+The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/Node fragments primarily coordinate external tools, Git operations, package managers, publishing, Pages, or existing actions rather than exposing an independent reusable JavaScript capability.
