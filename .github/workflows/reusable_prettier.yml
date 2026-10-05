@@ -26,10 +26,6 @@ on:
         required: false
         default: "24"
         type: string
-    secrets:
-      repository-token:
-        description: Token used to push self-healing commits, including workflow files
-        required: false
 
 permissions:
   contents: write
@@ -48,7 +44,6 @@ jobs:
           # target the contributor branch so the self-healing commit lands on
           # the branch that will be checked again.
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
-          token: ${{ secrets.repository-token || github.token }}
           persist-credentials: ${{ inputs.commit }}
           fetch-depth: 1
 
@@ -83,7 +78,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          npx --yes "prettier@${{ steps.prettier.outputs.version }}" . --write
+          # Keep self-heal commits on the default GITHUB_TOKEN so GitHub's
+          # recursion guard prevents those commits from spawning new workflow
+          # runs. Workflow files cannot be rewritten with that token, so leave
+          # them out of the auto-fix surface.
+          printf '%s\n' '.github/workflows/' > /tmp/prettier-self-heal-ignore
+
+          npx --yes "prettier@${{ steps.prettier.outputs.version }}" .             --write             --ignore-path /tmp/prettier-self-heal-ignore
 
           git status --short > /tmp/format-status.txt
 
@@ -100,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          npx --yes "prettier@${{ steps.prettier.outputs.version }}" . --check
+          npx --yes "prettier@${{ steps.prettier.outputs.version }}" .             --check             --ignore-path /tmp/prettier-self-heal-ignore
 
       - name: Commit Prettier changes
         if: ${{ inputs.commit && steps.format.outputs.changed == 'true' }}
