@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 
 const entries = {
-  "release-draft-sync": "src/release-draft-sync/index.ts",
-  "discover-packages": "src/discover-packages/index.ts",
+  "release-draft-sync/index": "src/release-draft-sync/index.ts",
+  "discover-packages/index": "src/discover-packages/index.ts",
+  "issue-dependency-tree/index": "src/issue-dependency-tree/index.ts",
+  "bin/issue-dependency-tree": "src/issue-dependency-tree/cli.ts",
 };
 
 export default defineConfig({
@@ -16,7 +18,9 @@ export default defineConfig({
     rollupOptions: {
       input: entries,
       output: {
-        entryFileNames: "[name]/index.mjs",
+        entryFileNames: "[name].mjs",
+        banner: (chunk) =>
+          chunk.name.startsWith("bin/") ? "#!/usr/bin/env node" : "",
       },
     },
   },
