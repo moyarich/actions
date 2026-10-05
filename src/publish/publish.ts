@@ -13,13 +13,13 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 
-import { releaseIdentity } from "./release-identity.ts";
+import { releaseIdentity } from "../release-identity/release-identity.ts";
 import {
   packageInfo,
   repositoryRoot,
   workspacePublishOrder,
   type WorkspacePackage,
-} from "./workspace.ts";
+} from "../workspace/workspace.ts";
 
 type Registry = "github" | "npm";
 type RegistrySelection = Registry | "both";
