@@ -89,7 +89,9 @@ export function App() {
             supported reusable workflow.
           </p>
         </div>
-        <a href="https://github.com/moyarich/workspace-tools">GitHub repository</a>
+        <a href="https://github.com/moyarich/workspace-tools">
+          GitHub repository
+        </a>
       </header>
 
       <div className="playground-layout">
