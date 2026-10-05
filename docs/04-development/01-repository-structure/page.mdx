@@ -1,6 +1,6 @@
 ---
 title: Repository structure
-description: How docs, examples, and the playground are organized in Moya Actions.
+description: How docs, examples, scripts, workflows, and the playground are organized in Moya Actions.
 ---
 
 # Repository structure
@@ -13,10 +13,12 @@ apps/
 
 docs/             # authoritative documentation
 
-examples/         # authoritative examples
+examples/         # authoritative copyable callers
+
+scripts/          # reusable workflow implementation helpers and repository tooling
 
 .github/
-└── workflows/    # workflows owned or run by this repository
+└── workflows/    # public reusable workflows plus repository-local callers
 ```
 
 ## Content ownership
@@ -28,6 +30,14 @@ examples/         # authoritative examples
 `apps/playground/` is presentation only. It may consume documentation and examples from outside its own directory, but it must not duplicate or become the authoritative source for that content.
 
 The playground currently imports `examples/*/workflow.yml` directly as raw source.
+
+## Workflow and script boundary
+
+`.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. Other workflows in that directory are repository-local callers or maintenance automation.
+
+`scripts/*` is available for shared implementation logic. Reusable workflows should prefer a script helper when nontrivial logic would otherwise be duplicated or become difficult to test inside YAML. A workflow may load a version-matched helper from this repository so the script implementation stays aligned with the workflow ref used by the caller.
+
+Scripts that exist only to implement a workflow are not automatically a separate public CLI API. Document a script as directly consumer-facing only when callers are expected to invoke it themselves.
 
 ## Why examples are not nested under .github/workflows
 
