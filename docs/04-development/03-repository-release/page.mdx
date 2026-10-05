@@ -1,0 +1,110 @@
+---
+title: Repository release draft
+description: How moyarich/actions prepares its release draft through its repository-local caller workflow.
+---
+
+# Repository release draft
+
+Moya Actions keeps its public reusable workflow separate from this repository's own release orchestration.
+
+```text
+.github/
+├── release-drafter-template.yml        # Release Drafter config template
+└── workflows/
+    ├── reusable_release-drafter.yml    # public reusable draft implementation
+    └── release-drafter.yml             # repository-local caller for moyarich/actions
+```
+
+## Repository-local caller
+
+`.github/workflows/release-drafter.yml` is not part of the public reusable API.
+
+It owns only repository-specific concerns:
+
+- the `Moya Actions v<version>` release name;
+- the default target branch;
+- repository-level concurrency; and
+- the inputs exposed in the Actions UI.
+
+The repository-local caller delegates draft mechanics to:
+
+```yaml
+uses: ./.github/workflows/reusable_release-drafter.yml
+```
+
+## Dry run
+
+The repository-local workflow defaults to `dry-run: true`.
+
+A dry run resolves the changelog entry, release name, and draft tag name without creating or modifying a GitHub Release.
+
+## Create or reuse the draft
+
+To create or reuse the repository draft, run `release-drafter.yml` with `dry-run: false`.
+
+The reusable workflow creates or reuses the matching release draft.
+
+It does not create a Git tag and it does not publish the GitHub Release.
+
+If a matching draft already exists, its release-note body is preserved.
+
+## Release Drafter template
+
+`.github/release-drafter-template.yml` owns the draft-note presentation and categorization rules used by the reusable workflow.
+
+It stays outside `.github/workflows/` because files in that directory are reserved for GitHub Actions workflow definitions.
+
+## First-draft source
+
+For a first release draft, the reusable workflow prefers a matching changelog entry.
+
+If the selected changelog file does not exist, or the requested version has no matching changelog section, it falls back to Git history:
+
+- package drafts use commits scoped to that package directory;
+- repository drafts use repository-wide commits.
+
+This keeps first-draft generation working for packages that have not started maintaining a changelog yet.
+
+## Package layouts
+
+Package drafting uses the repository's root `package.json#workspaces` declarations rather than assuming every package is a direct child of `packages/`.
+
+Supported package locations include:
+
+```text
+repository/
+├── package.json
+├── packages/
+│   ├── foo/package.json
+│   └── bar/package.json
+├── plugins/
+│   └── foo2/package.json
+└── tools/
+    └── group/
+        └── bar2/package.json
+```
+
+For example, workspace declarations may include:
+
+```json
+{
+  "workspaces": ["packages/*", "plugins/*", "tools/*/*"]
+}
+```
+
+The root package can also participate when `include-root-package` is enabled and it satisfies the package filters.
+
+Package-specific changelog lookup and Git-history fallback always use the discovered package directory, regardless of nesting depth.
+
+## Drafting versus releasing
+
+Release Drafter and npm release are separate workflows with different responsibilities.
+
+```text
+reusable_release-drafter.yml  # prepares or updates GitHub Release drafts
+reusable_npm-release.yml      # performs the npm package release lifecycle
+```
+
+`reusable_npm-release.yml` is not deprecated and is not replaced by Release Drafter. Existing callers should continue using it for release operations.
+
+The Release Drafter workflows prepare release-note state only. The npm release workflow remains responsible for versioning, release commits/tags, package publishing, and final release lifecycle behavior.
