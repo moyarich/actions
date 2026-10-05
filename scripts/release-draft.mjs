@@ -52,7 +52,10 @@ function parseArgs(argv) {
     const value = argv[index + 1] ?? "";
 
     if (!name?.startsWith("--")) {
-      throw new Error("Expected an option beginning with --, received: " + (name ?? "<missing>"));
+      throw new Error(
+        "Expected an option beginning with --, received: " +
+          (name ?? "<missing>"),
+      );
     }
 
     args.set(name.slice(2), value);
@@ -114,21 +117,21 @@ function renderReleaseDrafterConfig(options) {
     "      title:",
     "        - '/^(docs|chore|ci|test|build|style|refactor)(\\([^)]*\\))?!?:\\s*/i'",
     "",
-    "  - title: \"Breaking changes\"",
+    '  - title: "Breaking changes"',
     "    semver-increment: major",
     "    when:",
     "      labels:",
     "        - breaking",
     "        - major",
     "",
-    "  - title: \"Features\"",
+    '  - title: "Features"',
     "    semver-increment: minor",
     "    when:",
     "      labels:",
     "        - feature",
     "        - enhancement",
     "",
-    "  - title: \"Bug fixes\"",
+    '  - title: "Bug fixes"',
     "    semver-increment: patch",
     "    when:",
     "      labels:",
@@ -136,14 +139,14 @@ function renderReleaseDrafterConfig(options) {
     "        - bugfix",
     "        - fix",
     "",
-    "  - title: \"Performance\"",
+    '  - title: "Performance"',
     "    semver-increment: patch",
     "    when:",
     "      labels:",
     "        - performance",
     "        - perf",
     "",
-    "  - title: \"Compatibility\"",
+    '  - title: "Compatibility"',
     "    semver-increment: patch",
     "    when:",
     "      labels:",
@@ -152,14 +155,17 @@ function renderReleaseDrafterConfig(options) {
     "  - type: version-resolver",
     "    semver-increment: patch",
     "",
-    "change-template: \"- $TITLE (#$NUMBER) @$AUTHOR <!-- moya-release:pr=$NUMBER -->\"",
+    'change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- moya-release:pr=$NUMBER -->"',
     "change-title-escapes: '\\\\<*_&'",
-    "no-changes-template: \"\"",
+    'no-changes-template: ""',
     "template: |",
     "  $CHANGES",
     "",
   ]
-    .filter((line, index, lines) => !(line === "" && index > 0 && lines[index - 1] === ""))
+    .filter(
+      (line, index, lines) =>
+        !(line === "" && index > 0 && lines[index - 1] === ""),
+    )
     .join("\n");
 }
 
@@ -221,10 +227,12 @@ function normalizeGeneratedBody(body) {
  * @returns {boolean} Whether useful release-note content exists.
  */
 function hasMeaningfulGeneratedBody(body) {
-  return body
-    .replace(/[*-]\s*No changes\.?/gi, "")
-    .replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "")
-    .trim().length > 0;
+  return (
+    body
+      .replace(/[*-]\s*No changes\.?/gi, "")
+      .replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "")
+      .trim().length > 0
+  );
 }
 
 /**
@@ -473,7 +481,11 @@ function ensureMetadata(body, targetKey, seedSha, source) {
   if (seedSha && !/<!--\s*moya-release:seed-sha=/.test(result)) {
     result = result.replace(
       /^(<!--\s*moya-release:target=.*?-->)/,
-      "$1\n<!-- moya-release:seed-sha=" + seedSha + " source=" + source + " -->",
+      "$1\n<!-- moya-release:seed-sha=" +
+        seedSha +
+        " source=" +
+        source +
+        " -->",
     );
   }
 
@@ -552,10 +564,7 @@ function reconcileReleaseBody(options) {
 
   if (hasMeaningfulGeneratedBody(generated)) {
     if (split) {
-      const mergedGenerated = mergeGeneratedEntries(
-        split.generated,
-        generated,
-      );
+      const mergedGenerated = mergeGeneratedEntries(split.generated, generated);
 
       body = [split.before, generatedRegion(mergedGenerated), split.after]
         .filter(Boolean)
@@ -579,12 +588,7 @@ function reconcileReleaseBody(options) {
     }
   }
 
-  return ensureMetadata(
-    body,
-    options.targetKey,
-    options.seedSha,
-    "existing",
-  );
+  return ensureMetadata(body, options.targetKey, options.seedSha, "existing");
 }
 
 /**
