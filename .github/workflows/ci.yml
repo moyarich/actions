@@ -49,7 +49,7 @@ jobs:
           : > /tmp/reconciled-release-body.md
 
       - name: Run packaged release draft sync action
-        uses: ./release-draft-sync
+        uses: ./actions/release-draft-sync
         with:
           existing-body-file: /tmp/existing-release-body.md
           generated-body-file: /tmp/generated-release-body.md
