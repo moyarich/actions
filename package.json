@@ -1,5 +1,5 @@
 {
-  "name": "moya-actions-workspace",
+  "name": "@moyarich/actions",
   "version": "0.0.0",
   "workspaces": [
     "apps/*"
@@ -15,5 +15,8 @@
   },
   "devDependencies": {
     "prettier": "^3.6.2"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }
