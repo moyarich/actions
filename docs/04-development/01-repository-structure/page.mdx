@@ -20,9 +20,15 @@ src/
 │   ├── core.ts
 │   ├── action.ts
 │   └── index.ts
-└── discover-packages/
+├── discover-packages/
+│   ├── core.ts
+│   ├── action.ts
+│   └── index.ts
+└── issue-dependency-tree/
     ├── core.ts
+    ├── github.ts
     ├── action.ts
+    ├── cli.ts
     └── index.ts
 
 tests/
@@ -31,12 +37,18 @@ tests/
 
 dist/
 ├── release-draft-sync/
-└── discover-packages/
+├── discover-packages/
+├── issue-dependency-tree/
+└── bin/
+    └── issue-dependency-tree.mjs
 
 release-draft-sync/
 └── action.yml
 
 discover-packages/
+└── action.yml
+
+issue-dependency-tree/
 └── action.yml
 
 scripts/                  # repository tooling that is not an action runtime
@@ -108,6 +120,9 @@ Use the same boundary for every standalone JavaScript action:
 - `tests/<action>/` contains Vitest coverage for both core behavior and the action adapter.
 - Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
 - `<action>/action.yml` exposes the short consumer path `moyarich/actions/<action>@<ref>`.
+- Actions that also expose a terminal interface may add `cli.ts`; the CLI delegates to the same core rather than duplicating behavior.
+- CLI bundles live under `dist/bin/` and are published through the package `bin` map.
+- Interactive terminal integrations such as `fzf` remain optional external tools and do not leak into the non-interactive Action runtime.
 
 The root `dist/` directory is intentionally committed. Nested application/package `dist/` folders remain generated build output and are ignored. Prettier ignores every `dist/` directory because bundled runtimes are generated.
 
@@ -120,6 +135,7 @@ Current action-backed workflows:
 | Workflow                         | JavaScript action    | Reason                                                                                              |
 | -------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
 | `reusable_release-drafter.yml`   | `release-draft-sync` | Persistent draft reconciliation, seeding, marker deduplication, and append-only generated state.    |
-| `reusable_discover-packages.yml` | `discover-packages`  | Workspace/direct-child discovery, package filtering, metadata normalization, and matrix generation. |
+| `reusable_discover-packages.yml` | `discover-packages` | Workspace/direct-child discovery, package filtering, metadata normalization, and matrix generation. |
+| `reusable_show-issue-dependency-tree.yml` | `issue-dependency-tree` | Dependency graph normalization, cycle-aware traversal, Markdown rendering, and reusable CLI output. |
 
 The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/Node fragments primarily coordinate external tools, Git operations, package managers, publishing, Pages, or existing actions rather than exposing an independent reusable JavaScript capability.
