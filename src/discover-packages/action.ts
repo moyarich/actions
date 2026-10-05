@@ -4,7 +4,7 @@ import {
   discoverPackages,
   packageMatrix,
   type DiscoverPackagesOptions,
-} from "./core";
+} from "./discover-packages";
 
 function input(name: string): string {
   const suffix = name.toUpperCase();
