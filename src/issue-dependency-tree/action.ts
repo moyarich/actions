@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
 import process from "node:process";
-import { dependencyGraphJson, renderDependencyTree } from "./core";
+import { dependencyGraphJson, renderDependencyTree } from "./issue-dependency-tree";
 import { fetchDependencyGraph } from "./github";
 
 function input(name: string): string {
