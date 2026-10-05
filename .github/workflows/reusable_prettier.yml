@@ -26,6 +26,10 @@ on:
         required: false
         default: "24"
         type: string
+    secrets:
+      repository-token:
+        description: Token used to push self-healing commits, including workflow files
+        required: false
 
 permissions:
   contents: write
@@ -44,6 +48,7 @@ jobs:
           # target the contributor branch so the self-healing commit lands on
           # the branch that will be checked again.
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+          token: ${{ secrets.repository-token || github.token }}
           persist-credentials: ${{ inputs.commit }}
           fetch-depth: 1
 
