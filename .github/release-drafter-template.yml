@@ -45,7 +45,7 @@ categories:
   - type: version-resolver
     semver-increment: patch
 
-change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- moya-release:pr=$NUMBER -->"
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- release-draft-sync:pr=$NUMBER -->"
 no-changes-template: ""
 
 template: |
