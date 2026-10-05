@@ -158,6 +158,16 @@ pre {
   background: #fff;
 }
 
+.workflow-source + .workflow-source {
+  border-top: 1px solid #dfe3ec;
+}
+
+.workflow-source-missing {
+  margin: 0;
+  padding: 1rem;
+  color: #69748b;
+}
+
 .workflow-example-header {
   display: flex;
   justify-content: space-between;
@@ -167,7 +177,7 @@ pre {
   background: #f8f9fc;
 }
 
-.workflow-example pre {
+.workflow-source pre {
   margin: 0;
   border-radius: 0;
 }
