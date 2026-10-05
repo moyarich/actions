@@ -1,10 +1,7 @@
 name: Self-heal
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -41,7 +38,7 @@ jobs:
       - name: Checkout source branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -81,7 +78,7 @@ jobs:
       - name: Dispatch CI for healed branch
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          TARGET_REF: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
