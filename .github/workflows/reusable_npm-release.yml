@@ -666,6 +666,9 @@ jobs:
             ' <<< "$RELEASES"
           )"
 
+          # CHANGELOG content is the canonical public release narrative.
+          # Do not synthesize release-note bullets from commits, pull requests,
+          # CI, tests, packaging, or other maintainer-only implementation work.
           NOTES="$(jq -r '.changelog // ""' <<< "$PREVIEW_JSON" | sed '1{/^## /d;}')"
 
           BODY="$(
@@ -675,7 +678,7 @@ jobs:
               if [ -n "$NOTES" ]; then
                 echo "$NOTES"
               else
-                echo "- No package-specific changes found."
+                echo "- No user-facing changes documented for this release."
               fi
               echo
               echo "## Install"
@@ -696,6 +699,7 @@ jobs:
                 -f tag_name="$RELEASE_TAG" \
                 -f target_commitish="$TARGET_BRANCH" \
                 -f name="$RELEASE_NAME" \
+                -f body="$BODY" \
                 -F draft=true
             )"
 
