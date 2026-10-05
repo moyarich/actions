@@ -5,7 +5,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import process from "node:process";
-import { reconcileReleaseBody } from "./core";
+import { reconcileReleaseBody } from "./release-draft-sync";
 
 function input(name: string, required = false): string {
   const suffix = name.toUpperCase();
