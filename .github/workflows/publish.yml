@@ -1,0 +1,55 @@
+name: Publish
+
+run-name: >-
+  Publish · ${{ inputs.package }} · ${{ inputs.registry }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package selector
+        required: true
+        default: "."
+        type: string
+      version:
+        description: Exact version to publish; empty uses package.json
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Package registry
+        required: true
+        default: github
+        type: choice
+        options:
+          - github
+          - npm
+      tag:
+        description: Distribution tag
+        required: true
+        default: latest
+        type: string
+      dry-run:
+        description: Preview without registry mutation
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ inputs.package }}
+      version: ${{ inputs.version }}
+      registry: ${{ inputs.registry }}
+      tag: ${{ inputs.tag }}
+      dry-run: ${{ inputs.dry-run }}
+      verify-git-tag: true
+      node-version: "24"
+    secrets: inherit
