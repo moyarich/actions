@@ -161,16 +161,15 @@ Current action-backed workflows:
 
 The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/Node fragments primarily coordinate external tools, Git operations, package managers, publishing, Pages, or existing actions rather than exposing an independent reusable JavaScript capability.
 
-
 ## Distribution surfaces
 
 Workspace Tools has three separate consumer-facing surfaces:
 
-| Surface | Repository location | Consumer syntax |
-| --- | --- | --- |
+| Surface           | Repository location                | Consumer syntax                                                   |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------- |
 | Reusable workflow | `.github/workflows/reusable_*.yml` | `moyarich/workspace-tools/.github/workflows/reusable_*.yml@<ref>` |
-| GitHub Action | `actions/<action>/action.yml` | `moyarich/workspace-tools/actions/<action>@<ref>` |
-| npm CLI | `dist/bin/*.mjs` | installed through `@moyarich/workspace-tools` |
+| GitHub Action     | `actions/<action>/action.yml`      | `moyarich/workspace-tools/actions/<action>@<ref>`                 |
+| npm CLI           | `dist/bin/*.mjs`                   | installed through `@moyarich/workspace-tools`                     |
 
 Action manifests are intentionally separate from compiled runtimes. The manifest declares the GitHub Action interface, while `dist/actions/<action>/index.mjs` is the committed Node.js bundle executed by GitHub.
 
@@ -183,7 +182,6 @@ actions/discover-packages/action.yml
 ```
 
 Reusable workflows remain under `.github/workflows/` because GitHub requires reusable workflow files there. They are not distributed through the npm package.
-
 
 ## Repository-local workflow convention
 
