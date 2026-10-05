@@ -1,4 +1,4 @@
-# Moya Workspace Tools
+# Workspace Tools
 
 Reusable GitHub Actions workflows for CI, package discovery, releases, publishing, GitHub Pages, repository maintenance, and developer tooling.
 
