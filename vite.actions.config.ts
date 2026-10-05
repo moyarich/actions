@@ -4,7 +4,7 @@ export default defineConfig({
   build: {
     ssr: "src/release-draft-sync/index.ts",
     target: "node24",
-    outDir: "release-draft-sync/dist",
+    outDir: "dist/release-draft-sync",
     emptyOutDir: true,
     minify: false,
     sourcemap: false,
