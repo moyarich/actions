@@ -141,7 +141,7 @@ jobs:
           if [ ! -f "$TEMPLATE" ]; then
             TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
             gh api \
-              "repos/moyarich/actions/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF" \
+              "repos/moyarich/workspace-tools/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF" \
               --jq '.content' |
               base64 --decode > "$TEMPLATE"
           fi
