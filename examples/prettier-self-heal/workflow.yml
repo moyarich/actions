@@ -11,7 +11,7 @@ permissions:
   contents: write
 jobs:
   prettier:
-    uses: moyarich/actions/.github/workflows/reusable_prettier.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_prettier.yml@v0.1.0
     with:
       commit: ${{ inputs.commit }}
       node-version: "24"
