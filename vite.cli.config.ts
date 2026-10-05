@@ -1,15 +1,15 @@
 import { defineConfig } from "vite";
 
 const entries: Record<string, string> = {
-  "issue-dependency-tree": "src/issue-dependency-tree/cli.ts",
-  "discover-packages": "src/discover-packages/cli.ts",
-  "workspace-release": "src/workspace-tools/cli/workspace-release.ts",
-  "workspace-publish": "src/workspace-tools/cli/workspace-publish.ts",
+  "issue-dependency-tree": "src/issue-dependency-tree/issue-dependency-tree-cli.ts",
+  "discover-packages": "src/discover-packages/discover-packages-cli.ts",
+  "workspace-release": "src/release/release-cli.ts",
+  "workspace-publish": "src/publish/publish-cli.ts",
   "workspace-dependency-check":
-    "src/workspace-tools/cli/workspace-dependency-check.ts",
-  "workspace-package-lock": "src/workspace-tools/cli/workspace-package-lock.ts",
+    "src/dependency-check/dependency-check-cli.ts",
+  "workspace-package-lock": "src/package-lock/package-lock-cli.ts",
   "workspace-release-identity":
-    "src/workspace-tools/cli/workspace-release-identity.ts",
+    "src/release-identity/release-identity-cli.ts",
 };
 
 export default defineConfig(({ mode }) => {
