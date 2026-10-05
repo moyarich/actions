@@ -1,0 +1,470 @@
+name: "Reusable · Release Drafter"
+
+on:
+  workflow_call:
+    inputs:
+      target-branch:
+        description: Branch the draft release targets
+        required: false
+        default: main
+        type: string
+      version:
+        description: Optional explicit semantic version
+        required: false
+        default: ""
+        type: string
+      initial-version:
+        description: Version used for the first release when version is omitted
+        required: false
+        default: "0.1.0"
+        type: string
+      release-tag:
+        description: Optional explicit release tag; defaults to tag-prefix plus version
+        required: false
+        default: ""
+        type: string
+      tag-prefix:
+        description: Release tag prefix used for baseline detection and generated tags
+        required: false
+        default: "v"
+        type: string
+      package-name:
+        description: Optional package name for package-specific templates
+        required: false
+        default: ""
+        type: string
+      package-directory:
+        description: Optional package directory for package-specific templates
+        required: false
+        default: ""
+        type: string
+      release-name:
+        description: GitHub Release display name
+        required: true
+        type: string
+      changelog-path:
+        description: Changelog file used only to seed the first draft
+        required: false
+        default: CHANGELOG.md
+        type: string
+      template-path:
+        description: Release Drafter config template
+        required: false
+        default: .github/release-drafter-template.yml
+        type: string
+      dry-run:
+        description: Preview draft resolution without creating or modifying a GitHub Release
+        required: false
+        default: true
+        type: boolean
+    outputs:
+      version:
+        description: Resolved release version
+        value: ${{ jobs.draft.outputs.version }}
+      tag:
+        description: Resolved release tag
+        value: ${{ jobs.draft.outputs.tag }}
+      release-url:
+        description: GitHub Release draft URL when a real run occurs
+        value: ${{ jobs.draft.outputs.release-url }}
+      draft-action:
+        description: preview, created, or reused
+        value: ${{ jobs.draft.outputs.draft-action }}
+
+permissions: {}
+
+jobs:
+  draft:
+    name: "job: GitHub Release draft"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.drafter.outputs.resolved_version || steps.resolve.outputs.version }}
+      tag: ${{ steps.first-draft.outputs.tag_name || steps.drafter.outputs.tag_name || steps.resolve.outputs.tag }}
+      release-url: ${{ steps.baseline.outputs.existing-draft-url || steps.first-draft.outputs.url || steps.drafter.outputs.html_url }}
+      draft-action: ${{ inputs.dry-run && 'preview' || steps.baseline.outputs.existing-draft-id && 'preserved' || steps.first-draft.outputs.action || 'generated' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve draft identity
+        id: resolve
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          INITIAL_VERSION: ${{ inputs.initial-version }}
+          RELEASE_TAG_INPUT: ${{ inputs.release-tag }}
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          RELEASE_NAME: ${{ inputs.release-name }}
+          CHANGELOG_PATH: ${{ inputs.changelog-path }}
+          TEMPLATE_PATH: ${{ inputs.template-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${VERSION_INPUT#v}"
+          INITIAL_VERSION="${INITIAL_VERSION#v}"
+
+          if [ -n "$VERSION" ] && ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must be a SemVer value such as 0.1.0."
+            exit 1
+          fi
+
+          if ! [[ "$INITIAL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Initial version must be a SemVer value such as 0.1.0."
+            exit 1
+          fi
+
+          if [ ! -f "$TEMPLATE_PATH" ]; then
+            echo "::error::Release Drafter template not found: $TEMPLATE_PATH"
+            exit 1
+          fi
+
+          RESOLVED_VERSION="${VERSION:-$INITIAL_VERSION}"
+          TAG="${RELEASE_TAG_INPUT:-${TAG_PREFIX}${RESOLVED_VERSION}}"
+          RESOLVED_RELEASE_NAME="${RELEASE_NAME//\{\{VERSION\}\}/$RESOLVED_VERSION}"
+
+          NOTES=""
+
+          if [ -f "$CHANGELOG_PATH" ]; then
+            NOTES="$(
+              awk -v version="$RESOLVED_VERSION" '
+                $0 == "## [" version "]" || $0 == "## " version { capture=1; next }
+                capture && /^## / { exit }
+                capture { print }
+              ' "$CHANGELOG_PATH"
+            )"
+
+            NOTES="$(printf '%s\n' "$NOTES" | awk 'NF { seen=1 } seen { lines[++n]=$0 } END { while (n && lines[n] == "") n--; for (i=1;i<=n;i++) print lines[i] }')"
+          fi
+
+          if [ -z "$NOTES" ]; then
+            if [ -n "${{ inputs.package-directory }}" ]; then
+              COMMIT_SCOPE=(-- "${{ inputs.package-directory }}")
+            else
+              COMMIT_SCOPE=()
+            fi
+
+            COMMITS="$(
+              git log \
+                --reverse \
+                --format='%s%x09%h' \
+                HEAD \
+                "${COMMIT_SCOPE[@]}"
+            )"
+
+            NOTES="$(
+              COMMITS="$COMMITS" node --input-type=module <<'NODE'
+          const rows = (process.env.COMMITS || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          const groups = new Map([
+            ["Features", []],
+            ["Fixes", []],
+            ["Documentation", []],
+            ["Maintenance", []],
+          ]);
+
+          const seen = new Set();
+
+          for (const row of rows) {
+            const [subject, hash = ""] = row.split("\t", 2);
+
+            if (!subject || /^release(?:\\([^)]*\\))?:/i.test(subject)) {
+              continue;
+            }
+
+            const match = subject.match(
+              /^(feat|fix|docs|refactor|perf|build|ci|chore|test|style)(?:\\([^)]*\\))?!?:\\s*(.+)$/i,
+            );
+
+            const type = match?.[1]?.toLowerCase() || "chore";
+            const summary = (match?.[2] || subject)
+              .replace(/\\s*\\(#\\d+\\)$/, "")
+              .trim();
+
+            const key = summary.toLowerCase();
+
+            if (!summary || seen.has(key)) {
+              continue;
+            }
+
+            seen.add(key);
+
+            const item = hash ? `- ${summary} (${hash})` : `- ${summary}`;
+
+            if (type === "feat") {
+              groups.get("Features").push(item);
+            } else if (type === "fix") {
+              groups.get("Fixes").push(item);
+            } else if (type === "docs") {
+              groups.get("Documentation").push(item);
+            } else {
+              groups.get("Maintenance").push(item);
+            }
+          }
+
+          const sections = [];
+
+          for (const [title, items] of groups) {
+            if (items.length) {
+              sections.push(`### ${title}\n\n${items.join("\n")}`);
+            }
+          }
+
+          process.stdout.write(
+            sections.join("\n\n") || "- No scoped changes found.",
+          );
+          NODE
+            )"
+          fi
+
+          {
+            echo "version=$RESOLVED_VERSION"
+            echo "tag=$TAG"
+            echo "name=$RESOLVED_RELEASE_NAME"
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release baseline
+        id: baseline
+        env:
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
+
+          PREVIOUS_TAG="$(
+            jq -r --arg prefix "$TAG_PREFIX" '
+              [
+                .[][] |
+                select(
+                  .draft == false and
+                  (.tag_name | startswith($prefix))
+                )
+              ]
+              | sort_by(.published_at // .created_at)
+              | last
+              | .tag_name // empty
+            ' <<< "$RELEASES"
+          )"
+
+          EXISTING_GIT_TAG="$(
+            git tag --list "${TAG_PREFIX}*" |
+              sort -V |
+              tail -n 1
+          )"
+
+          EXISTING_DRAFT_ID=""
+          EXISTING_DRAFT_URL=""
+          EXISTING_DRAFT_NAME=""
+
+          if [ -n "$EXISTING_GIT_TAG" ] && [ "$EXISTING_GIT_TAG" != "$PREVIOUS_TAG" ]; then
+            EXISTING_DRAFT="$(
+              jq -c --arg tag "$EXISTING_GIT_TAG" '
+                [
+                  .[][] |
+                  select(.draft == true and .tag_name == $tag)
+                ]
+                | first // empty
+              ' <<< "$RELEASES"
+            )"
+
+            if [ -z "$EXISTING_DRAFT" ]; then
+              echo "::error::Found orphan release tag '$EXISTING_GIT_TAG'."
+              echo "::error::Expected a matching draft or published GitHub Release before continuing."
+              exit 1
+            fi
+
+            EXISTING_DRAFT_ID="$(jq -r '.id' <<< "$EXISTING_DRAFT")"
+            EXISTING_DRAFT_URL="$(jq -r '.html_url' <<< "$EXISTING_DRAFT")"
+            EXISTING_DRAFT_NAME="$(jq -r '.name' <<< "$EXISTING_DRAFT")"
+          fi
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "first-release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "first-release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "previous-tag=$PREVIOUS_TAG"
+            echo "existing-git-tag=$EXISTING_GIT_TAG"
+            echo "existing-draft-id=$EXISTING_DRAFT_ID"
+            echo "existing-draft-url=$EXISTING_DRAFT_URL"
+            echo "existing-draft-name=$EXISTING_DRAFT_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate Release Drafter config
+        env:
+          TEMPLATE_PATH: ${{ inputs.template-path }}
+          RELEASE_NAME: ${{ inputs.release-name }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          PACKAGE_DIRECTORY: ${{ inputs.package-directory }}
+          EXPLICIT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const template = readFileSync(process.env.TEMPLATE_PATH, "utf8");
+          const versionToken = process.env.EXPLICIT_VERSION || "$RESOLVED_VERSION";
+          const releaseName = process.env.RELEASE_NAME.replaceAll(
+            "{{VERSION}}",
+            versionToken,
+          );
+          const releaseTag =
+            process.env.RELEASE_TAG ||
+            `${process.env.TAG_PREFIX}${versionToken}`;
+
+          const config = template
+            .replaceAll("{{PACKAGE_NAME}}", process.env.PACKAGE_NAME)
+            .replaceAll("{{PACKAGE_DIRECTORY}}", process.env.PACKAGE_DIRECTORY)
+            .replaceAll("{{RELEASE_NAME_TEMPLATE}}", releaseName)
+            .replaceAll("{{TAG_TEMPLATE}}", releaseTag)
+            .replaceAll("{{TAG_PREFIX}}", process.env.TAG_PREFIX);
+
+          writeFileSync(
+            ".github/release-drafter-generated.yml",
+            config,
+          );
+          NODE
+
+      - name: Preview draft
+        if: ${{ inputs.dry-run }}
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          RELEASE_NAME: ${{ steps.resolve.outputs.name }}
+          NOTES: ${{ steps.resolve.outputs.notes }}
+        shell: bash
+        run: |
+          {
+            echo "# GitHub Release draft preview"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Release | `$RELEASE_NAME` |"
+            echo "| Tag | `$TAG` |"
+            echo "| Target branch | `${{ inputs.target-branch }}` |"
+            echo "| Dry run | **true** |"
+            echo
+            if [ "${{ steps.baseline.outputs.first-release }}" = "true" ]; then
+              echo "## First draft body"
+            else
+              echo "## Subsequent draft"
+            fi
+            echo
+            if [ "${{ steps.baseline.outputs.first-release }}" = "true" ]; then
+              if [ -n "$NOTES" ]; then
+                echo "$NOTES"
+              else
+                echo "- No changelog entry found for this version."
+              fi
+            else
+              echo "Release notes will be generated from merged pull requests using the Release Drafter template."
+            fi
+            echo
+            echo "> No GitHub Release was created or modified."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create first release draft
+        id: first-draft
+        if: ${{ !inputs.dry-run && steps.baseline.outputs.first-release == 'true' && steps.baseline.outputs.existing-draft-id == '' }}
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          RELEASE_NAME: ${{ steps.resolve.outputs.name }}
+          NOTES: ${{ steps.resolve.outputs.notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
+
+          EXISTING="$(
+            jq -c --arg tag "$TAG" '
+              [.[][] | select(.draft == true and .tag_name == $tag)]
+              | first // empty
+            ' <<< "$RELEASES"
+          )"
+
+          if [ -n "$EXISTING" ]; then
+            RELEASE="$EXISTING"
+            ACTION=reused
+          else
+            BODY="$(
+              {
+                echo "## Release notes"
+                echo
+                echo "$NOTES"
+              }
+            )"
+
+            RELEASE="$(
+              gh api \
+                --method POST \
+                "repos/$GH_REPO/releases" \
+                -f tag_name="$TAG" \
+                -f target_commitish="${{ inputs.target-branch }}" \
+                -f name="$RELEASE_NAME" \
+                -f body="$BODY" \
+                -F draft=true
+            )"
+            ACTION=created
+          fi
+
+          {
+            echo "url=$(jq -r '.html_url' <<< "$RELEASE")"
+            echo "name=$(jq -r '.name' <<< "$RELEASE")"
+            echo "tag_name=$(jq -r '.tag_name' <<< "$RELEASE")"
+            echo "action=$ACTION"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update subsequent release draft
+        id: drafter
+        if: ${{ !inputs.dry-run && steps.baseline.outputs.first-release == 'false' && steps.baseline.outputs.existing-draft-id == '' }}
+        uses: release-drafter/release-drafter@v7.7.0
+        with:
+          config-name: file:release-drafter-generated.yml
+          commitish: ${{ inputs.target-branch }}
+          version: ${{ inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Draft summary
+        if: ${{ !inputs.dry-run }}
+        shell: bash
+        run: |
+          URL="${{ steps.baseline.outputs.existing-draft-url || steps.first-draft.outputs.url || steps.drafter.outputs.html_url }}"
+          ACTION="${{ steps.baseline.outputs.existing-draft-id && 'preserved' || steps.first-draft.outputs.action || 'generated' }}"
+          NAME="${{ steps.baseline.outputs.existing-draft-name || steps.first-draft.outputs.name || steps.drafter.outputs.name }}"
+          TAG="${{ steps.baseline.outputs.existing-git-tag || steps.first-draft.outputs.tag_name || steps.drafter.outputs.tag_name }}"
+
+          {
+            echo "## Release draft"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Release | `$NAME` |"
+            echo "| Tag | `$TAG` |"
+            echo "| Action | **$ACTION** |"
+            echo "| State | **draft** |"
+            echo "| Draft | [Open draft]($URL) |"
+          } >> "$GITHUB_STEP_SUMMARY"

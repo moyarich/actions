@@ -1,0 +1,65 @@
+name-template: "{{RELEASE_NAME_TEMPLATE}}"
+tag-template: "{{TAG_TEMPLATE}}"
+tag-prefix: "{{TAG_PREFIX}}"
+
+include-paths:
+  - "{{PACKAGE_DIRECTORY}}/**"
+
+categories:
+  - title: "Features"
+    labels:
+      - enhancement
+      - feature
+
+  - title: "Bug fixes"
+    labels:
+      - bug
+      - fix
+
+  - title: "Documentation"
+    labels:
+      - documentation
+      - docs
+
+  - title: "Dependencies"
+    labels:
+      - dependencies
+
+exclude-labels:
+  - skip-changelog
+  - chore
+  - maintenance
+  - ci
+  - tests
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+
+version-resolver:
+  major:
+    labels:
+      - breaking
+  minor:
+    labels:
+      - enhancement
+      - feature
+  patch:
+    labels:
+      - bug
+      - fix
+      - dependencies
+      - documentation
+      - docs
+  default: patch
+
+template: |
+  <!-- moya-release-draft:candidate package={{PACKAGE_NAME}} -->
+
+  ## Release notes
+
+  $CHANGES
+
+  ## Install
+
+  ```sh
+  npm install {{PACKAGE_NAME}}@$RESOLVED_VERSION
+  ```
