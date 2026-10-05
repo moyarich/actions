@@ -1,4 +1,4 @@
-name: "Reusable · Release npm package"
+# DEPRECATED: kept for backward compatibility with existing callers.\n# New repositories should use reusable_release-draft.yml together with the\n# release/publish workflows. Do not remove this file until existing callers\n# have migrated.\nname: "Reusable · Release npm package (deprecated)"
 
 on:
   workflow_dispatch:
