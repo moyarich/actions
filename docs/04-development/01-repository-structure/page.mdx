@@ -15,10 +15,25 @@ docs/             # authoritative documentation
 
 examples/         # authoritative copyable callers
 
-scripts/          # reusable workflow implementation helpers and repository tooling
+src/
+└── release-draft-sync/
+    ├── core.ts           # reusable release-draft behavior
+    ├── action.ts         # GitHub Actions input/output adapter
+    └── index.ts          # runtime entry point
+
+tests/
+└── release-draft-sync/   # Vitest coverage for core + action adapter
+
+dist/
+└── release-draft-sync/   # Vite-built runtime committed for GitHub Actions
+
+release-draft-sync/
+└── action.yml            # public standalone action entry point
+
+scripts/                  # repository tooling that is not an action runtime
 
 .github/
-└── workflows/    # public reusable workflows plus repository-local callers
+└── workflows/            # public reusable workflows plus repository-local callers
 ```
 
 ## Content ownership
@@ -31,13 +46,28 @@ scripts/          # reusable workflow implementation helpers and repository tool
 
 The playground currently imports `examples/*/workflow.yml` directly as raw source.
 
-## Workflow and script boundary
+## Workflow, action, and source boundaries
 
 `.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. Other workflows in that directory are repository-local callers or maintenance automation.
 
-`scripts/*` is available for shared implementation logic. Reusable workflows should prefer a script helper when nontrivial logic would otherwise be duplicated or become difficult to test inside YAML. A workflow may load a version-matched helper from this repository so the script implementation stays aligned with the workflow ref used by the caller.
+Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. Their maintainable TypeScript source lives under `src/<action>/`, Vite writes the committed runtime to `dist/<action>/`, and a top-level `<action>/action.yml` keeps the consumer path concise.
 
-Scripts that exist only to implement a workflow are not automatically a separate public CLI API. Document a script as directly consumer-facing only when callers are expected to invoke it themselves.
+For example:
+
+```text
+src/release-draft-sync/
+├── core.ts
+├── action.ts
+└── index.ts
+        ↓ vite build
+dist/release-draft-sync/
+        ↑
+release-draft-sync/action.yml
+```
+
+The committed `dist/` output lets repository-local workflows use the exact action implementation at the running commit and lets external consumers pin released refs. CI rebuilds action bundles and fails when the committed runtime is stale.
+
+`scripts/*` remains for repository tooling that is not the runtime implementation of a standalone action.
 
 ## Why examples are not nested under .github/workflows
 
@@ -48,3 +78,13 @@ This keeps the repository structure consistent with Console and MoyaForge while 
 ## Dependency boundary
 
 Moya Actions is upstream automation infrastructure. The playground must not require MoyaForge in order to build or run, because MoyaForge may itself consume automation from this repository.
+
+## Action tests
+
+Action source is tested with Vitest under `tests/<action>/`. Keep behavioral reconciliation tests against `core.ts` and GitHub Actions environment/file adapter tests against `action.ts`.
+
+```sh
+npm run test:actions
+```
+
+The Vite bundle is generated separately with `npm run build:actions`; CI then verifies the committed `dist/` output matches that build.

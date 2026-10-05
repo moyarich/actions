@@ -6,7 +6,10 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/actions-playground",
-    "build:playground": "npm run build --workspace @moyarich/actions-playground"
+    "build:playground": "npm run build --workspace @moyarich/actions-playground",
+    "build:actions": "vite build --config vite.actions.config.ts",
+    "test:actions": "vitest run tests/release-draft-sync",
+    "test": "vitest run"
   },
   "license": "MIT",
   "repository": {
@@ -14,7 +17,9 @@
     "url": "git+https://github.com/moyarich/actions.git"
   },
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vite": "^7.1.5",
+    "vitest": "^3.2.4"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"

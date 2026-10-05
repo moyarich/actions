@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -23,8 +20,50 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
       - name: Validate reusable workflows
         run: node scripts/validate-reusable-workflows.mjs
 
-      - name: Test persistent release draft reconciliation
-        run: node scripts/release-draft.mjs self-test
+      - name: Build action runtime
+        run: npm run build:actions
+
+      - name: Test action runtime
+        run: npm run test:actions
+
+      - name: Prepare packaged action smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'Maintainer-authored release text.' > /tmp/existing-release-body.md
+          printf '%s\n' '### Changes' '- Added generated entry. <!-- release-draft-sync:pr=123 -->' > /tmp/generated-release-body.md
+          : > /tmp/reconciled-release-body.md
+
+      - name: Run packaged release draft sync action
+        uses: ./release-draft-sync
+        with:
+          existing-body-file: /tmp/existing-release-body.md
+          generated-body-file: /tmp/generated-release-body.md
+          output-file: /tmp/reconciled-release-body.md
+          target-key: smoke-test
+          seed-sha: ${{ github.sha }}
+
+      - name: Verify packaged action output
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'Maintainer-authored release text.' /tmp/reconciled-release-body.md
+          grep -F 'Added generated entry.' /tmp/reconciled-release-body.md
+
+      - name: Check committed action dist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
+            echo "::error::Committed dist/ does not match the Vite build."
+            git status --short -- dist/
+            git diff --text -- dist/
+            exit 1
+          fi

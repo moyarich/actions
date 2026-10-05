@@ -127,7 +127,7 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Load version-matched draft helper and template
+      - name: Load version-matched draft template
         id: assets
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
@@ -136,22 +136,17 @@ jobs:
           set -euo pipefail
 
           ACTIONS_REF="$(printf '%s' "$WORKFLOW_REF" | sed 's/.*@//')"
-          HELPER="$RUNNER_TEMP/moya-release-draft.mjs"
           TEMPLATE="$TEMPLATE_PATH"
-
-          gh api             "repos/moyarich/actions/contents/scripts/release-draft.mjs?ref=$ACTIONS_REF"             --jq '.content' |
-            base64 --decode > "$HELPER"
-
-          node "$HELPER" self-test
 
           if [ ! -f "$TEMPLATE" ]; then
             TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
-            gh api               "repos/moyarich/actions/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF"               --jq '.content' |
+            gh api \
+              "repos/moyarich/actions/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF" \
+              --jq '.content' |
               base64 --decode > "$TEMPLATE"
           fi
 
           {
-            echo "helper=$HELPER"
             echo "template=$TEMPLATE"
             echo "actions-ref=$ACTIONS_REF"
           } >> "$GITHUB_OUTPUT"
@@ -191,7 +186,7 @@ jobs:
           )"
 
           EXISTING="$(
-            jq -c --arg marker "<!-- moya-release:target=$TARGET_KEY -->" '
+            jq -c --arg marker "<!-- release-draft-sync:target=$TARGET_KEY -->" '
               [
                 .[][] |
                 select(
@@ -239,7 +234,7 @@ jobs:
             jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
 
             SEED_SHA="$(
-              sed -n 's/.*moya-release:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
                 head -n 1
             )"
 
@@ -367,14 +362,10 @@ jobs:
             echo "name=$NAME"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Reconcile persistent draft body
-        id: reconcile
+      - name: Prepare draft reconciliation
+        id: reconcile-inputs
         env:
-          HELPER: ${{ steps.assets.outputs.helper }}
-          EXISTING_BODY_FILE: ${{ steps.history.outputs.existing-body-file }}
           GENERATED_BODY: ${{ steps.drafter.outputs.body }}
-          RELEASE_VERSION: ${{ steps.identity.outputs.version }}
-          TARGET_KEY: ${{ steps.history.outputs.target-key }}
           EXISTING_SEED_SHA: ${{ steps.history.outputs.seed-sha }}
         shell: bash
         run: |
@@ -387,15 +378,27 @@ jobs:
 
           SEED_SHA="$EXISTING_SEED_SHA"
           if [ -z "$SEED_SHA" ]; then
-            SEED_SHA="$GITHUB_SHA"
+            SEED_SHA="$(git rev-parse HEAD)"
           fi
 
-          node "$HELPER" reconcile             --existing-file "$EXISTING_BODY_FILE"             --generated-file "$GENERATED_FILE"             --output "$RESULT_FILE"             --changelog "$CHANGELOG_PATH"             --version "$RELEASE_VERSION"             --target-key "$TARGET_KEY"             --seed-sha "$SEED_SHA"             --target-path "$TARGET_PATH"
-
           {
-            echo "file=$RESULT_FILE"
+            echo "generated-file=$GENERATED_FILE"
+            echo "result-file=$RESULT_FILE"
             echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Reconcile persistent draft body
+        id: reconcile
+        uses: $/release-draft-sync
+        with:
+          existing-body-file: ${{ steps.history.outputs.existing-body-file }}
+          generated-body-file: ${{ steps.reconcile-inputs.outputs.generated-file }}
+          output-file: ${{ steps.reconcile-inputs.outputs.result-file }}
+          changelog-path: ${{ inputs.changelog-path }}
+          version: ${{ steps.identity.outputs.version }}
+          target-key: ${{ steps.history.outputs.target-key }}
+          seed-sha: ${{ steps.reconcile-inputs.outputs.seed-sha }}
+          target-path: ${{ inputs.package-directory }}
 
       - name: Create or update persistent draft
         id: write

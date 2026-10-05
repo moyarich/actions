@@ -36,6 +36,18 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 | `reusable_manage-issue-dependencies.yml`  | Manage native GitHub issue blocking relationships.                                         |
 | `reusable_show-issue-dependency-tree.yml` | Render an issue dependency tree, including cycle-aware output.                             |
 
+## Standalone actions
+
+| Action               | Use it to                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `release-draft-sync` | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
+
+Use the standalone action directly when you need the lower-level release draft reconciliation behavior:
+
+```yaml
+- uses: moyarich/actions/release-draft-sync@v1
+```
+
 ## Using a workflow
 
 Create a workflow in the consuming repository and call the reusable workflow with `uses`:

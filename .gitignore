@@ -80,7 +80,6 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 .output
 
 # Gatsby files
@@ -147,3 +146,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Ignore nested generated dist folders; root /dist is committed action runtime
+**/*/dist/
