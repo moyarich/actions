@@ -14,11 +14,15 @@ Every public workflow lives directly in `.github/workflows/` and uses the `reusa
 - `reusable_prettier.yml` — Prettier formatting with optional self-healing commits.
 - `reusable_discover-packages.yml` — workspace package discovery using `@moyarich/workspace-tools`.
 
+## Release drafts
+
+- `reusable_release-drafter.yml` — create or update GitHub Release drafts. This is draft preparation only; it does not replace the npm release workflow.
+
 ## npm release and publishing
 
 - `reusable_npm-package-lock.yml` — npm lockfile validation and optional self-healing commits.
 - `reusable_npm-prepare-release.yml` — prepare package versions and release state.
-- `reusable_npm-release.yml` — package release orchestration.
+- `reusable_npm-release.yml` — perform the npm package release lifecycle for existing and new callers.
 - `reusable_npm-publish.yml` — publish prepared npm packages.
 - `reusable_codemod-publish.yml` — publish Codemod Registry packages.
 
