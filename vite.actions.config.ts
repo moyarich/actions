@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 const entries = {
   "release-draft-sync": "src/release-draft-sync/index.ts",
   "discover-packages": "src/discover-packages/index.ts",
+  "issue-dependency-tree": "src/issue-dependency-tree/index.ts",
 };
 
 export default defineConfig({

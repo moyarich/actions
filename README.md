@@ -38,17 +38,33 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 
 ## Standalone actions
 
-| Action               | Use it to                                                                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `release-draft-sync` | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
-| `discover-packages`  | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
+| Action                  | Use it to                                                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `release-draft-sync`    | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
+| `discover-packages`     | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
+| `issue-dependency-tree` | Render native GitHub issue blocking relationships as a cycle-aware dependency tree.                                                      |
 
 Use standalone actions directly when you need the lower-level executable behavior:
 
 ```yaml
 - uses: moyarich/actions/release-draft-sync@v1
 - uses: moyarich/actions/discover-packages@v1
+- uses: moyarich/actions/issue-dependency-tree@v1
 ```
+
+## CLI
+
+The package also ships an `issue-dependency-tree` CLI built from the same dependency-graph core used by the GitHub Action.
+
+```sh
+issue-dependency-tree
+issue-dependency-tree --repo moyarich/actions
+issue-dependency-tree --root 29
+issue-dependency-tree --interactive
+issue-dependency-tree --json
+```
+
+Interactive mode uses the external `fzf` executable with multi-select. `fzf` is optional; non-interactive tree and JSON output do not require it.
 
 ## Using a workflow
 
