@@ -16,31 +16,46 @@ docs/             # authoritative documentation
 examples/         # authoritative copyable callers
 
 src/
-├── release-draft-sync/
-│   ├── core.ts
-│   ├── action.ts
-│   └── index.ts
 ├── discover-packages/
-│   ├── core.ts
+│   ├── discover-packages.ts
+│   ├── discover-packages-cli.ts
 │   ├── action.ts
 │   └── index.ts
-└── issue-dependency-tree/
-    ├── core.ts
-    ├── github.ts
-    ├── action.ts
-    ├── cli.ts
-    └── index.ts
-
-tests/
+├── issue-dependency-tree/
+│   ├── issue-dependency-tree.ts
+│   ├── issue-dependency-tree-cli.ts
+│   ├── github.ts
+│   ├── action.ts
+│   └── index.ts
 ├── release-draft-sync/
-└── discover-packages/
+│   ├── release-draft-sync.ts
+│   ├── action.ts
+│   └── index.ts
+├── dependency-check/
+│   ├── dependency-check.ts
+│   └── dependency-check-cli.ts
+├── package-lock/
+│   ├── package-lock.ts
+│   └── package-lock-cli.ts
+├── publish/
+│   ├── publish.ts
+│   └── publish-cli.ts
+├── release/
+│   ├── release.ts
+│   └── release-cli.ts
+├── release-identity/
+│   ├── release-identity.ts
+│   └── release-identity-cli.ts
+└── workspace/
+    └── workspace.ts
+
+tests/            # mirrors source capability directories
 
 dist/
 ├── release-draft-sync/
 ├── discover-packages/
 ├── issue-dependency-tree/
 └── bin/
-    └── issue-dependency-tree.mjs
 
 release-draft-sync/
 └── action.yml
@@ -51,10 +66,10 @@ discover-packages/
 issue-dependency-tree/
 └── action.yml
 
-scripts/                  # repository tooling that is not an action runtime
+scripts/          # repository tooling that is not an action runtime
 
 .github/
-└── workflows/            # public reusable workflows plus repository-local callers
+└── workflows/    # public reusable workflows plus repository-local callers
 ```
 
 ## Content ownership
@@ -77,7 +92,7 @@ For example:
 
 ```text
 src/<action>/
-├── core.ts
+├── <action>.ts
 ├── action.ts
 └── index.ts
         ↓ vite build
@@ -102,7 +117,7 @@ Workspace Tools is upstream automation infrastructure. The playground must not r
 
 ## Action tests
 
-Action source is tested with Vitest under `tests/<action>/`. Keep behavioral reconciliation tests against `core.ts` and GitHub Actions environment/file adapter tests against `action.ts`.
+Action source is tested with Vitest under `tests/<action>/`. Keep behavioral tests against the feature-named implementation file and GitHub Actions environment/file adapter tests against `action.ts`.
 
 ```sh
 npm run test:actions
@@ -114,13 +129,13 @@ The Vite bundle is generated separately with `npm run build:actions`; CI then ve
 
 Use the same boundary for every standalone JavaScript action:
 
-- `core.ts` contains reusable program logic and does not depend on GitHub Actions environment variables.
-- `action.ts` adapts action inputs, outputs, summaries, and files to the core API.
+- `<feature>.ts` contains reusable program logic and does not depend on GitHub Actions environment variables.
+- `action.ts` adapts action inputs, outputs, summaries, and files to the feature implementation.
 - `index.ts` is a minimal runtime entry point.
-- `tests/<action>/` contains Vitest coverage for both core behavior and the action adapter.
+- `tests/<action>/` contains Vitest coverage for both feature behavior and the action adapter.
 - Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
 - `<action>/action.yml` exposes the short consumer path `moyarich/workspace-tools/<action>@<ref>`.
-- Actions that also expose a terminal interface may add `cli.ts`; the CLI delegates to the same core rather than duplicating behavior.
+- Actions that also expose a terminal interface may add `<feature>-cli.ts`; the CLI delegates to the same feature implementation rather than duplicating behavior.
 - CLI bundles live under `dist/bin/` and are published through the package `bin` map.
 - Interactive terminal integrations such as `fzf` remain optional external tools and do not leak into the non-interactive Action runtime.
 
