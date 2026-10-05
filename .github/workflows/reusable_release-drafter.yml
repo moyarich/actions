@@ -1,10 +1,15 @@
+# Persistent Release Drafter workflow.
+#
+# Release Drafter discovers, filters, categorizes, and versions merged pull
+# requests. This wrapper owns the GitHub Release body so reviewer-authored text
+# is preserved and newly discovered PR entries are appended idempotently.
 name: "Reusable · Release Drafter"
 
 on:
   workflow_call:
     inputs:
       target-branch:
-        description: Branch the draft release targets
+        description: Branch whose merged PRs feed the draft
         required: false
         default: main
         type: string
@@ -14,46 +19,51 @@ on:
         default: ""
         type: string
       initial-version:
-        description: Version used for the first release when version is omitted
+        description: Version used when the target has no published releases
         required: false
         default: "0.1.0"
         type: string
       release-tag:
-        description: Optional explicit release tag; defaults to tag-prefix plus version
+        description: Optional explicit release tag
         required: false
         default: ""
         type: string
       tag-prefix:
-        description: Release tag prefix used for baseline detection and generated tags
+        description: Prefix used to identify releases for this target
         required: false
         default: "v"
         type: string
       package-name:
-        description: Optional package name for package-specific templates
+        description: Optional package name
         required: false
         default: ""
         type: string
       package-directory:
-        description: Optional package directory for package-specific templates
+        description: Optional package or application path used for PR and commit scoping
+        required: false
+        default: ""
+        type: string
+      target-key:
+        description: Stable draft target identifier; derived when omitted
         required: false
         default: ""
         type: string
       release-name:
-        description: GitHub Release display name
+        description: Release name or template containing {{VERSION}}
         required: true
         type: string
       changelog-path:
-        description: Changelog file used only to seed the first draft
+        description: Changelog used only to seed a missing draft
         required: false
         default: CHANGELOG.md
         type: string
       template-path:
-        description: Release Drafter config template
+        description: Caller-local Release Drafter template path, with version-matched actions fallback
         required: false
         default: .github/release-drafter-template.yml
         type: string
       dry-run:
-        description: Preview draft resolution without creating or modifying a GitHub Release
+        description: Preview the resulting persistent draft without writing it
         required: false
         default: true
         type: boolean
@@ -65,186 +75,103 @@ on:
         description: Resolved release tag
         value: ${{ jobs.draft.outputs.tag }}
       release-url:
-        description: GitHub Release draft URL when a real run occurs
+        description: GitHub Release draft URL
         value: ${{ jobs.draft.outputs.release-url }}
       draft-action:
-        description: preview, created, or reused
+        description: previewed, created, or updated
         value: ${{ jobs.draft.outputs.draft-action }}
 
 permissions: {}
 
 jobs:
   draft:
-    name: "job: GitHub Release draft"
+    name: "job: Persistent release draft"
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
+    concurrency:
+      group: release-draft-${{ github.repository }}-${{ inputs.target-key || inputs.package-directory || inputs.package-name || 'root' }}
+      cancel-in-progress: false
     outputs:
-      version: ${{ steps.drafter.outputs.resolved_version || steps.resolve.outputs.version }}
-      tag: ${{ steps.first-draft.outputs.tag_name || steps.drafter.outputs.tag_name || steps.resolve.outputs.tag }}
-      release-url: ${{ steps.baseline.outputs.existing-draft-url || steps.first-draft.outputs.url || steps.drafter.outputs.html_url }}
-      draft-action: ${{ inputs.dry-run && 'preview' || steps.baseline.outputs.existing-draft-id && 'preserved' || steps.first-draft.outputs.action || 'generated' }}
+      version: ${{ steps.identity.outputs.version }}
+      tag: ${{ steps.identity.outputs.tag }}
+      release-url: ${{ steps.write.outputs.url }}
+      draft-action: ${{ steps.write.outputs.action }}
+
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      TARGET_BRANCH: ${{ inputs.target-branch }}
+      TARGET_PATH: ${{ inputs.package-directory }}
+      TARGET_KEY_INPUT: ${{ inputs.target-key }}
+      PACKAGE_NAME: ${{ inputs.package-name }}
+      CHANGELOG_PATH: ${{ inputs.changelog-path }}
+      TEMPLATE_PATH: ${{ inputs.template-path }}
+      TAG_PREFIX: ${{ inputs.tag-prefix }}
+      RELEASE_TAG_INPUT: ${{ inputs.release-tag }}
+      RELEASE_NAME_INPUT: ${{ inputs.release-name }}
+      INPUT_VERSION: ${{ inputs.version }}
+      INITIAL_VERSION: ${{ inputs.initial-version }}
 
     steps:
-      - name: Checkout target branch
+      - name: Checkout caller repository
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve draft identity
-        id: resolve
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Load version-matched draft helper and template
+        id: assets
         env:
-          VERSION_INPUT: ${{ inputs.version }}
-          INITIAL_VERSION: ${{ inputs.initial-version }}
-          RELEASE_TAG_INPUT: ${{ inputs.release-tag }}
-          TAG_PREFIX: ${{ inputs.tag-prefix }}
-          RELEASE_NAME: ${{ inputs.release-name }}
-          CHANGELOG_PATH: ${{ inputs.changelog-path }}
-          TEMPLATE_PATH: ${{ inputs.template-path }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         shell: bash
         run: |
           set -euo pipefail
 
-          VERSION="${VERSION_INPUT#v}"
-          INITIAL_VERSION="${INITIAL_VERSION#v}"
+          ACTIONS_REF="$(printf '%s' "$WORKFLOW_REF" | sed 's/.*@//')"
+          HELPER="$RUNNER_TEMP/moya-release-draft.mjs"
+          TEMPLATE="$TEMPLATE_PATH"
 
-          if [ -n "$VERSION" ] && ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Version must be a SemVer value such as 0.1.0."
-            exit 1
-          fi
+          gh api             "repos/moyarich/actions/contents/scripts/release-draft.mjs?ref=$ACTIONS_REF"             --jq '.content' |
+            base64 --decode > "$HELPER"
 
-          if ! [[ "$INITIAL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Initial version must be a SemVer value such as 0.1.0."
-            exit 1
-          fi
+          node "$HELPER" self-test
 
-          if [ ! -f "$TEMPLATE_PATH" ]; then
-            echo "::error::Release Drafter template not found: $TEMPLATE_PATH"
-            exit 1
-          fi
-
-          RESOLVED_VERSION="${VERSION:-$INITIAL_VERSION}"
-          TAG="${RELEASE_TAG_INPUT:-${TAG_PREFIX}${RESOLVED_VERSION}}"
-          RESOLVED_RELEASE_NAME="${RELEASE_NAME//\{\{VERSION\}\}/$RESOLVED_VERSION}"
-
-          NOTES=""
-
-          if [ -f "$CHANGELOG_PATH" ]; then
-            NOTES="$(
-              awk -v version="$RESOLVED_VERSION" '
-                $0 == "## [" version "]" || $0 == "## " version { capture=1; next }
-                capture && /^## / { exit }
-                capture { print }
-              ' "$CHANGELOG_PATH"
-            )"
-
-            NOTES="$(printf '%s\n' "$NOTES" | awk 'NF { seen=1 } seen { lines[++n]=$0 } END { while (n && lines[n] == "") n--; for (i=1;i<=n;i++) print lines[i] }')"
-          fi
-
-          if [ -z "$NOTES" ]; then
-            if [ -n "${{ inputs.package-directory }}" ]; then
-              COMMIT_SCOPE=(-- "${{ inputs.package-directory }}")
-            else
-              COMMIT_SCOPE=()
-            fi
-
-            COMMITS="$(
-              git log \
-                --reverse \
-                --format='%s%x09%h' \
-                HEAD \
-                "${COMMIT_SCOPE[@]}"
-            )"
-
-            NOTES="$(
-              COMMITS="$COMMITS" node --input-type=module <<'NODE'
-          const rows = (process.env.COMMITS || "")
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
-
-          const groups = new Map([
-            ["Features", []],
-            ["Fixes", []],
-            ["Documentation", []],
-            ["Maintenance", []],
-          ]);
-
-          const seen = new Set();
-
-          for (const row of rows) {
-            const [subject, hash = ""] = row.split("\t", 2);
-
-            if (!subject || /^release(?:\\([^)]*\\))?:/i.test(subject)) {
-              continue;
-            }
-
-            const match = subject.match(
-              /^(feat|fix|docs|refactor|perf|build|ci|chore|test|style)(?:\\([^)]*\\))?!?:\\s*(.+)$/i,
-            );
-
-            const type = match?.[1]?.toLowerCase() || "chore";
-            const summary = (match?.[2] || subject)
-              .replace(/\\s*\\(#\\d+\\)$/, "")
-              .trim();
-
-            const key = summary.toLowerCase();
-
-            if (!summary || seen.has(key)) {
-              continue;
-            }
-
-            seen.add(key);
-
-            const item = hash ? `- ${summary} (${hash})` : `- ${summary}`;
-
-            if (type === "feat") {
-              groups.get("Features").push(item);
-            } else if (type === "fix") {
-              groups.get("Fixes").push(item);
-            } else if (type === "docs") {
-              groups.get("Documentation").push(item);
-            } else {
-              groups.get("Maintenance").push(item);
-            }
-          }
-
-          const sections = [];
-
-          for (const [title, items] of groups) {
-            if (items.length) {
-              sections.push(`### ${title}\n\n${items.join("\n")}`);
-            }
-          }
-
-          process.stdout.write(
-            sections.join("\n\n") || "- No scoped changes found.",
-          );
-          NODE
-            )"
+          if [ ! -f "$TEMPLATE" ]; then
+            TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
+            gh api               "repos/moyarich/actions/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF"               --jq '.content' |
+              base64 --decode > "$TEMPLATE"
           fi
 
           {
-            echo "version=$RESOLVED_VERSION"
-            echo "tag=$TAG"
-            echo "name=$RESOLVED_RELEASE_NAME"
-            echo "notes<<EOF"
-            echo "$NOTES"
-            echo "EOF"
+            echo "helper=$HELPER"
+            echo "template=$TEMPLATE"
+            echo "actions-ref=$ACTIONS_REF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Resolve release baseline
-        id: baseline
-        env:
-          TAG_PREFIX: ${{ inputs.tag-prefix }}
+      - name: Resolve draft history
+        id: history
         shell: bash
         run: |
           set -euo pipefail
+
+          TARGET_KEY="$TARGET_KEY_INPUT"
+          if [ -z "$TARGET_KEY" ]; then
+            if [ -n "$TARGET_PATH" ] && [ "$TARGET_PATH" != "." ]; then
+              TARGET_KEY="$TARGET_PATH"
+            elif [ -n "$PACKAGE_NAME" ]; then
+              TARGET_KEY="$PACKAGE_NAME"
+            else
+              TARGET_KEY="root"
+            fi
+          fi
 
           RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
 
@@ -263,78 +190,102 @@ jobs:
             ' <<< "$RELEASES"
           )"
 
-          EXISTING_GIT_TAG="$(
-            git tag --list "${TAG_PREFIX}*" |
-              sort -V |
-              tail -n 1
+          EXISTING="$(
+            jq -c --arg marker "<!-- moya-release:target=$TARGET_KEY -->" '
+              [
+                .[][] |
+                select(
+                  .draft == true and
+                  ((.body // "") | contains($marker))
+                )
+              ]
+              | sort_by(.created_at)
+              | last // empty
+            ' <<< "$RELEASES"
           )"
 
-          EXISTING_DRAFT_ID=""
-          EXISTING_DRAFT_URL=""
-          EXISTING_DRAFT_NAME=""
-
-          if [ -n "$EXISTING_GIT_TAG" ] && [ "$EXISTING_GIT_TAG" != "$PREVIOUS_TAG" ]; then
-            EXISTING_DRAFT="$(
-              jq -c --arg tag "$EXISTING_GIT_TAG" '
+          # Migration path for drafts created before persistent target markers.
+          # The tag prefix scopes this lookup to the same repository/package target.
+          if [ -z "$EXISTING" ]; then
+            EXISTING="$(
+              jq -c --arg prefix "$TAG_PREFIX" '
                 [
                   .[][] |
-                  select(.draft == true and .tag_name == $tag)
+                  select(
+                    .draft == true and
+                    (.tag_name | startswith($prefix))
+                  )
                 ]
-                | first // empty
+                | sort_by(.created_at)
+                | last // empty
               ' <<< "$RELEASES"
             )"
-
-            if [ -z "$EXISTING_DRAFT" ]; then
-              echo "::error::Found orphan release tag '$EXISTING_GIT_TAG'."
-              echo "::error::Expected a matching draft or published GitHub Release before continuing."
-              exit 1
-            fi
-
-            EXISTING_DRAFT_ID="$(jq -r '.id' <<< "$EXISTING_DRAFT")"
-            EXISTING_DRAFT_URL="$(jq -r '.html_url' <<< "$EXISTING_DRAFT")"
-            EXISTING_DRAFT_NAME="$(jq -r '.name' <<< "$EXISTING_DRAFT")"
           fi
 
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "first-release=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "first-release=true" >> "$GITHUB_OUTPUT"
+          EXISTING_BODY_FILE="$RUNNER_TEMP/existing-release-body.md"
+          : > "$EXISTING_BODY_FILE"
+
+          EXISTING_ID=""
+          EXISTING_URL=""
+          EXISTING_TAG=""
+          SEED_SHA=""
+
+          if [ -n "$EXISTING" ]; then
+            EXISTING_ID="$(jq -r '.id' <<< "$EXISTING")"
+            EXISTING_URL="$(jq -r '.html_url' <<< "$EXISTING")"
+            EXISTING_TAG="$(jq -r '.tag_name' <<< "$EXISTING")"
+            jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
+
+            SEED_SHA="$(
+              sed -n 's/.*moya-release:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
+                head -n 1
+            )"
+
+            # Existing unmarked drafts are authoritative. Establish a migration
+            # baseline immediately before the current target commit so old PR
+            # history is not replayed, while the newest merged change can append.
+            if [ -z "$SEED_SHA" ]; then
+              SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+            fi
+          fi
+
+          EFFECTIVE_VERSION="$INPUT_VERSION"
+          if [ -z "$PREVIOUS_TAG" ] && [ -z "$EFFECTIVE_VERSION" ]; then
+            EFFECTIVE_VERSION="$INITIAL_VERSION"
           fi
 
           {
+            echo "target-key=$TARGET_KEY"
             echo "previous-tag=$PREVIOUS_TAG"
-            echo "existing-git-tag=$EXISTING_GIT_TAG"
-            echo "existing-draft-id=$EXISTING_DRAFT_ID"
-            echo "existing-draft-url=$EXISTING_DRAFT_URL"
-            echo "existing-draft-name=$EXISTING_DRAFT_NAME"
+            echo "effective-version=$EFFECTIVE_VERSION"
+            echo "existing-id=$EXISTING_ID"
+            echo "existing-url=$EXISTING_URL"
+            echo "existing-tag=$EXISTING_TAG"
+            echo "existing-body-file=$EXISTING_BODY_FILE"
+            echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
 
       - name: Generate Release Drafter config
-        env:
-          TEMPLATE_PATH: ${{ inputs.template-path }}
-          RELEASE_NAME: ${{ inputs.release-name }}
-          RELEASE_TAG: ${{ inputs.release-tag }}
-          TAG_PREFIX: ${{ inputs.tag-prefix }}
-          PACKAGE_NAME: ${{ inputs.package-name }}
-          PACKAGE_DIRECTORY: ${{ inputs.package-directory }}
-          EXPLICIT_VERSION: ${{ inputs.version }}
+        id: config
         shell: bash
         run: |
           set -euo pipefail
 
-          node --input-type=module <<'NODE'
+          GENERATED="$RUNNER_TEMP/release-drafter-generated.yml"
+
+          SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INPUT_VERSION="$INPUT_VERSION"           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
 
-          const template = readFileSync(process.env.TEMPLATE_PATH, "utf8");
-          const versionToken = process.env.EXPLICIT_VERSION || "$RESOLVED_VERSION";
-          const releaseName = process.env.RELEASE_NAME.replaceAll(
+          const versionToken = process.env.INPUT_VERSION || "$RESOLVED_VERSION";
+          const releaseName = process.env.RELEASE_NAME_INPUT.replaceAll(
             "{{VERSION}}",
             versionToken,
           );
           const releaseTag =
-            process.env.RELEASE_TAG ||
+            process.env.RELEASE_TAG_INPUT ||
             `${process.env.TAG_PREFIX}${versionToken}`;
 
+          const template = readFileSync(process.env.SOURCE_TEMPLATE, "utf8");
           const config = template
             .replaceAll("{{PACKAGE_NAME}}", process.env.PACKAGE_NAME)
             .replaceAll("{{PACKAGE_DIRECTORY}}", process.env.PACKAGE_DIRECTORY)
@@ -342,129 +293,155 @@ jobs:
             .replaceAll("{{TAG_TEMPLATE}}", releaseTag)
             .replaceAll("{{TAG_PREFIX}}", process.env.TAG_PREFIX);
 
-          writeFileSync(
-            ".github/release-drafter-generated.yml",
-            config,
-          );
+          writeFileSync(process.env.GENERATED ?? "$RUNNER_TEMP/release-drafter-generated.yml", config);
           NODE
 
-      - name: Preview draft
-        if: ${{ inputs.dry-run }}
+          echo "path=$GENERATED" >> "$GITHUB_OUTPUT"
         env:
-          TAG: ${{ steps.resolve.outputs.tag }}
-          RELEASE_NAME: ${{ steps.resolve.outputs.name }}
-          NOTES: ${{ steps.resolve.outputs.notes }}
-        shell: bash
-        run: |
-          {
-            echo "# GitHub Release draft preview"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            echo "| Release | `$RELEASE_NAME` |"
-            echo "| Tag | `$TAG` |"
-            echo "| Target branch | `${{ inputs.target-branch }}` |"
-            echo "| Dry run | **true** |"
-            echo
-            if [ "${{ steps.baseline.outputs.first-release }}" = "true" ]; then
-              echo "## First draft body"
-            else
-              echo "## Subsequent draft"
-            fi
-            echo
-            if [ "${{ steps.baseline.outputs.first-release }}" = "true" ]; then
-              if [ -n "$NOTES" ]; then
-                echo "$NOTES"
-              else
-                echo "- No changelog entry found for this version."
-              fi
-            else
-              echo "Release notes will be generated from merged pull requests using the Release Drafter template."
-            fi
-            echo
-            echo "> No GitHub Release was created or modified."
-          } >> "$GITHUB_STEP_SUMMARY"
+          SOURCE_TEMPLATE: ${{ steps.assets.outputs.template }}
+          GENERATED: ${{ runner.temp }}/release-drafter-generated.yml
 
-      - name: Create first release draft
-        id: first-draft
-        if: ${{ !inputs.dry-run && steps.baseline.outputs.first-release == 'true' && steps.baseline.outputs.existing-draft-id == '' }}
-        env:
-          TAG: ${{ steps.resolve.outputs.tag }}
-          RELEASE_NAME: ${{ steps.resolve.outputs.name }}
-          NOTES: ${{ steps.resolve.outputs.notes }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
-
-          EXISTING="$(
-            jq -c --arg tag "$TAG" '
-              [.[][] | select(.draft == true and .tag_name == $tag)]
-              | first // empty
-            ' <<< "$RELEASES"
-          )"
-
-          if [ -n "$EXISTING" ]; then
-            RELEASE="$EXISTING"
-            ACTION=reused
-          else
-            BODY="$(
-              {
-                echo "## Release notes"
-                echo
-                echo "$NOTES"
-              }
-            )"
-
-            RELEASE="$(
-              gh api \
-                --method POST \
-                "repos/$GH_REPO/releases" \
-                -f tag_name="$TAG" \
-                -f target_commitish="${{ inputs.target-branch }}" \
-                -f name="$RELEASE_NAME" \
-                -f body="$BODY" \
-                -F draft=true
-            )"
-            ACTION=created
-          fi
-
-          {
-            echo "url=$(jq -r '.html_url' <<< "$RELEASE")"
-            echo "name=$(jq -r '.name' <<< "$RELEASE")"
-            echo "tag_name=$(jq -r '.tag_name' <<< "$RELEASE")"
-            echo "action=$ACTION"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create or update subsequent release draft
+      - name: Discover release changes
         id: drafter
-        if: ${{ !inputs.dry-run && steps.baseline.outputs.first-release == 'false' && steps.baseline.outputs.existing-draft-id == '' }}
         uses: release-drafter/release-drafter@v7.7.0
         with:
           config-name: file:release-drafter-generated.yml
           commitish: ${{ inputs.target-branch }}
-          version: ${{ inputs.version }}
+          dry-run: true
+          version: ${{ steps.history.outputs.effective-version }}
+          from: ${{ steps.history.outputs.seed-sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Draft summary
-        if: ${{ !inputs.dry-run }}
+      - name: Resolve canonical draft identity
+        id: identity
+        env:
+          DRAFTER_VERSION: ${{ steps.drafter.outputs.resolved_version }}
+          DRAFTER_TAG: ${{ steps.drafter.outputs.tag_name }}
+          DRAFTER_NAME: ${{ steps.drafter.outputs.name }}
         shell: bash
         run: |
-          URL="${{ steps.baseline.outputs.existing-draft-url || steps.first-draft.outputs.url || steps.drafter.outputs.html_url }}"
-          ACTION="${{ steps.baseline.outputs.existing-draft-id && 'preserved' || steps.first-draft.outputs.action || 'generated' }}"
-          NAME="${{ steps.baseline.outputs.existing-draft-name || steps.first-draft.outputs.name || steps.drafter.outputs.name }}"
-          TAG="${{ steps.baseline.outputs.existing-git-tag || steps.first-draft.outputs.tag_name || steps.drafter.outputs.tag_name }}"
+          set -euo pipefail
+
+          VERSION="$DRAFTER_VERSION"
+          TAG="$DRAFTER_TAG"
+          NAME="$DRAFTER_NAME"
+
+          if [ -z "$VERSION" ] || [ -z "$TAG" ] || [ -z "$NAME" ]; then
+            echo "::error::Release Drafter did not resolve a complete release identity."
+            exit 1
+          fi
+
+          PUBLISHED_ID="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
+              jq -r --arg tag "$TAG" '
+                [.[][] | select(.draft == false and .tag_name == $tag)]
+                | first
+                | .id // empty
+              '
+          )"
+
+          if [ -n "$PUBLISHED_ID" ]; then
+            echo "::error::A published GitHub Release already exists for $TAG."
+            exit 1
+          fi
 
           {
-            echo "## Release draft"
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "name=$NAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Reconcile persistent draft body
+        id: reconcile
+        env:
+          HELPER: ${{ steps.assets.outputs.helper }}
+          EXISTING_BODY_FILE: ${{ steps.history.outputs.existing-body-file }}
+          GENERATED_BODY: ${{ steps.drafter.outputs.body }}
+          RELEASE_VERSION: ${{ steps.identity.outputs.version }}
+          TARGET_KEY: ${{ steps.history.outputs.target-key }}
+          EXISTING_SEED_SHA: ${{ steps.history.outputs.seed-sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          GENERATED_FILE="$RUNNER_TEMP/release-drafter-generated.md"
+          RESULT_FILE="$RUNNER_TEMP/reconciled-release-body.md"
+
+          printf '%s\n' "$GENERATED_BODY" > "$GENERATED_FILE"
+
+          SEED_SHA="$EXISTING_SEED_SHA"
+          if [ -z "$SEED_SHA" ]; then
+            SEED_SHA="$GITHUB_SHA"
+          fi
+
+          node "$HELPER" reconcile             --existing-file "$EXISTING_BODY_FILE"             --generated-file "$GENERATED_FILE"             --output "$RESULT_FILE"             --changelog "$CHANGELOG_PATH"             --version "$RELEASE_VERSION"             --target-key "$TARGET_KEY"             --seed-sha "$SEED_SHA"             --target-path "$TARGET_PATH"
+
+          {
+            echo "file=$RESULT_FILE"
+            echo "seed-sha=$SEED_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update persistent draft
+        id: write
+        env:
+          EXISTING_ID: ${{ steps.history.outputs.existing-id }}
+          EXISTING_URL: ${{ steps.history.outputs.existing-url }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_NAME: ${{ steps.identity.outputs.name }}
+          BODY_FILE: ${{ steps.reconcile.outputs.file }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BODY="$(cat "$BODY_FILE")"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"
+            echo "action=previewed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$EXISTING_ID" ]; then
+            RELEASE="$(
+              gh api                 --method PATCH                 "repos/$GH_REPO/releases/$EXISTING_ID"                 -f tag_name="$RELEASE_TAG"                 -f target_commitish="$TARGET_BRANCH"                 -f name="$RELEASE_NAME"                 -f body="$BODY"                 -F draft=true
+            )"
+            ACTION=updated
+          else
+            RELEASE="$(
+              gh api                 --method POST                 "repos/$GH_REPO/releases"                 -f tag_name="$RELEASE_TAG"                 -f target_commitish="$TARGET_BRANCH"                 -f name="$RELEASE_NAME"                 -f body="$BODY"                 -F draft=true
+            )"
+            ACTION=created
+          fi
+
+          echo "url=$(jq -r '.html_url' <<< "$RELEASE")" >> "$GITHUB_OUTPUT"
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+
+      - name: Persistent draft summary
+        if: always()
+        env:
+          BODY_FILE: ${{ steps.reconcile.outputs.file }}
+        shell: bash
+        run: |
+          {
+            echo "## Persistent release draft"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            echo "| Release | `$NAME` |"
-            echo "| Tag | `$TAG` |"
-            echo "| Action | **$ACTION** |"
-            echo "| State | **draft** |"
-            echo "| Draft | [Open draft]($URL) |"
+            echo "| Target | `${{ steps.history.outputs.target-key || 'unresolved' }}` |"
+            echo "| Version | `${{ steps.identity.outputs.version || 'unresolved' }}` |"
+            echo "| Tag | `${{ steps.identity.outputs.tag || 'unresolved' }}` |"
+            echo "| Seed SHA | `${{ steps.reconcile.outputs.seed-sha || 'unresolved' }}` |"
+            echo "| Result | **${{ steps.write.outputs.action || 'not written' }}** |"
+            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            echo
+            echo "> Existing draft text is authoritative."
+            echo "> Release Drafter supplies newly merged PR entries; only unseen PR markers are appended."
+            echo
+            if [ -n "$BODY_FILE" ] && [ -f "$BODY_FILE" ]; then
+              echo "### Resulting release body"
+              echo
+              cat "$BODY_FILE"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
