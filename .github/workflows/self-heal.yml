@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   packages: read
 
@@ -70,3 +71,19 @@ jobs:
           git add -f dist/
           git commit -m "build: update action dist"
           git push
+
+  validate-healed-head:
+    name: Validate healed head
+    needs: action-dist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch CI for healed branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run ci.yml --ref "$TARGET_REF"
+          echo "Dispatched CI for healed head on $TARGET_REF."
