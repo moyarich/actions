@@ -80,7 +80,6 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 .output
 
 # Gatsby files
@@ -149,8 +148,5 @@ vite.config.ts.timestamp-*
 .turbo
 
 
-# Committed GitHub Action runtime
-!/dist/
-/dist/*
-!/dist/release-draft-sync/
-!/dist/release-draft-sync/**
+# Generated build output outside the committed root action runtime
+**/*/dist/
