@@ -114,22 +114,6 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
-      - name: Prepare package discovery CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          TOOL_ROOT="$(mktemp -d "$RUNNER_TEMP/workspace-tools.XXXXXX")"
-          npm install \
-            --prefix "$TOOL_ROOT" \
-            --package-lock=false \
-            --ignore-scripts \
-            @moyarich/workspace-tools@latest
-
-          DISCOVERY_CLI="$TOOL_ROOT/node_modules/@moyarich/workspace-tools/dist/bin/discover-packages.mjs"
-          test -f "$DISCOVERY_CLI"
-          echo "DISCOVERY_CLI=$DISCOVERY_CLI" >> "$GITHUB_ENV"
-
       - id: packages
         name: Discover packages
         env:
@@ -219,13 +203,71 @@ jobs:
           NODE
             )"
           else
-            ARGS=("$PACKAGES_DIRECTORY")
-            if [ "$INCLUDE_PRIVATE" = "true" ]; then ARGS+=("--include-private"); fi
-            if [ "$REQUIRE_PUBLISH_CONFIG" = "true" ]; then ARGS+=("--require-publish-config"); fi
-            if [ "$REQUIRE_TEST_SCRIPT" = "true" ]; then ARGS+=("--require-test-script"); fi
-            if [ "$REQUIRE_BUILD_SCRIPT" = "true" ]; then ARGS+=("--require-build-script"); fi
+            PACKAGES="$(
+              PACKAGES_DIRECTORY="$PACKAGES_DIRECTORY" \
+              INCLUDE_PRIVATE="$INCLUDE_PRIVATE" \
+              REQUIRE_PUBLISH_CONFIG="$REQUIRE_PUBLISH_CONFIG" \
+              REQUIRE_TEST_SCRIPT="$REQUIRE_TEST_SCRIPT" \
+              REQUIRE_BUILD_SCRIPT="$REQUIRE_BUILD_SCRIPT" \
+              node --input-type=module <<'NODE'
+          import { existsSync, readdirSync, readFileSync } from "node:fs";
+          import path from "node:path";
 
-            PACKAGES="$(node "$DISCOVERY_CLI" "${ARGS[@]}" --json)"
+          const packagesDirectory = process.env.PACKAGES_DIRECTORY || "packages";
+          const includePrivate = process.env.INCLUDE_PRIVATE === "true";
+          const requirePublishConfig =
+            process.env.REQUIRE_PUBLISH_CONFIG === "true";
+          const requireTestScript =
+            process.env.REQUIRE_TEST_SCRIPT === "true";
+          const requireBuildScript =
+            process.env.REQUIRE_BUILD_SCRIPT === "true";
+
+          if (!existsSync(packagesDirectory)) {
+            process.stdout.write("[]");
+            process.exit(0);
+          }
+
+          const packages = [];
+
+          for (const entry of readdirSync(packagesDirectory, {
+            withFileTypes: true,
+          })) {
+            if (!entry.isDirectory()) {
+              continue;
+            }
+
+            const directory = path.posix.join(packagesDirectory, entry.name);
+            const manifestPath = path.posix.join(directory, "package.json");
+
+            if (!existsSync(manifestPath)) {
+              continue;
+            }
+
+            const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+            const pkg = {
+              directory,
+              name: manifest.name ?? entry.name,
+              version: manifest.version ?? "0.0.0",
+              private: manifest.private === true,
+              publishable:
+                manifest.private !== true &&
+                typeof manifest.publishConfig?.registry === "string",
+              hasTest: typeof manifest.scripts?.test === "string",
+              hasBuild: typeof manifest.scripts?.build === "string",
+            };
+
+            if (!includePrivate && pkg.private) continue;
+            if (requirePublishConfig && !pkg.publishable) continue;
+            if (requireTestScript && !pkg.hasTest) continue;
+            if (requireBuildScript && !pkg.hasBuild) continue;
+
+            packages.push(pkg);
+          }
+
+          packages.sort((a, b) => a.name.localeCompare(b.name));
+          process.stdout.write(JSON.stringify(packages));
+          NODE
+            )"
           fi
 
           echo "$PACKAGES" | jq -e 'type == "array"' >/dev/null
