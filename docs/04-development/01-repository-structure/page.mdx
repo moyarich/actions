@@ -70,7 +70,14 @@ dist/
 scripts/          # repository tooling that is not an action runtime
 
 .github/
-└── workflows/    # public reusable workflows plus repository-local callers
+└── workflows/
+    ├── ci.yml
+    ├── pages.yml
+    ├── release-draft.yml
+    ├── release.yml
+    ├── publish.yml
+    ├── self-heal.yml
+    └── reusable_*.yml
 ```
 
 ## Content ownership
@@ -85,7 +92,7 @@ The playground currently imports `examples/*/workflow.yml` directly as raw sourc
 
 ## Workflow, action, and source boundaries
 
-`.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. Other workflows in that directory are repository-local callers or maintenance automation.
+`.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. The concise `ci.yml`, `pages.yml`, `release-draft.yml`, `release.yml`, `publish.yml`, and `self-heal.yml` files are repository-local entry workflows.
 
 Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. GitHub Action adapters live under `src/actions/*.ts`, reusable feature implementations live under `src/<feature>/`, Vite auto-discovers the action entrypoints and writes committed runtimes to `dist/actions/<action>/`. Public Action manifests live under `actions/<action>/action.yml`.
 
@@ -176,3 +183,26 @@ actions/discover-packages/action.yml
 ```
 
 Reusable workflows remain under `.github/workflows/` because GitHub requires reusable workflow files there. They are not distributed through the npm package.
+
+
+## Repository-local workflow convention
+
+Repository-local workflows use concise capability names:
+
+```text
+.github/workflows/
+├── ci.yml
+├── pages.yml
+├── release-draft.yml
+├── release.yml
+├── publish.yml
+├── self-heal.yml
+└── reusable_*.yml
+```
+
+Keep implementation-oriented or cross-repository orchestration behind the `reusable_*.yml` boundary. Local entry workflows should be thin callers of those reusable workflows whenever possible.
+
+- `release-draft.yml` prepares or updates persistent GitHub Release drafts.
+- `release.yml` drives the repository's package release flow.
+- `publish.yml` publishes an already prepared package release.
+- `reusable_*.yml` remains the public workflow API consumed by other repositories.
