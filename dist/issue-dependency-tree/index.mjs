@@ -1,5 +1,5 @@
-import process$1 from "node:process";
 import { appendFileSync } from "node:fs";
+import process$1 from "node:process";
 import { execFileSync } from "node:child_process";
 function relation(value) {
   if (Array.isArray(value)) return value;
@@ -181,11 +181,19 @@ ${graphJson}
   setOutput("graph-json", graphJson);
   process$1.stdout.write(tree);
 }
-try {
-  runAction();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  process$1.stderr.write(`issue-dependency-tree: ${message}
+function runEntryPoint() {
+  try {
+    runAction();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process$1.stderr.write(`issue-dependency-tree: ${message}
 `);
-  process$1.exitCode = 1;
+    process$1.exitCode = 1;
+  }
 }
+if (process$1.env.GITHUB_ACTIONS === "true") {
+  runEntryPoint();
+}
+export {
+  runAction
+};
