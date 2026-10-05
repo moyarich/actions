@@ -55,7 +55,7 @@ Use standalone actions directly when you need the lower-level executable behavio
 
 ## CLI
 
-The package also ships an `issue-dependency-tree` CLI built from the same dependency-graph core used by the GitHub Action.
+The package also ships an `issue-dependency-tree` CLI built from the same dependency-graph implementation used by the GitHub Action.
 
 ```sh
 issue-dependency-tree
@@ -78,7 +78,7 @@ workspace-release
 workspace-publish
 ```
 
-These commands are built from `src/workspace-tools/` into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/workspace-tools` ref instead of installing a separate workspace-tools package.
+These commands are organized by capability under `src/` and built into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/workspace-tools` ref instead of installing a separate workspace-tools package.
 
 ## Using a workflow
 
