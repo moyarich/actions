@@ -293,10 +293,17 @@ jobs:
             process.env.RELEASE_TAG_INPUT ||
             `${process.env.TAG_PREFIX}${versionToken}`;
 
+          const packageDirectory = process.env.PACKAGE_DIRECTORY;
+          const packagePath =
+            packageDirectory && packageDirectory !== "."
+              ? `${packageDirectory}/**`
+              : "**";
+
           const template = readFileSync(process.env.SOURCE_TEMPLATE, "utf8");
           const config = template
             .replaceAll("{{PACKAGE_NAME}}", process.env.PACKAGE_NAME)
-            .replaceAll("{{PACKAGE_DIRECTORY}}", process.env.PACKAGE_DIRECTORY)
+            .replaceAll("{{PACKAGE_DIRECTORY}}", packageDirectory)
+            .replaceAll("{{PACKAGE_PATH}}", packagePath)
             .replaceAll("{{RELEASE_NAME_TEMPLATE}}", releaseName)
             .replaceAll("{{TAG_TEMPLATE}}", releaseTag)
             .replaceAll("{{TAG_PREFIX}}", process.env.TAG_PREFIX);
@@ -311,7 +318,7 @@ jobs:
 
       - name: Discover release changes
         id: drafter
-        uses: release-drafter/release-drafter@v7.7.0
+        uses: release-drafter/release-drafter@v7.9.0
         with:
           config-name: file:release-drafter-generated.yml
           commitish: ${{ inputs.target-branch }}
@@ -430,6 +437,12 @@ jobs:
         if: always()
         env:
           BODY_FILE: ${{ steps.reconcile.outputs.file }}
+          SUMMARY_TARGET: ${{ steps.history.outputs.target-key || 'unresolved' }}
+          SUMMARY_VERSION: ${{ steps.identity.outputs.version || 'unresolved' }}
+          SUMMARY_TAG: ${{ steps.identity.outputs.tag || 'unresolved' }}
+          SUMMARY_SEED_SHA: ${{ steps.reconcile.outputs.seed-sha || 'unresolved' }}
+          SUMMARY_RESULT: ${{ steps.write.outputs.action || 'not written' }}
+          SUMMARY_DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           {
@@ -437,12 +450,12 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            echo "| Target | `${{ steps.history.outputs.target-key || 'unresolved' }}` |"
-            echo "| Version | `${{ steps.identity.outputs.version || 'unresolved' }}` |"
-            echo "| Tag | `${{ steps.identity.outputs.tag || 'unresolved' }}` |"
-            echo "| Seed SHA | `${{ steps.reconcile.outputs.seed-sha || 'unresolved' }}` |"
-            echo "| Result | **${{ steps.write.outputs.action || 'not written' }}** |"
-            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            printf '| Target | `%s` |\n' "$SUMMARY_TARGET"
+            printf '| Version | `%s` |\n' "$SUMMARY_VERSION"
+            printf '| Tag | `%s` |\n' "$SUMMARY_TAG"
+            printf '| Seed SHA | `%s` |\n' "$SUMMARY_SEED_SHA"
+            printf '| Result | **%s** |\n' "$SUMMARY_RESULT"
+            printf '| Dry run | **%s** |\n' "$SUMMARY_DRY_RUN"
             echo
             echo "> Existing draft text is authoritative."
             echo "> Release Drafter supplies newly merged PR entries; only unseen PR markers are appended."
