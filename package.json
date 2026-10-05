@@ -1,12 +1,12 @@
 {
-  "name": "@moyarich/actions",
+  "name": "@moyarich/workspace-tools",
   "version": "0.0.0",
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @moyarich/actions-playground",
-    "build:playground": "npm run build --workspace @moyarich/actions-playground",
+    "dev": "npm run dev --workspace @moyarich/workspace-tools-playground",
+    "build:playground": "npm run build --workspace @moyarich/workspace-tools-playground",
     "build:actions": "vite build --config vite.actions.config.ts && npm run build:clis",
     "test:actions": "vitest run tests",
     "test": "vitest run",
@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/moyarich/actions.git"
+    "url": "git+https://github.com/moyarich/workspace-tools.git"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

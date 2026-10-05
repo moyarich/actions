@@ -1,7 +1,7 @@
 # Actions playground
 
 Private React/Vite playground for browsing the reusable workflow examples in
-`moyarich/actions`.
+`moyarich/workspace-tools`.
 
 ## Development
 

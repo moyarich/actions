@@ -12,7 +12,7 @@ permissions:
   packages: write
 jobs:
   publish:
-    uses: moyarich/actions/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_npm-publish.yml@v0.1.0
     with:
       package-directory: ${{ inputs.package-directory }}
       target-branch: main

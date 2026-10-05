@@ -1,4 +1,4 @@
-# Moya Actions
+# Workspace Tools
 
 Reusable GitHub Actions workflows for CI, package discovery, releases, publishing, GitHub Pages, repository maintenance, and developer tooling.
 
@@ -11,6 +11,7 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 | Workflow                         | Use it to                                                                 |
 | -------------------------------- | ------------------------------------------------------------------------- |
 | `reusable_node-ci.yml`           | Run configurable Node.js CI.                                              |
+| `reusable_check-dist.yml`        | Rebuild committed distribution output and fail when it is stale.          |
 | `reusable_package-ci.yml`        | Run CI for a package or workspace target.                                 |
 | `reusable_discover-packages.yml` | Discover publishable root and workspace packages for downstream jobs.     |
 | `reusable_prettier.yml`          | Check Prettier formatting and optionally commit formatting fixes.         |
@@ -47,9 +48,9 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 Use standalone actions directly when you need the lower-level executable behavior:
 
 ```yaml
-- uses: moyarich/actions/release-draft-sync@v1
-- uses: moyarich/actions/discover-packages@v1
-- uses: moyarich/actions/issue-dependency-tree@v1
+- uses: moyarich/workspace-tools/release-draft-sync@v1
+- uses: moyarich/workspace-tools/discover-packages@v1
+- uses: moyarich/workspace-tools/issue-dependency-tree@v1
 ```
 
 ## CLI
@@ -58,7 +59,7 @@ The package also ships an `issue-dependency-tree` CLI built from the same depend
 
 ```sh
 issue-dependency-tree
-issue-dependency-tree --repo moyarich/actions
+issue-dependency-tree --repo moyarich/workspace-tools
 issue-dependency-tree --root 29
 issue-dependency-tree --interactive
 issue-dependency-tree --json
@@ -77,7 +78,7 @@ workspace-release
 workspace-publish
 ```
 
-These commands are built from `src/workspace-tools/` into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/actions` ref instead of installing a separate workspace-tools package.
+These commands are built from `src/workspace-tools/` into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/workspace-tools` ref instead of installing a separate workspace-tools package.
 
 ## Using a workflow
 
@@ -94,7 +95,7 @@ on:
 
 jobs:
   ci:
-    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@v0.1.0
 ```
 
 Each reusable workflow defines its supported inputs, outputs, secrets, and permissions. See the [documentation](./docs/page.mdx) and [examples](./examples) for workflow-specific configuration and copyable callers.
@@ -106,7 +107,7 @@ Pin callers to a release tag. Stable major tags may be used when available.
 ```yaml
 jobs:
   ci:
-    uses: moyarich/actions/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@v0.1.0
 ```
 
 ## License

@@ -8,6 +8,14 @@ permissions:
   contents: read
 
 jobs:
+  check-dist:
+    name: Check committed dist
+    uses: ./.github/workflows/reusable_check-dist.yml
+    with:
+      dist-path: dist/
+      build-command: npm run build:actions
+      node-version: "24"
+
   validate:
     name: Validate reusable automation
     runs-on: ubuntu-latest
@@ -55,15 +63,3 @@ jobs:
           set -euo pipefail
           grep -F 'Maintainer-authored release text.' /tmp/reconciled-release-body.md
           grep -F 'Added generated entry.' /tmp/reconciled-release-body.md
-
-      - name: Check committed action dist
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -n "$(git status --porcelain -- dist/)" ]; then
-            echo "::error::Committed dist/ does not match the Vite build."
-            git status --short -- dist/
-            git diff --text -- dist/
-            exit 1
-          fi

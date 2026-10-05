@@ -1,11 +1,11 @@
 ---
 title: Repository structure
-description: How docs, examples, scripts, workflows, and the playground are organized in Moya Actions.
+description: How docs, examples, scripts, workflows, and the playground are organized in Workspace Tools.
 ---
 
 # Repository structure
 
-Moya Actions follows the same content ownership boundary used by Console and MoyaForge:
+Workspace Tools follows the same content ownership boundary used by Console and MoyaForge:
 
 ```text
 apps/
@@ -98,7 +98,7 @@ This keeps the repository structure consistent with Console and MoyaForge while 
 
 ## Dependency boundary
 
-Moya Actions is upstream automation infrastructure. The playground must not require MoyaForge in order to build or run, because MoyaForge may itself consume automation from this repository.
+Workspace Tools is upstream automation infrastructure. The playground must not require MoyaForge in order to build or run, because MoyaForge may itself consume automation from this repository.
 
 ## Action tests
 
@@ -119,7 +119,7 @@ Use the same boundary for every standalone JavaScript action:
 - `index.ts` is a minimal runtime entry point.
 - `tests/<action>/` contains Vitest coverage for both core behavior and the action adapter.
 - Vite bundles every action entry point into committed `dist/<action>/index.mjs`.
-- `<action>/action.yml` exposes the short consumer path `moyarich/actions/<action>@<ref>`.
+- `<action>/action.yml` exposes the short consumer path `moyarich/workspace-tools/<action>@<ref>`.
 - Actions that also expose a terminal interface may add `cli.ts`; the CLI delegates to the same core rather than duplicating behavior.
 - CLI bundles live under `dist/bin/` and are published through the package `bin` map.
 - Interactive terminal integrations such as `fzf` remain optional external tools and do not leak into the non-interactive Action runtime.

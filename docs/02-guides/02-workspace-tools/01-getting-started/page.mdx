@@ -1,11 +1,11 @@
 ---
 title: Workspace tooling
-description: Use the workspace release, publish, dependency, and package-lock CLIs owned by Moya Actions.
+description: Use the workspace release, publish, dependency, and package-lock CLIs owned by Workspace Tools.
 ---
 
 # Workspace tooling
 
-Moya Actions owns the workspace tooling used by its reusable release and publishing workflows.
+Workspace Tools owns the workspace tooling used by its reusable release and publishing workflows.
 
 The CLI surface includes:
 
@@ -18,7 +18,7 @@ workspace-release
 workspace-publish
 ```
 
-The commands are built into `dist/bin/` and published from the `@moyarich/actions` package. Reusable workflows resolve the matching bundled binaries from the same repository ref through the repo-local `workspace-tools` setup action.
+The commands are built into `dist/bin/` and published from the `@moyarich/workspace-tools` package. Reusable workflows resolve the matching bundled binaries from the same repository ref through the repo-local `workspace-tools` setup action.
 
 `workspace-release` previews or creates workspace package releases. It supports version bumps, exact versions, and `package-json` mode, which releases the version already present in `package.json` without manufacturing a release-only version change.
 

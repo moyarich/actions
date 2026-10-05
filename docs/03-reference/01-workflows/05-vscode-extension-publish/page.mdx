@@ -24,7 +24,7 @@ The workflow provides these release safeguards:
 ```yaml
 jobs:
   publish:
-    uses: moyarich/actions/.github/workflows/reusable_vscode-extension-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_vscode-extension-publish.yml@v0.1.0
     with:
       target-branch: ${{ inputs.target-branch }}
       dry-run: ${{ inputs.dry-run }}

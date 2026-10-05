@@ -17,7 +17,7 @@ on:
 
 jobs:
   pages:
-    uses: moyarich/actions/.github/workflows/reusable_github-pages.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_github-pages.yml@v0.1.0
     with:
       build-command: npm run build
       output-directory: dist
@@ -37,7 +37,7 @@ on:
 
 jobs:
   pages:
-    uses: moyarich/actions/.github/workflows/reusable_github-pages.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_github-pages.yml@v0.1.0
     with:
       build-command: npm run build:playground
       output-directory: apps/playground/dist

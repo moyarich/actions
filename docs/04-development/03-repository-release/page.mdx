@@ -1,18 +1,18 @@
 ---
 title: Repository release draft
-description: How moyarich/actions prepares its release draft through its repository-local caller workflow.
+description: How moyarich/workspace-tools prepares its release draft through its repository-local caller workflow.
 ---
 
 # Repository release draft
 
-Moya Actions keeps its public reusable workflow separate from this repository's own release orchestration.
+Workspace Tools keeps its public reusable workflow separate from this repository's own release orchestration.
 
 ```text
 .github/
 ├── release-drafter-template.yml        # Release Drafter config template
 └── workflows/
     ├── reusable_release-drafter.yml    # public reusable draft implementation
-    └── release-drafter.yml             # repository-local caller for moyarich/actions
+    └── release-drafter.yml             # repository-local caller for moyarich/workspace-tools
 ```
 
 ## Repository-local caller
@@ -21,7 +21,7 @@ Moya Actions keeps its public reusable workflow separate from this repository's 
 
 It owns only repository-specific concerns:
 
-- the `Moya Actions v<version>` release name;
+- the `Workspace Tools v<version>` release name;
 - the default target branch;
 - repository-level concurrency; and
 - the inputs exposed in the Actions UI.
