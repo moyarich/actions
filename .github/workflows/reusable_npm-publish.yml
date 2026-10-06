@@ -522,9 +522,16 @@ jobs:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+          RELEASE_IS_DRAFT: ${{ steps.release-draft.outputs.draft }}
         shell: bash
         run: |
           set -euo pipefail
+
+          if [ "$RELEASE_IS_DRAFT" != "true" ]; then
+            echo "status=published-existing" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release is already published and remains unchanged."
+            exit 0
+          fi
 
           if jq -e '
             [.results[]? | select(.status == "staged")] | length > 0
@@ -543,7 +550,7 @@ jobs:
           RELEASE="$(
             gh api \
               --method PATCH \
-              "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
+              "repos/$GH_REPO/releases/$GITHUB_RELEASE_ID" \
               -f tag_name="$RELEASE_TAG" \
               -f name="$RELEASE_NAME" \
               -F draft=false
