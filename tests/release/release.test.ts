@@ -127,7 +127,6 @@ test("npmVersionArgs keeps --workspace for nested workspace packages", () => {
   );
 });
 
-
 test("existingChangelogSection preserves curated bracketed release notes", () => {
   const changelog = [
     "# Changelog",
