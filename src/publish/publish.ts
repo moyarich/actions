@@ -1185,6 +1185,7 @@ export function publishWorkspacePackage(
     withDependencies: options.withDependencies,
     verifyGitTag: options.verifyGitTag,
     artifactDirectory: options.artifactDirectory,
+    artifactFile: options.artifactFile,
   });
 
   if (options.json && result) {
