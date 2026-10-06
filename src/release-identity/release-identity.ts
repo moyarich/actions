@@ -35,12 +35,14 @@ export function releaseIdentity(
     throw new Error("Version is required for release identity.");
   }
 
+  const tagScope = packageDirectory === "." ? packageName : packageDirectory;
+
   return {
     packageName,
     packageDirectory,
     version: resolvedVersion,
-    tagName: `${packageDirectory}@${resolvedVersion}`,
-    tagPrefix: `${packageDirectory}@`,
+    tagName: `${tagScope}@${resolvedVersion}`,
+    tagPrefix: `${tagScope}@`,
     releaseName: `${packageName} v${resolvedVersion}`,
   };
 }
