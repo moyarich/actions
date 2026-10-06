@@ -356,7 +356,7 @@ function registryFor(pkg: ReturnType<typeof packageInfo>): string {
  * packages continue to use their package name as the workspace selector.
  */
 export function npmVersionArgs(
-  pkg: Pick<ReturnType<typeof packageInfo>, "directory" | "manifest">,
+  pkg: { directory: string; manifest: { name: string } },
   versionSpec: string,
 ): string[] {
   const args = ["version", versionSpec];
