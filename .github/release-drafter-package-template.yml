@@ -6,7 +6,7 @@ categories:
   - type: pre-include
     when:
       paths:
-        - "{{PACKAGE_PATH}}"
+{{PACKAGE_PATHS}}
 
   - type: pre-exclude
     when:
