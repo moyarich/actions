@@ -115,7 +115,7 @@ jobs:
       package-name: ${{ steps.plan.outputs.name }}
       package-version: ${{ steps.plan.outputs.version }}
       publish-status: ${{ steps.publish.outputs.status }}
-      can-publish: ${{ steps.publish.outputs.can-publish }}
+      can-publish: ${{ steps.preflight.outputs.can-publish }}
       result-json: ${{ steps.publish.outputs.result-json }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -301,6 +301,9 @@ jobs:
           {
             echo "valid=true"
             echo "reason="
+          } >> "$GITHUB_OUTPUT"
+
+          {
             echo "RELEASE_DRAFT_ID=$DRAFT_ID"
             echo "RELEASE_DRAFT_URL=$DRAFT_URL"
           } >> "$GITHUB_ENV"
@@ -416,6 +419,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Resolve publish preflight
+        id: preflight
+        if: ${{ always() }}
+        env:
+          CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
+          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
+
+          if [ "${RELEASE_DRAFT_VALID:-false}" != "true" ]; then
+            CAN_PUBLISH="false"
+          fi
+
+          echo "can-publish=$CAN_PUBLISH" >> "$GITHUB_OUTPUT"
+
       - name: Publish summary
         if: ${{ always() }}
         env:
@@ -434,12 +455,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          CLI_CAN_PUBLISH="${{ steps.publish.outputs.can-publish || 'unresolved' }}"
-          OVERALL_CAN_PUBLISH="$CLI_CAN_PUBLISH"
-
-          if [ "$RELEASE_DRAFT_VALID" != "true" ]; then
-            OVERALL_CAN_PUBLISH="false"
-          fi
+          OVERALL_CAN_PUBLISH="${{ steps.preflight.outputs.can-publish || 'false' }}"
 
           {
             echo "## Package publish"
