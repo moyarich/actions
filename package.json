@@ -19,6 +19,8 @@
   "bugs": {
     "url": "https://github.com/moyarich/workspace-tools/issues"
   },
+  "publisher": "moyarich",
+  "author": "Moya Richards",
   "license": "MIT",
   "repository": {
     "type": "git",
