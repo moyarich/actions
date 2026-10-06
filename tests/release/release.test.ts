@@ -94,7 +94,6 @@ test("resolveNextVersion computes release versions without touching package file
   assert.equal(resolveNextVersion("1.2.3", "1.2.4"), "1.2.4");
 });
 
-
 test("npmVersionArgs versions the repository root without treating it as a workspace", () => {
   assert.deepEqual(
     npmVersionArgs(
