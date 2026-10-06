@@ -1,0 +1,17 @@
+name: Check distribution
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-dist:
+    name: Check distribution
+    uses: ./.github/workflows/reusable_check-dist.yml
+    with:
+      dist-path: dist/
+      build-command: npm run build:actions
+      node-version: "24"
+      artifact-name: dist
