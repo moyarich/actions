@@ -12,7 +12,7 @@ jobs:
   draft:
     permissions:
       contents: write
-    uses: moyarich/workspace-tools/.github/workflows/reusable_release-drafter.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_release-drafter.yml@workflows-v0.1.0
     with:
       target-branch: main
       version: ${{ inputs.version }}
