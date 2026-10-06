@@ -4060,7 +4060,7 @@ Publish preview completed for ${packages2.length} package(s). Nothing was publis
     if (!state.exists) {
       return `Git release tag ${state.name} does not exist.`;
     }
-    if (!state.atHead) {
+    if (!artifactFile && !state.atHead) {
       return `Git release tag ${state.name} points to ${state.commit}, not HEAD.`;
     }
     return null;
