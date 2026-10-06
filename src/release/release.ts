@@ -349,6 +349,28 @@ function registryFor(pkg: ReturnType<typeof packageInfo>): string {
 }
 
 /**
+ * Build the npm version command arguments for a releasable package.
+ *
+ * The repository root package is not an npm workspace member, so it must be
+ * versioned from the repository root without --workspace. Nested workspace
+ * packages continue to use their package name as the workspace selector.
+ */
+export function npmVersionArgs(
+  pkg: Pick<ReturnType<typeof packageInfo>, "directory" | "manifest">,
+  versionSpec: string,
+): string[] {
+  const args = ["version", versionSpec];
+
+  if (pkg.directory !== ".") {
+    args.push("--workspace", pkg.manifest.name);
+  }
+
+  args.push("--git-tag-version=false");
+
+  return args;
+}
+
+/**
  * Look up a package version in its configured registry.
  *
  * @param {string} root
@@ -854,20 +876,10 @@ ${section}`);
     return result;
   }
 
-  execFileSync(
-    "npm",
-    [
-      "version",
-      versionSpec!,
-      "--workspace",
-      pkg.manifest.name,
-      "--git-tag-version=false",
-    ],
-    {
-      cwd: root,
-      ...operationRunOptions,
-    },
-  );
+  execFileSync("npm", npmVersionArgs(pkg, versionSpec!), {
+    cwd: root,
+    ...operationRunOptions,
+  });
 
   const version = (
     JSON.parse(readFileSync(pkg.file, "utf8")) as { version: string }
