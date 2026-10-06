@@ -16,6 +16,14 @@ on:
         required: true
         default: main
         type: string
+      release-match:
+        description: Find the release by package.json version or require the exact canonical tag
+        required: true
+        default: version
+        type: choice
+        options:
+          - version
+          - exact
       dry-run:
         description: Preview the full reset/rebuild without mutating the release, tag, or repository
         required: true
@@ -40,6 +48,7 @@ jobs:
       package-directory: ${{ steps.package.outputs.directory }}
       release-tag: ${{ steps.package.outputs.tag }}
       release-name: ${{ steps.package.outputs.release-name }}
+      release-query: ${{ steps.package.outputs.release-query }}
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
     steps:
@@ -101,12 +110,26 @@ jobs:
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
 
+          case "${{ inputs.release-match }}" in
+            version)
+              RELEASE_QUERY="$PACKAGE_VERSION"
+              ;;
+            exact)
+              RELEASE_QUERY="$RELEASE_TAG"
+              ;;
+            *)
+              echo "::error::release-match must be version or exact."
+              exit 1
+              ;;
+          esac
+
           {
             echo "name=$PACKAGE_NAME"
             echo "version=$PACKAGE_VERSION"
             echo "directory=$PACKAGE_DIRECTORY"
             echo "tag=$RELEASE_TAG"
             echo "release-name=$RELEASE_NAME"
+            echo "release-query=$RELEASE_QUERY"
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
           } >> "$GITHUB_OUTPUT"
@@ -120,6 +143,7 @@ jobs:
             printf '| Directory | `%s` |\n' "$PACKAGE_DIRECTORY"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Release lookup | `%s` (%s) |\n' "$RELEASE_QUERY" "${{ inputs.release-match }}"
             printf '| Release name | `%s` |\n' "$RELEASE_NAME"
             printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
@@ -132,7 +156,7 @@ jobs:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
     with:
-      tag: ${{ needs.resolve.outputs.release-tag }}
+      tag: ${{ needs.resolve.outputs.release-query }}
       dry-run: ${{ inputs.dry-run }}
 
   create-draft:
@@ -206,6 +230,7 @@ jobs:
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            printf 'Release lookup: `%s` (%s)\n\n' "${{ needs.resolve.outputs.release-query }}" "${{ inputs.release-match }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
