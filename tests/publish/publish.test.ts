@@ -99,7 +99,7 @@ test("serializePublishPlan marks fully published packages as not publishable", (
       },
     ],
     {
-      registry: "both",
+      registry: "all",
       tag: "latest",
       access: "public",
     },
@@ -119,7 +119,7 @@ test("serializePublishPlan preserves mixed registry readiness for dry-run report
         registries: { github: "missing", npm: "published" },
       },
     ],
-    { registry: "both", tag: "latest", access: "public" },
+    { registry: "all", tag: "latest", access: "public" },
   );
 
   assert.equal(result.packages[0].publishable, true);
