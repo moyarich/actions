@@ -4,6 +4,14 @@ All notable user-facing changes to the installable `@moyarich/workspace-tools` p
 
 Reusable GitHub workflows and standalone actions are released separately from `moyarich/reusable-workflows`.
 
+## [0.1.1]
+
+### Publishing
+
+- **Reuse canonical package artifacts** — `workspace-publish --artifact-file <file>` can publish an existing npm package tarball instead of rebuilding the package from the current checkout.
+- **Validate reused artifacts before publishing** — Existing tarballs must contain a readable `package/package.json` whose package name and version match the selected workspace package.
+- **Preserve identical package bytes across registries** — A previously created canonical tarball can be reused for later registry publication, allowing GitHub Packages and npm to receive the same package artifact even when they are published at different times.
+
 ## [0.1.0] - Initial Release
 
 ### Workspace discovery and dependency tooling
