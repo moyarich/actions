@@ -568,15 +568,11 @@ export function validateAndPack(
           artifactDirectory,
         ];
 
-  const raw = execFileSync(
-    "npm",
-    packArgs,
-    {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"],
-    },
-  );
+  const raw = execFileSync("npm", packArgs, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
 
   const artifact = parsePackResult(raw, pkg, artifactDirectory);
 
