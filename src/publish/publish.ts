@@ -138,7 +138,9 @@ function registryConfig(registry: Registry): RegistryConfig {
  * @returns {Registry[]}
  */
 function destinations(registry: RegistrySelection): Registry[] {
-  return registry === "all" || registry === "both" ? ["github", "npm"] : [registry];
+  return registry === "all" || registry === "both"
+    ? ["github", "npm"]
+    : [registry];
 }
 
 /**
