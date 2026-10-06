@@ -543,28 +543,34 @@ export function validateAndPack(
   assertDependencies(dependencies);
 
   for (const script of ["typecheck", "test", "build"]) {
-    execFileSync(
-      "npm",
-      ["run", script, "--workspace", pkg.manifest.name, "--if-present"],
-      {
-        cwd: root,
-        stdio: quiet ? ["ignore", "ignore", "inherit"] : "inherit",
-      },
-    );
+    const args =
+      pkg.directory === "."
+        ? ["run", script, "--if-present"]
+        : ["run", script, "--workspace", pkg.manifest.name, "--if-present"];
+
+    execFileSync("npm", args, {
+      cwd: root,
+      stdio: quiet ? ["ignore", "ignore", "inherit"] : "inherit",
+    });
   }
 
   mkdirSync(artifactDirectory, { recursive: true });
 
+  const packArgs =
+    pkg.directory === "."
+      ? ["pack", "--json", "--pack-destination", artifactDirectory]
+      : [
+          "pack",
+          "--workspace",
+          pkg.manifest.name,
+          "--json",
+          "--pack-destination",
+          artifactDirectory,
+        ];
+
   const raw = execFileSync(
     "npm",
-    [
-      "pack",
-      "--workspace",
-      pkg.manifest.name,
-      "--json",
-      "--pack-destination",
-      artifactDirectory,
-    ],
+    packArgs,
     {
       cwd: root,
       encoding: "utf8",
