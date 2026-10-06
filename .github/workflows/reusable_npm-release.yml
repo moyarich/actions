@@ -592,12 +592,88 @@ jobs:
             printf '| Node.js | `%s` |\n' "${NODE_ENGINE:-—}"
             printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
             echo
+
+            echo "## Changelog"
+            echo
+            CHANGELOG_CONTENT="$(jq -r '.changelog // ""' <<< "$RELEASE_JSON")"
+            if [ -n "$CHANGELOG_CONTENT" ]; then
+              echo "$CHANGELOG_CONTENT"
+            else
+              echo "_No changelog content was generated for this release._"
+            fi
+            echo
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ steps.execution.outputs.dry-run }}" = "false" ] && [ "$CAN_RELEASE" != "true" ]; then
             echo "::error::Resolved target is not releasable: $(jq -r '.reason // "unknown reason"' <<< "$RELEASE_JSON")"
             exit 1
           fi
+
+      - name: Inspect existing GitHub Release draft
+        id: existing-draft
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASES="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
+          )"
+
+          EXISTING_DRAFT="$(
+            jq -c --arg tag "$RELEASE_TAG" '
+              [.[][] | select(.draft == true and .tag_name == $tag)]
+              | first // empty
+            ' <<< "$RELEASES"
+          )"
+
+          if [ -z "$EXISTING_DRAFT" ]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+
+            {
+              echo "## Existing GitHub Release draft"
+              echo
+              echo "_No matching draft exists for `$RELEASE_TAG`._"
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          DRAFT_ID="$(jq -r '.id' <<< "$EXISTING_DRAFT")"
+          DRAFT_NAME="$(jq -r '.name // ""' <<< "$EXISTING_DRAFT")"
+          DRAFT_URL="$(jq -r '.html_url // ""' <<< "$EXISTING_DRAFT")"
+          DRAFT_TARGET="$(jq -r '.target_commitish // ""' <<< "$EXISTING_DRAFT")"
+          DRAFT_BODY="$(jq -r '.body // ""' <<< "$EXISTING_DRAFT")"
+
+          {
+            echo "exists=true"
+            echo "id=$DRAFT_ID"
+            echo "url=$DRAFT_URL"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Existing GitHub Release draft"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Name | `%s` |\n' "$DRAFT_NAME"
+            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Target | `%s` |\n' "$DRAFT_TARGET"
+            if [ -n "$DRAFT_URL" ]; then
+              echo "| Draft | [Open release draft]($DRAFT_URL) |"
+            else
+              echo "| Draft | exists |"
+            fi
+            echo
+            echo "### Draft body"
+            echo
+            if [ -n "$DRAFT_BODY" ]; then
+              echo "$DRAFT_BODY"
+            else
+              echo "_Draft body is empty._"
+            fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Ensure matching GitHub draft
         id: draft
