@@ -18,7 +18,7 @@ The changelog is the canonical source used to seed the initial GitHub Release dr
 ### Releases and publishing
 
 - **`reusable_release-drafter.yml`** — Maintain a persistent GitHub Release draft for a repository or scoped monorepo package, with semantic-version resolution, path-aware release history, and dry-run previews.
-- **`reusable_delete-release-tag.yml`** — Delete an exact Git release tag either manually from Actions or from another workflow, with explicit confirmation, idempotent handling, verification, reusable outputs, and no change to the GitHub Release.
+- **`reusable_delete-release-tag.yml`** — Find release tags by exact value or fuzzy search, preview the resolved tag and deletion plan by default with dry-run mode, delete only when dry-run is disabled, verify the final tag state, expose reusable outputs, support both manual Actions runs and `workflow_call`, treat already-missing tags as a successful no-op, and leave the GitHub Release unchanged.
 - Seed missing release drafts from the matching changelog when available, with Release Drafter PR history, scoped commit history, and an initial-release body as fallbacks.
 - Preserve maintainer-authored release text and previously generated entries while appending only newly discovered release-note PRs.
 - **`reusable_npm-prepare-release.yml`** — Prepare an npm package release using a semantic version bump, an exact version, or the version already defined in `package.json`. Resolve canonical package version, Git tag, and GitHub Release identity and validate release state before publishing.
