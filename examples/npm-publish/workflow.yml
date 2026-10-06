@@ -7,6 +7,10 @@ on:
         required: true
         default: packages/my-package
         type: string
+      tag:
+        description: npm distribution tag
+        required: true
+        type: string
 permissions:
   contents: write
   packages: write
@@ -17,6 +21,6 @@ jobs:
       package-directory: ${{ inputs.package-directory }}
       target-branch: main
       registry: github
-      tag: latest
+      tag: ${{ inputs.tag }}
       node-version: "24"
     secrets: inherit
