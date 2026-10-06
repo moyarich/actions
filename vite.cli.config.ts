@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    ssr: {
+      noExternal: true,
+    },
     build: {
       ssr: entry,
       target: "node24",
