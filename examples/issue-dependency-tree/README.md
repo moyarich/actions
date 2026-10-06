@@ -9,5 +9,5 @@ npm exec -- issue-dependency-tree
 Render selected roots explicitly:
 
 ```sh
-npm exec -- issue-dependency-tree -- --root 12 --root 18
+npm exec -- issue-dependency-tree --root 12 --root 18
 ```
