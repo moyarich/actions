@@ -20,7 +20,7 @@ import {
 } from "../workspace/workspace.ts";
 
 type Registry = "github" | "npm";
-type RegistrySelection = Registry | "both";
+type RegistrySelection = Registry | "all" | "both";
 type PackageAccess = "public" | "restricted";
 interface RegistryConfig {
   url: string;
@@ -74,7 +74,7 @@ import {
  */
 
 /**
- * @typedef {"github" | "npm" | "both"} RegistrySelection
+ * @typedef {"github" | "npm" | "all" | "both"} RegistrySelection
  */
 
 /**
@@ -127,7 +127,7 @@ function registryConfig(registry: Registry): RegistryConfig {
       };
 
     default:
-      throw new Error("Registry must be github, npm, or both.");
+      throw new Error("Registry must be github, npm, all, or both.");
   }
 }
 
@@ -138,7 +138,9 @@ function registryConfig(registry: Registry): RegistryConfig {
  * @returns {Registry[]}
  */
 function destinations(registry: RegistrySelection): Registry[] {
-  return registry === "both" ? ["github", "npm"] : [registry];
+  return registry === "all" || registry === "both"
+    ? ["github", "npm"]
+    : [registry];
 }
 
 /**

@@ -16,7 +16,7 @@ program
   )
   .addOption(
     new Option("-r, --registry <registry>", "Registry to publish to")
-      .choices(["github", "npm", "both"])
+      .choices(["github", "npm", "all", "both"])
       .default("github"),
   )
   .addOption(

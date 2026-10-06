@@ -50,7 +50,7 @@ workspace-publish css-expand-collapse --no-verify-git-tag
 
 If the matching tag is valid but the package version already exists in the selected registry, that destination is skipped with reason `already-published`.
 
-Use `--registry=both` for both destinations. `--tag=<tag>` controls the npm distribution tag and `--access=public|restricted` controls access. A real publish is blocked when `--tag` is omitted so `latest` is never moved implicitly.
+Use `--registry=all` for all supported destinations. The legacy `--registry=both` alias remains accepted by the CLI for compatibility. `--tag=<tag>` controls the npm distribution tag and `--access=public|restricted` controls access. A real publish is blocked when `--tag` is omitted so `latest` is never moved implicitly.
 
 Before publishing a missing registry version, both dry-run and real publish run each package's `typecheck`, `test`, and `build` scripts when present, then create the exact `npm pack` artifact that would be published. Dry-run stops before registry mutation.
 

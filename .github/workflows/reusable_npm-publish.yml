@@ -26,6 +26,7 @@ on:
         options:
           - github
           - npm
+          - all
       tag:
         description: Distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
         required: false
@@ -63,7 +64,7 @@ on:
         default: ""
         type: string
       registry:
-        description: github or npm
+        description: github, npm, or all
         required: false
         default: github
         type: string
@@ -148,7 +149,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
       - name: Ensure staged publishing CLI support
-        if: inputs.registry == 'npm'
+        if: inputs.registry == 'npm' || inputs.registry == 'all'
         run: npm install --global npm@">=11.15.0 <12"
       - name: Install workspace dependencies
         env:
