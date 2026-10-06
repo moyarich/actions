@@ -19,6 +19,11 @@ on:
         description: Changelog containing the version section
         required: true
         type: string
+      release-notes:
+        description: Optional release notes override, useful for previews before the changelog is committed
+        required: false
+        default: ""
+        type: string
       target-ref:
         description: Commit or branch the release tag should resolve to
         required: false
@@ -113,11 +118,15 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           CHANGELOG_FILE: ${{ inputs.changelog-file }}
+          RELEASE_NOTES: ${{ inputs.release-notes }}
         shell: bash
         run: |
           set -euo pipefail
 
-          NOTES="$(
+          if [ -n "$RELEASE_NOTES" ]; then
+            NOTES="$RELEASE_NOTES"
+          else
+            NOTES="$(
             awk -v version="$VERSION" '
               $0 ~ "^## \\[" version "\\]" || $0 ~ "^## " version "([[:space:]]|$)" { in_section=1 }
               in_section && /^## / &&
@@ -125,7 +134,8 @@ jobs:
                 $0 !~ "^## " version "([[:space:]]|$)" { exit }
               in_section { print }
             ' "$CHANGELOG_FILE"
-          )"
+            )"
+          fi
 
           if [ -z "$NOTES" ]; then
             echo "::error::$CHANGELOG_FILE has no release section for $VERSION."
