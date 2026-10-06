@@ -3,13 +3,8 @@ name: "Release reusable workflows"
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Workflow release version (SemVer without a leading v)
-        required: true
-        default: "0.1.0"
-        type: string
       dry-run:
-        description: Preview the workflow release without creating tags or a GitHub Release
+        description: Preview the workflow release without making changes
         required: true
         default: true
         type: boolean
@@ -19,144 +14,56 @@ on:
         default: true
         type: boolean
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
-  release-workflows:
-    name: "job: Release workflows"
+  resolve:
+    name: "job: Resolve workflow release"
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      release-tag: ${{ steps.release.outputs.release-tag }}
+      release-name: ${{ steps.release.outputs.release-name }}
+      major-tag: ${{ steps.release.outputs.major-tag }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
-      - name: Resolve workflow release
+      - name: Resolve workflow release identity
         id: release
-        env:
-          VERSION: ${{ inputs.version }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Workflow release version must be valid SemVer without a leading v."
+          VERSION="$(jq -r '.version // empty' workflow-version.json)"
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::workflow-version.json must contain a valid SemVer version."
             exit 1
           fi
 
           MAJOR="${VERSION%%.*}"
-          RELEASE_TAG="workflows-v$VERSION"
-          MAJOR_TAG="workflows-v$MAJOR"
-          RELEASE_NAME="Workspace Tools Workflows v$VERSION"
 
           {
             echo "version=$VERSION"
-            echo "release-tag=$RELEASE_TAG"
-            echo "major-tag=$MAJOR_TAG"
-            echo "release-name=$RELEASE_NAME"
+            echo "release-tag=workflows-v$VERSION"
+            echo "release-name=Workspace Tools Workflows v$VERSION"
+            echo "major-tag=workflows-v$MAJOR"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Resolve workflow release notes
-        id: notes
-        env:
-          VERSION: ${{ steps.release.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          NOTES="$(
-            awk -v version="$VERSION" '
-              $0 ~ "^## \\[" version "\\]" { in_section=1 }
-              in_section && /^## / && $0 !~ "^## \\[" version "\\]" { exit }
-              in_section { print }
-            ' WORKFLOWS_CHANGELOG.md
-          )"
-
-          if [ -z "$NOTES" ]; then
-            echo "::error::WORKFLOWS_CHANGELOG.md has no section for $VERSION."
-            exit 1
-          fi
-
-          NOTES_FILE="$RUNNER_TEMP/workflow-release-notes.md"
-          printf '%s\n' "$NOTES" > "$NOTES_FILE"
-          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Validate immutable workflow tag
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
-          DRY_RUN: ${{ inputs.dry-run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "::warning::Immutable workflow tag already exists: $RELEASE_TAG"
-            else
-              echo "::error::Immutable workflow tag already exists: $RELEASE_TAG"
-              exit 1
-            fi
-          fi
-
-      - name: Workflow release summary
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
-          MAJOR_TAG: ${{ steps.release.outputs.major-tag }}
-          RELEASE_NAME: ${{ steps.release.outputs.release-name }}
-          VERSION: ${{ steps.release.outputs.version }}
-          NOTES_FILE: ${{ steps.notes.outputs.file }}
-        shell: bash
-        run: |
-          {
-            echo "# Reusable workflow release"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Version | `%s` |\n' "$VERSION"
-            printf '| Immutable tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Major alias | `%s` |\n' "$MAJOR_TAG"
-            printf '| Update major alias | **%s** |\n' "${{ inputs.update-major-tag }}"
-            printf '| GitHub Release | `%s` |\n' "$RELEASE_NAME"
-            printf '| Commit | `%s` |\n' "$(git rev-parse HEAD)"
-            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
-            echo
-            echo "## Release notes"
-            echo
-            cat "$NOTES_FILE"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Create immutable workflow tag
-        if: ${{ !inputs.dry-run }}
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git tag "$RELEASE_TAG" HEAD
-          git push origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-
-      - name: Update workflow major alias
-        if: ${{ !inputs.dry-run && inputs.update-major-tag }}
-        env:
-          MAJOR_TAG: ${{ steps.release.outputs.major-tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git tag --force "$MAJOR_TAG" HEAD
-          git push --force origin "refs/tags/$MAJOR_TAG:refs/tags/$MAJOR_TAG"
-
-      - name: Publish workflow GitHub Release
-        if: ${{ !inputs.dry-run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
-          RELEASE_NAME: ${{ steps.release.outputs.release-name }}
-          NOTES_FILE: ${{ steps.notes.outputs.file }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$RELEASE_NAME" \
-            --notes-file "$NOTES_FILE"
+  release:
+    name: "job: Release workflows"
+    needs: resolve
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      release-tag: ${{ needs.resolve.outputs.release-tag }}
+      release-name: ${{ needs.resolve.outputs.release-name }}
+      changelog-file: WORKFLOWS_CHANGELOG.md
+      target-ref: ${{ github.ref_name }}
+      dry-run: ${{ inputs.dry-run }}
+      create-tag: true
+      major-tag: ${{ needs.resolve.outputs.major-tag }}
+      update-major-tag: ${{ inputs.update-major-tag }}
+      draft: false
