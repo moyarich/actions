@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   changelogSection,
+  existingChangelogSection,
   npmVersionArgs,
   parseReleaseArgument,
   releaseNotes,
@@ -123,5 +124,45 @@ test("npmVersionArgs keeps --workspace for nested workspace packages", () => {
       "@moyarich/demo-tools",
       "--git-tag-version=false",
     ],
+  );
+});
+
+
+test("existingChangelogSection preserves curated bracketed release notes", () => {
+  const changelog = [
+    "# Changelog",
+    "",
+    "## [0.1.1]",
+    "",
+    "### Publishing",
+    "",
+    "- Keep this curated text.",
+    "",
+    "## [0.1.0] - Initial Release",
+    "",
+    "- Earlier release.",
+    "",
+  ].join("\n");
+
+  assert.equal(
+    existingChangelogSection(changelog, "0.1.1"),
+    "## [0.1.1]\n\n### Publishing\n\n- Keep this curated text.\n",
+  );
+});
+
+test("existingChangelogSection supports unbracketed version headings", () => {
+  assert.equal(
+    existingChangelogSection(
+      "# Changelog\n\n## 1.2.3\n\n### Fixed\n\n- A fix.\n",
+      "1.2.3",
+    ),
+    "## 1.2.3\n\n### Fixed\n\n- A fix.\n",
+  );
+});
+
+test("existingChangelogSection returns null when the version is absent", () => {
+  assert.equal(
+    existingChangelogSection("# Changelog\n\n## [1.2.2]\n", "1.2.3"),
+    null,
   );
 });
