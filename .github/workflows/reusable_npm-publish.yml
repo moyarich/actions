@@ -214,6 +214,9 @@ jobs:
             echo "version=$PACKAGE_VERSION"
             echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
             echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
+            RELEASE_TAG="$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
+            RELEASE_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+            echo "release-commit=$RELEASE_COMMIT"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
             echo "suggested-distribution-tag=$SUGGESTED_DIST_TAG"
             echo "plan-json<<EOF"
@@ -340,6 +343,8 @@ jobs:
           RELEASE_ASSET_NAME: ${{ steps.release-draft.outputs.asset-name }}
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
           PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
+          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
           GITHUB_TOKEN_VALUE: ${{ github.token }}
           NPM_TOKEN_VALUE: ${{ secrets.npm-token }}
         shell: bash
@@ -348,40 +353,66 @@ jobs:
 
           ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
           ARTIFACT_PATH=""
-          SOURCE="fresh-pack"
+          SOURCE="release-commit"
 
           if [ -n "$RELEASE_ASSET_ID" ]; then
             ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
             gh api               "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID"               -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
             SOURCE="github-release"
-          else
-            if env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm view               "$PACKAGE_NAME@$PACKAGE_VERSION"               version               --registry=https://npm.pkg.github.com               --json >/dev/null 2>&1; then
-              PACK_JSON="$(
-                env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm pack                   "$PACKAGE_NAME@$PACKAGE_VERSION"                   --registry=https://npm.pkg.github.com                   --json                   --pack-destination "$ARTIFACT_DIRECTORY"
-              )"
-              ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-              SOURCE="github-packages"
-            elif npm view               "$PACKAGE_NAME@$PACKAGE_VERSION"               version               --registry=https://registry.npmjs.org               --json >/dev/null 2>&1; then
-              PACK_ENV=()
-              if [ -n "$NPM_TOKEN_VALUE" ]; then
-                PACK_ENV=(env NODE_AUTH_TOKEN="$NPM_TOKEN_VALUE")
-              fi
-              PACK_JSON="$(
-                "${PACK_ENV[@]}" npm pack                   "$PACKAGE_NAME@$PACKAGE_VERSION"                   --registry=https://registry.npmjs.org                   --json                   --pack-destination "$ARTIFACT_DIRECTORY"
-              )"
-              ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-              SOURCE="npm"
+          elif env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm view             "$PACKAGE_NAME@$PACKAGE_VERSION"             version             --registry=https://npm.pkg.github.com             --json >/dev/null 2>&1; then
+            PACK_JSON="$(
+              env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm pack                 "$PACKAGE_NAME@$PACKAGE_VERSION"                 --registry=https://npm.pkg.github.com                 --json                 --pack-destination "$ARTIFACT_DIRECTORY"
+            )"
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+            SOURCE="github-packages"
+          elif npm view             "$PACKAGE_NAME@$PACKAGE_VERSION"             version             --registry=https://registry.npmjs.org             --json >/dev/null 2>&1; then
+            PACK_ENV=()
+            if [ -n "$NPM_TOKEN_VALUE" ]; then
+              PACK_ENV=(env NODE_AUTH_TOKEN="$NPM_TOKEN_VALUE")
             fi
+
+            PACK_JSON="$(
+              "${PACK_ENV[@]}" npm pack                 "$PACKAGE_NAME@$PACKAGE_VERSION"                 --registry=https://registry.npmjs.org                 --json                 --pack-destination "$ARTIFACT_DIRECTORY"
+            )"
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+            SOURCE="npm"
+          else
+            if [ -z "$RELEASE_COMMIT" ]; then
+              echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
+              exit 1
+            fi
+
+            WORKTREE="$RUNNER_TEMP/npm-release-source"
+            rm -rf "$WORKTREE"
+            git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
+
+            (
+              cd "$WORKTREE"
+              npm ci --include=optional
+
+              if [ "$PACKAGE_SELECTOR" = "." ]; then
+                npm run typecheck --if-present
+                npm run test --if-present
+                npm run build --if-present
+                npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+              else
+                npm run typecheck --workspace "$PACKAGE_NAME" --if-present
+                npm run test --workspace "$PACKAGE_NAME" --if-present
+                npm run build --workspace "$PACKAGE_NAME" --if-present
+                npm pack                   --workspace "$PACKAGE_NAME"                   --json                   --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+              fi
+            )
+
+            git worktree remove --force "$WORKTREE"
+            PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
           fi
 
           {
             echo "source=$SOURCE"
             echo "path=$ARTIFACT_PATH"
-            if [ -n "$ARTIFACT_PATH" ]; then
-              echo "filename=$(basename "$ARTIFACT_PATH")"
-            else
-              echo "filename="
-            fi
+            echo "filename=$(basename "$ARTIFACT_PATH")"
+            echo "sha1=$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -390,12 +421,9 @@ jobs:
             echo "| Field | Value |"
             echo "| --- | --- |"
             printf '| Source | `%s` |\n' "$SOURCE"
-            if [ -n "$ARTIFACT_PATH" ]; then
-              printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
-              printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
-            else
-              echo "| Artifact | fresh package will be built from the release source |"
-            fi
+            printf '| Release commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
+            printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
