@@ -15,7 +15,7 @@ permissions:
   issues: write
 jobs:
   dependencies:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_manage-issue-dependencies.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_manage-issue-dependencies.yml@workflows-v0.1.0
     with:
       issue: ${{ inputs.issue }}
       relationship: blocked-by
