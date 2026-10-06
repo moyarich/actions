@@ -4211,7 +4211,8 @@ function publishWorkspacePackage(selector, options) {
     json: options.json,
     withDependencies: options.withDependencies,
     verifyGitTag: options.verifyGitTag,
-    artifactDirectory: options.artifactDirectory
+    artifactDirectory: options.artifactDirectory,
+    artifactFile: options.artifactFile
   });
   if (options.json && result) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}
