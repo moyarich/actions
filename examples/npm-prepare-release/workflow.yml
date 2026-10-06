@@ -13,7 +13,7 @@ permissions:
   packages: read
 jobs:
   prepare:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_npm-prepare-release.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_npm-prepare-release.yml@workflows-v0.1.0
     with:
       package: ${{ inputs.package }}
       target-branch: main
