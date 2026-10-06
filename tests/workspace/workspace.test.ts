@@ -22,7 +22,12 @@ function fixture(
   const root = mkdtempSync(join(tmpdir(), "workspace-tools-"));
   writeFileSync(
     join(root, "package.json"),
-    JSON.stringify({ private: true, workspaces }),
+    JSON.stringify({
+      name: "@example/root",
+      version: "1.0.0",
+      private: false,
+      workspaces,
+    }),
   );
   for (const [directory, name] of [
     ["packages/library", "@example/library"],
@@ -60,6 +65,18 @@ test("workspacePackages discovers configured workspace locations", () => {
         .sort(),
       ["apps/playground", "packages/library", "tools/special"],
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("packageInfo resolves the root package with dot", () => {
+  const root = fixture();
+  try {
+    const pkg = packageInfo(root, ".");
+    assert.equal(pkg.directory, ".");
+    assert.equal(pkg.manifest.name, "@example/root");
+    assert.equal(pkg.manifest.version, "1.0.0");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
