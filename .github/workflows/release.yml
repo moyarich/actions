@@ -38,25 +38,6 @@ on:
         required: false
         default: ""
         type: string
-      publish:
-        description: Publish after creating the release
-        required: true
-        default: false
-        type: boolean
-      registry:
-        description: Registry used when publishing
-        required: true
-        default: github
-        type: choice
-        options:
-          - github
-          - npm
-          - both
-      dist-tag:
-        description: Distribution tag; leave empty to preview the suggested tag. Publishing a release requires an explicit value. ie 'latest'
-        required: false
-        default: ""
-        type: string
       dry-run:
         description: Dry-run — Preview without repository or registry mutation
         required: true
@@ -69,7 +50,6 @@ jobs:
   release:
     permissions:
       contents: write
-      packages: write
     uses: ./.github/workflows/reusable_npm-release.yml
     with:
       target-branch: main
@@ -77,10 +57,5 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       version-bump: ${{ inputs.version-bump }}
       exact-version: ${{ inputs.exact-version }}
-      publish: ${{ inputs.publish }}
-      registry: ${{ inputs.registry }}
-      dist-tag: ${{ inputs.dist-tag }}
       dry-run: ${{ inputs.dry-run }}
-      verify-git-tag: true
       node-version: "24"
-    secrets: inherit
