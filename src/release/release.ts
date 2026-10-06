@@ -594,52 +594,122 @@ function packageChanges(
 }
 
 /**
- * Update a package changelog.
- *
- * @param {string} root
- * Repository root.
- *
- * @param {ReturnType<typeof packageInfo>} pkg
- * Workspace package.
- *
- * @param {string} version
- * Release version.
- *
- * @param {string} selector
- * Package selector.
- *
- * @returns {string}
- * Changelog path.
+ * Resolve the changelog content that belongs to a release.
  */
-function updateChangelog(
+function releaseChangelog(
   root: string,
   pkg: ReturnType<typeof packageInfo>,
   version: string,
-  selector: string,
-): string {
-  const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
+): { source: "existing" | "generated"; section: string; path: string } {
+  const path = resolve(root, pkg.directory, "CHANGELOG.md");
+  const current = existsSync(path) ? readFileSync(path, "utf8") : "# Changelog\n";
+  const existing = existingChangelogSection(current, version);
+
+  if (existing) {
+    return { source: "existing", section: existing, path };
+  }
 
   const previous = previousReleaseRef(root, pkg.directory);
 
-  const section = changelogSection(
-    version,
-    releaseNotes(packageChanges(root, pkg, previous)),
-  );
+  return {
+    source: "generated",
+    section: changelogSection(
+      version,
+      releaseNotes(packageChanges(root, pkg, previous)),
+    ),
+    path,
+  };
+}
 
-  const current = existsSync(changelog)
-    ? readFileSync(changelog, "utf8")
+/**
+ * Write generated changelog content while preserving curated release sections.
+ */
+function applyReleaseChangelog(
+  changelog: ReturnType<typeof releaseChangelog>,
+): string {
+  if (changelog.source === "existing") {
+    return changelog.path;
+  }
+
+  const current = existsSync(changelog.path)
+    ? readFileSync(changelog.path, "utf8")
     : "# Changelog\n";
-
   const body = current.replace(/^# Changelog\s*/, "");
 
   writeFileSync(
-    changelog,
-    `# Changelog\n\n${section}\n${body}`.trimEnd() + "\n",
+    changelog.path,
+    `# Changelog\n\n${changelog.section}\n${body}`.trimEnd() + "\n",
   );
 
-  return changelog;
+  return changelog.path;
 }
 
+/**
+ * Build the complete release plan used by preview and execution.
+ */
+export function buildReleasePlan(
+  root: string,
+  pkg: ReturnType<typeof packageInfo>,
+  mode: "bump" | "exact" | "package-json",
+  versionSpec: string | null,
+) {
+  const currentVersion = pkg.manifest.version;
+  const nextVersion =
+    mode === "package-json"
+      ? currentVersion
+      : resolveNextVersion(currentVersion, versionSpec!);
+  const registry = registryFor(pkg);
+  const published = registryVersion(root, pkg);
+  const proposed = registryVersion(root, pkg, nextVersion);
+  const identity = releaseIdentity(pkg, nextVersion);
+  const tag = tagState(root, identity.tagName);
+  const changelog = releaseChangelog(root, pkg, nextVersion);
+  const previousRelease = previousReleaseRef(root, pkg.directory);
+  const alreadyPublished = proposed.status === "published";
+  const canRelease = !alreadyPublished && !tag.exists;
+  const reason = alreadyPublished
+    ? `${pkg.manifest.name}@${nextVersion} is already published.`
+    : tag.exists
+      ? tag.atHead
+        ? `Git tag ${identity.tagName} already exists at HEAD.`
+        : `Git tag ${identity.tagName} already exists at ${tag.commit} and will not be moved.`
+      : null;
+  const versionCommand =
+    mode === "package-json"
+      ? null
+      : {
+          command: "npm",
+          args: npmVersionArgs(pkg, versionSpec!),
+          cwd: root,
+        };
+
+  return {
+    package: {
+      name: pkg.manifest.name,
+      directory: pkg.directory,
+      manifest: pkg.file,
+    },
+    mode,
+    versionRequest: versionSpec,
+    currentVersion,
+    nextVersion,
+    registry,
+    latestPublished:
+      published.status === "published" ? published.version : "",
+    alreadyPublished,
+    identity,
+    tag,
+    canRelease,
+    reason,
+    previousRelease,
+    changelog,
+    versionCommand,
+    files:
+      mode === "package-json"
+        ? []
+        : [pkg.file, resolve(root, "package-lock.json"), changelog.path],
+  };
+}
 /**
  * Create or preview a package release.
  *
