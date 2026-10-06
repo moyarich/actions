@@ -11,7 +11,7 @@ Validate without publishing:
 workspace-publish css-expand-collapse --dry-run
 ```
 
-A dry run performs the publish checks without registry mutation. It checks registry state, verifies the matching Git release tag by default, and validates versions that would need publishing.
+A dry run is the publish preflight. It performs the same package validation and packing checks without registry mutation: dependency validation, `typecheck`, `test`, and `build` scripts when present, `npm pack`, registry state checks, and Git release-tag verification by default.
 
 To preview every publishable workspace package:
 
@@ -52,7 +52,7 @@ If the matching tag is valid but the package version already exists in the selec
 
 Use `--registry=both` for both destinations. `--tag=<tag>` controls the npm distribution tag and `--access=public|restricted` controls access. A real publish is blocked when `--tag` is omitted so `latest` is never moved implicitly.
 
-Before publishing a missing registry version, the tool runs each package's `typecheck`, `test`, and `build` scripts when present, followed by `npm pack --dry-run`.
+Before publishing a missing registry version, both dry-run and real publish run each package's `typecheck`, `test`, and `build` scripts when present, then create the exact `npm pack` artifact that would be published. Dry-run stops before registry mutation.
 
 ## GitHub Release finalization
 
