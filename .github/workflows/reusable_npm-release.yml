@@ -113,6 +113,15 @@ on:
       release-json:
         description: Complete workspace-release JSON result
         value: ${{ jobs.release-package.outputs.release-json }}
+      release-tag:
+        description: Canonical package release tag
+        value: ${{ jobs.release-package.outputs.release-tag }}
+      release-name:
+        description: Canonical package GitHub Release name
+        value: ${{ jobs.release-package.outputs.release-name }}
+      release-url:
+        description: GitHub Release URL
+        value: ${{ jobs.github-release.outputs.release-url }}
 
 permissions: {}
 
@@ -129,6 +138,9 @@ jobs:
       release-status: ${{ steps.release.outputs.status || steps.preview.outputs.status }}
       can-release: ${{ steps.release.outputs.can-release || steps.preview.outputs.can-release }}
       release-json: ${{ steps.release.outputs.release-json || steps.preview.outputs.release-json }}
+      release-tag: ${{ steps.release.outputs.release-tag || steps.preview.outputs.release-tag }}
+      release-name: ${{ steps.release.outputs.release-name || steps.preview.outputs.release-name }}
+      release-notes: ${{ steps.preview.outputs.release-notes }}
 
     env:
       GH_TOKEN: ${{ github.token }}
@@ -403,6 +415,11 @@ jobs:
             echo "package-version=$PACKAGE_VERSION"
             echo "status=$(jq -r '.status' <<< "$RELEASE_JSON")"
             echo "can-release=$CAN_RELEASE"
+            echo "release-tag=$RELEASE_TAG"
+            echo "release-name=$RELEASE_NAME"
+            echo "release-notes<<EOF"
+            echo "$(jq -r '.changelog // ""' <<< "$RELEASE_JSON")"
+            echo "EOF"
             echo "release-json<<EOF"
             echo "$RELEASE_JSON" | jq -c .
             echo "EOF"
@@ -468,231 +485,6 @@ jobs:
             exit 1
           fi
 
-      - name: Inspect existing GitHub Release draft
-        id: existing-draft
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          RELEASES="$(
-            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
-          )"
-
-          EXISTING_DRAFT="$(
-            jq -c --arg tag "$RELEASE_TAG" '
-              [.[][] | select(.draft == true and .tag_name == $tag)]
-              | first // empty
-            ' <<< "$RELEASES"
-          )"
-
-          if [ -z "$EXISTING_DRAFT" ]; then
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-
-            {
-              echo "## Existing GitHub Release draft"
-              echo
-              echo "_No matching draft exists for `$RELEASE_TAG`._"
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
-
-            exit 0
-          fi
-
-          DRAFT_ID="$(jq -r '.id' <<< "$EXISTING_DRAFT")"
-          DRAFT_NAME="$(jq -r '.name // ""' <<< "$EXISTING_DRAFT")"
-          DRAFT_URL="$(jq -r '.html_url // ""' <<< "$EXISTING_DRAFT")"
-          DRAFT_TARGET="$(jq -r '.target_commitish // ""' <<< "$EXISTING_DRAFT")"
-          DRAFT_BODY="$(jq -r '.body // ""' <<< "$EXISTING_DRAFT")"
-
-          {
-            echo "exists=true"
-            echo "id=$DRAFT_ID"
-            echo "url=$DRAFT_URL"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "## Existing GitHub Release draft"
-            echo
-            echo "| Field | Value |"
-            echo "| --- | --- |"
-            printf '| Name | `%s` |\n' "$DRAFT_NAME"
-            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Target | `%s` |\n' "$DRAFT_TARGET"
-            if [ -n "$DRAFT_URL" ]; then
-              echo "| Draft | [Open release draft]($DRAFT_URL) |"
-            else
-              echo "| Draft | exists |"
-            fi
-            echo
-            echo "### Draft body"
-            echo
-            if [ -n "$DRAFT_BODY" ]; then
-              echo "$DRAFT_BODY"
-            else
-              echo "_Draft body is empty._"
-            fi
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Ensure matching GitHub draft
-        id: draft
-        if: ${{ steps.execution.outputs.dry-run == 'false' }}
-        env:
-          PREVIEW_JSON: ${{ steps.preview.outputs.release-json }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          RELEASES="$(
-            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
-          )"
-
-          CANDIDATE_MARKER="<!-- dev-toolkit-release-draft:candidate package=$PACKAGE_NAME -->"
-
-          mapfile -t SUPERSEDED_DRAFTS < <(
-            jq -r \
-              --arg prefix "$PACKAGE_DIRECTORY@" \
-              --arg target "$RELEASE_TAG" \
-              --arg marker "$CANDIDATE_MARKER" '
-                [
-                  .[][] |
-                  select(
-                    .draft == true and
-                    .tag_name != $target and
-                    (.tag_name | startswith($prefix)) and
-                    ((.body // "") | contains($marker))
-                  )
-                ][]
-                | [.id, .tag_name]
-                | @tsv
-              ' <<< "$RELEASES"
-          )
-
-          REMOVED_CANDIDATES=0
-
-          for ITEM in "${SUPERSEDED_DRAFTS[@]}"; do
-            IFS=$'\\t' read -r DRAFT_ID DRAFT_TAG <<< "$ITEM"
-
-            if git rev-parse --verify --quiet "refs/tags/$DRAFT_TAG" >/dev/null; then
-              continue
-            fi
-
-            gh api --method DELETE "repos/$GH_REPO/releases/$DRAFT_ID"
-            REMOVED_CANDIDATES=$((REMOVED_CANDIDATES + 1))
-          done
-
-          if [ "$REMOVED_CANDIDATES" -gt 0 ]; then
-            {
-              echo "## Superseded candidate drafts"
-              echo
-              printf "Removed **%s** automation-owned, untagged candidate draft(s) for `%s`.\n" "$REMOVED_CANDIDATES" "$PACKAGE_NAME"
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
-
-            RELEASES="$(
-              gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100"
-            )"
-          fi
-
-          PUBLISHED_ID="$(
-            jq -r --arg tag "$RELEASE_TAG" '
-              [.[][] | select(.draft == false and .tag_name == $tag)]
-              | first
-              | .id // empty
-            ' <<< "$RELEASES"
-          )"
-
-          if [ -n "$PUBLISHED_ID" ]; then
-            echo "::error::A published GitHub Release already exists for $RELEASE_TAG."
-            exit 1
-          fi
-
-          EXISTING="$(
-            jq -c --arg tag "$RELEASE_TAG" '
-              [.[][] | select(.draft == true and .tag_name == $tag)]
-              | first // empty
-            ' <<< "$RELEASES"
-          )"
-
-          # CHANGELOG content seeds a newly created GitHub Release draft.
-          # Reused drafts preserve their existing body so maintainers can edit
-          # the draft without later release runs overwriting those changes.
-          NOTES="$(jq -r '.changelog // ""' <<< "$PREVIEW_JSON" | sed '1{/^## /d;}')"
-
-          BODY="$(
-            {
-              echo "## Release notes"
-              echo
-              if [ -n "$NOTES" ]; then
-                echo "$NOTES"
-              else
-                echo "- No user-facing changes documented for this release."
-              fi
-              echo
-              echo "## Install"
-              echo
-              echo '~~~sh'
-              echo "npm install $PACKAGE_NAME@$PACKAGE_VERSION --registry=https://npm.pkg.github.com"
-              echo '~~~'
-            }
-          )"
-
-          if [ -n "$EXISTING" ]; then
-            RELEASE_DRAFT_ID="$(jq -r '.id' <<< "$EXISTING")"
-
-            RELEASE="$(
-              gh api \
-                --method PATCH \
-                "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
-                -f tag_name="$RELEASE_TAG" \
-                -f target_commitish="$TARGET_BRANCH" \
-                -f name="$RELEASE_NAME" \
-                -F draft=true
-            )"
-
-            ACTION="reused"
-          else
-            RELEASE="$(
-              gh api \
-                --method POST \
-                "repos/$GH_REPO/releases" \
-                -f tag_name="$RELEASE_TAG" \
-                -f target_commitish="$TARGET_BRANCH" \
-                -f name="$RELEASE_NAME" \
-                -f body="$BODY" \
-                -F draft=true
-            )"
-
-            RELEASE_DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
-            ACTION="created"
-          fi
-
-          RELEASE_DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
-
-          {
-            echo "RELEASE_DRAFT_ID=$RELEASE_DRAFT_ID"
-            echo "RELEASE_DRAFT_URL=$RELEASE_DRAFT_URL"
-          } >> "$GITHUB_ENV"
-
-          {
-            echo "id=$RELEASE_DRAFT_ID"
-            echo "url=$RELEASE_DRAFT_URL"
-            echo "action=$ACTION"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "## GitHub Release draft"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Name | `%s` |\n' "$RELEASE_NAME"
-            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
-            echo "| State | **draft** |"
-            echo "| Action | **$ACTION** |"
-            echo "| Draft | [Open release draft]($RELEASE_DRAFT_URL) |"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Perform release
         id: release
         if: ${{ steps.execution.outputs.dry-run == 'false' }}
@@ -733,6 +525,8 @@ jobs:
             echo "package-version=$(jq -r '.nextVersion' <<< "$RELEASE_JSON")"
             echo "status=$(jq -r '.status' <<< "$RELEASE_JSON")"
             echo "can-release=true"
+            echo "release-tag=$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
+            echo "release-name=$(jq -r '.identity.releaseName' <<< "$RELEASE_JSON")"
             echo "release-json<<EOF"
             echo "$RELEASE_JSON" | jq -c .
             echo "EOF"
@@ -780,38 +574,45 @@ jobs:
             "HEAD:${TARGET_BRANCH}" \
             "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
-      - name: Release result
+      - name: Package release result
         if: ${{ always() }}
         shell: bash
         run: |
           {
             echo
-            echo "## Result"
+            echo "## Package release result"
             echo
 
             if [ "${{ job.status }}" != "success" ]; then
-              echo "### ❌ Release failed"
+              echo "### ❌ Package release failed"
               echo
-
-              if [ "${{ steps.draft.outcome }}" = "success" ] &&
-                 [ "${{ steps.release.outcome }}" != "success" ]; then
-                echo "Draft prepared: **yes**"
-                echo "Release commit/tag: **not completed**"
-                echo "GitHub Release: **draft retained for retry**"
-                echo
-              fi
-
               echo "Review the workflow logs above for the failing step."
-
             elif [ "${{ steps.execution.outputs.dry-run }}" = "true" ]; then
-              echo "### ✅ Release preview completed"
+              echo "### ✅ Package release preview completed"
               echo
-              echo "No files, commits, tags, pushes, or GitHub Release changes were performed."
-
+              echo "No files, commits, tags, or pushes were performed."
             else
-              echo "### ✅ Release completed"
+              echo "### ✅ Package release prepared"
               echo
               printf 'Git tag: `%s`\n' "$RELEASE_TAG"
-              echo "GitHub Release: **draft**"
+              echo "The matching GitHub Release is handled by the generic reusable release job."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  github-release:
+    name: "job: GitHub Release"
+    needs: release-package
+    if: ${{ needs.release-package.result == 'success' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release.yml
+    with:
+      version: ${{ needs.release-package.outputs.package-version }}
+      release-tag: ${{ needs.release-package.outputs.release-tag }}
+      release-name: ${{ needs.release-package.outputs.release-name }}
+      changelog-file: CHANGELOG.md
+      release-notes: ${{ needs.release-package.outputs.release-notes }}
+      target-ref: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+      dry-run: ${{ inputs.dry-run }}
+      create-tag: false
+      draft: true
