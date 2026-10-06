@@ -270,12 +270,16 @@ jobs:
           DRAFT_NAME="$(jq -r '.name' <<< "$RELEASE")"
           DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
           DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+          DRAFT_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
 
           {
             echo "exists=true"
             echo "id=$DRAFT_ID"
             echo "url=$DRAFT_URL"
             echo "name=$DRAFT_NAME"
+            echo "body<<EOF"
+            printf '%s\n' "$DRAFT_BODY"
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
           if [ "$DRAFT_NAME" != "$RELEASE_NAME" ]; then
@@ -421,6 +425,7 @@ jobs:
           RELEASE_DRAFT_ID: ${{ steps.release-draft.outputs.id }}
           RELEASE_DRAFT_URL: ${{ steps.release-draft.outputs.url }}
           RELEASE_DRAFT_NAME: ${{ steps.release-draft.outputs.name }}
+          RELEASE_DRAFT_BODY: ${{ steps.release-draft.outputs.body }}
           RELEASE_DRAFT_REASON: ${{ steps.release-draft.outputs.reason }}
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
@@ -539,5 +544,40 @@ jobs:
               echo "| Workflow artifact download | [Open artifact](${ARTIFACT_URL}) |"
             else
               echo "| Workflow artifact download | unavailable |"
+            fi
+
+            echo
+            echo "### CHANGELOG.md"
+            echo
+
+            CHANGELOG_VERSION="${{ steps.plan.outputs.version }}"
+            if [ -n "$CHANGELOG_VERSION" ] && [ -f CHANGELOG.md ]; then
+              CHANGELOG_SECTION="$(
+                awk -v version="$CHANGELOG_VERSION" '
+                  $0 ~ "^## \\[" version "\\]" { in_section=1 }
+                  in_section && /^## / && $0 !~ "^## \\[" version "\\]" { exit }
+                  in_section { print }
+                ' CHANGELOG.md
+              )"
+
+              if [ -n "$CHANGELOG_SECTION" ]; then
+                printf '%s\n' "$CHANGELOG_SECTION"
+              else
+                echo "> No matching `CHANGELOG.md` section found for version `$CHANGELOG_VERSION`."
+              fi
+            else
+              echo "> `CHANGELOG.md` is unavailable or the package version was unresolved."
+            fi
+
+            echo
+            echo "### GitHub Release draft content"
+            echo
+
+            if [ -n "$RELEASE_DRAFT_BODY" ]; then
+              printf '%s\n' "$RELEASE_DRAFT_BODY"
+            elif [ "${RELEASE_DRAFT_EXISTS:-false}" = "true" ]; then
+              echo "> The matching GitHub Release draft has an empty body."
+            else
+              echo "> No matching GitHub Release draft content is available."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
