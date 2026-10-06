@@ -1,0 +1,69 @@
+name: "Release reusable workflows"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Preview the workflow release without making changes
+        required: true
+        default: true
+        type: boolean
+      update-major-tag:
+        description: Move the workflows-v<major> compatibility tag to this release
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: "job: Resolve workflow release"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      release-tag: ${{ steps.release.outputs.release-tag }}
+      release-name: ${{ steps.release.outputs.release-name }}
+      major-tag: ${{ steps.release.outputs.major-tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve workflow release identity
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="$(jq -r '.version // empty' workflow-version.json)"
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::workflow-version.json must contain a valid SemVer version."
+            exit 1
+          fi
+
+          MAJOR="${VERSION%%.*}"
+
+          {
+            echo "version=$VERSION"
+            echo "release-tag=workflows-v$VERSION"
+            echo "release-name=Workspace Tools Workflows v$VERSION"
+            echo "major-tag=workflows-v$MAJOR"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    name: "job: Release workflows"
+    needs: resolve
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      release-tag: ${{ needs.resolve.outputs.release-tag }}
+      release-name: ${{ needs.resolve.outputs.release-name }}
+      changelog-file: CHANGELOG_WORKFLOWS.md
+      target-ref: ${{ github.ref_name }}
+      dry-run: ${{ inputs.dry-run }}
+      create-tag: true
+      major-tag: ${{ needs.resolve.outputs.major-tag }}
+      update-major-tag: ${{ inputs.update-major-tag }}
+      draft: true

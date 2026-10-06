@@ -6,4 +6,4 @@ permissions:
   issues: read
 jobs:
   dependency-tree:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_show-issue-dependency-tree.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_show-issue-dependency-tree.yml@workflows-v0.1.0

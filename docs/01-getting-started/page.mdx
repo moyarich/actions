@@ -10,10 +10,12 @@ Reusable workflows are called at the job level.
 ```yaml
 jobs:
   ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@v1
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
 ```
 
-Until a stable major tag is published, use an explicit release tag such as `v0.1.0` or a commit SHA.
+Reusable workflows have their own release line. Pin an immutable workflow release such as `workflows-v0.1.0` when reproducibility matters, or use the moving compatible major alias `workflows-v0`.
+
+Do not use the npm package release tag for reusable workflow callers. Package tags such as `@moyarich/workspace-tools@0.1.0` identify the installable npm package, not the reusable workflow API.
 
 ## Naming contract
 
@@ -28,6 +30,19 @@ Only workflow files prefixed with `reusable_` are part of the supported cross-re
 ```
 
 In this example, the first three workflows are public reusable workflows. `ci.yml` is repository-local automation.
+
+## Workflow versioning
+
+Workflow releases are versioned independently from the npm package:
+
+```text
+workflow-version.json
+└─ 0.1.0
+   ├─ workflows-v0.1.0   immutable release tag
+   └─ workflows-v0       moving compatible major alias
+```
+
+Workflow release notes are maintained in `CHANGELOG_WORKFLOWS.md`.
 
 ## Secrets and permissions
 

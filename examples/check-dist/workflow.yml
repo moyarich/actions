@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   check-dist:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_check-dist.yml@v1
+    uses: moyarich/workspace-tools/.github/workflows/reusable_check-dist.yml@workflows-v0
     with:
       dist-path: dist/
       build-command: npm run build

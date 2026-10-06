@@ -214,8 +214,14 @@ jobs:
             echo "version=$PACKAGE_VERSION"
             echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
             echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
+            RELEASE_TAG="$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
+            RELEASE_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+            echo "release-commit=$RELEASE_COMMIT"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
             echo "suggested-distribution-tag=$SUGGESTED_DIST_TAG"
+            echo "plan-json<<EOF"
+            echo "$PLAN" | jq -c .
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate requested version
@@ -228,11 +234,13 @@ jobs:
             echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
             exit 1
           fi
-      - name: Verify matching GitHub draft
+      - name: Verify matching GitHub release
         id: release-draft
         env:
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
           DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
@@ -243,7 +251,7 @@ jobs:
               jq -c --arg tag "$RELEASE_TAG" '
                 [
                   .[][] |
-                  select(.draft == true and .tag_name == $tag)
+                  select(.tag_name == $tag)
                 ]
                 | first // empty
               '
@@ -256,42 +264,56 @@ jobs:
               echo "id="
               echo "url="
               echo "name="
-              echo "reason=No matching GitHub draft release exists for $RELEASE_TAG."
+              echo "reason=No matching GitHub release exists for $RELEASE_TAG."
             } >> "$GITHUB_OUTPUT"
 
             if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::No matching GitHub draft release exists for $RELEASE_TAG."
+              echo "::error::No matching GitHub release exists for $RELEASE_TAG."
               exit 1
             fi
 
             exit 0
           fi
 
-          DRAFT_NAME="$(jq -r '.name' <<< "$RELEASE")"
-          DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
-          DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
-          DRAFT_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+          ACTUAL_NAME="$(jq -r '.name' <<< "$RELEASE")"
+          RELEASE_ID="$(jq -r '.id' <<< "$RELEASE")"
+          RELEASE_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+          RELEASE_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+          RELEASE_IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
+          SAFE_NAME="${PACKAGE_NAME#@}"
+          SAFE_NAME="${SAFE_NAME//\//-}"
+          CANONICAL_ASSET_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.tgz"
+          CANONICAL_ASSET_ID="$(
+            jq -r --arg name "$CANONICAL_ASSET_NAME" '
+              [.assets[]? | select(.name == $name)]
+              | first
+              | .id // empty
+            ' <<< "$RELEASE"
+          )"
 
           {
             echo "exists=true"
-            echo "id=$DRAFT_ID"
-            echo "url=$DRAFT_URL"
-            echo "name=$DRAFT_NAME"
+            echo "id=$RELEASE_ID"
+            echo "url=$RELEASE_URL"
+            echo "name=$ACTUAL_NAME"
+            echo "draft=$RELEASE_IS_DRAFT"
+            echo "asset-name=$CANONICAL_ASSET_NAME"
+            echo "asset-id=$CANONICAL_ASSET_ID"
             echo "body<<EOF"
-            printf '%s\n' "$DRAFT_BODY"
+            printf '%s\n' "$RELEASE_BODY"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          if [ "$DRAFT_NAME" != "$RELEASE_NAME" ]; then
+          if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
             {
               echo "valid=false"
-              echo "reason=Draft release name does not match the canonical release identity."
+              echo "reason=GitHub release name does not match the canonical release identity."
             } >> "$GITHUB_OUTPUT"
 
             if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::Draft release name does not match the canonical release identity."
+              echo "::error::GitHub release name does not match the canonical release identity."
               echo "::error::Expected: $RELEASE_NAME"
-              echo "::error::Actual:   $DRAFT_NAME"
+              echo "::error::Actual:   $ACTUAL_NAME"
               exit 1
             fi
 
@@ -304,9 +326,187 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "RELEASE_DRAFT_ID=$DRAFT_ID"
-            echo "RELEASE_DRAFT_URL=$DRAFT_URL"
+            echo "GITHUB_RELEASE_ID=$RELEASE_ID"
+            echo "GITHUB_RELEASE_URL=$RELEASE_URL"
           } >> "$GITHUB_ENV"
+
+      - name: Prepare package artifact directory
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/npm-package-artifacts"
+          mkdir -p "$RUNNER_TEMP/npm-package-artifacts"
+
+      - name: Resolve canonical package artifact
+        id: canonical-artifact
+        env:
+          RELEASE_ASSET_ID: ${{ steps.release-draft.outputs.asset-id }}
+          RELEASE_ASSET_NAME: ${{ steps.release-draft.outputs.asset-name }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
+          ARTIFACT_PATH=""
+          SOURCE="release-commit"
+
+          if [ -n "$RELEASE_ASSET_ID" ]; then
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
+            gh api \
+              "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID" \
+              -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
+            SOURCE="github-release"
+          else
+            if [ -z "$RELEASE_COMMIT" ]; then
+              echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
+              exit 1
+            fi
+
+            WORKTREE="$RUNNER_TEMP/npm-release-source"
+            rm -rf "$WORKTREE"
+            git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
+
+            cleanup() {
+              git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+            }
+            trap cleanup EXIT
+
+            (
+              cd "$WORKTREE"
+              npm ci --include=optional
+
+              if [ "$PACKAGE_SELECTOR" = "." ]; then
+                npm run typecheck --if-present
+                npm run test --if-present
+                npm run build --if-present
+                npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+              else
+                npm run typecheck --workspace "$PACKAGE_NAME" --if-present
+                npm run test --workspace "$PACKAGE_NAME" --if-present
+                npm run build --workspace "$PACKAGE_NAME" --if-present
+                npm pack \
+                  --workspace "$PACKAGE_NAME" \
+                  --json \
+                  --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+              fi
+            )
+
+            PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+            cleanup
+            trap - EXIT
+          fi
+
+          if [ ! -f "$ARTIFACT_PATH" ]; then
+            echo "::error::Canonical package artifact was not created."
+            exit 1
+          fi
+
+          {
+            echo "source=$SOURCE"
+            echo "path=$ARTIFACT_PATH"
+            echo "filename=$(basename "$ARTIFACT_PATH")"
+            echo "sha1=$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Canonical package artifact"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Source | `%s` |\n' "$SOURCE"
+            printf '| Release commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
+            printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate packaged CLI entry points
+        env:
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CANONICAL_ARTIFACT_PATH" ] || [ ! -f "$CANONICAL_ARTIFACT_PATH" ]; then
+            echo "::error::Canonical package artifact is unavailable for CLI validation."
+            exit 1
+          fi
+
+          PACKAGE_JSON="$RUNNER_TEMP/packed-package.json"
+          tar -xOf "$CANONICAL_ARTIFACT_PATH" package/package.json > "$PACKAGE_JSON"
+
+          BIN_ENTRIES="$(
+            jq -c '
+              if (.bin | type) == "object" then
+                .bin | to_entries
+              elif (.bin | type) == "string" then
+                [{key: .name, value: .bin}]
+              else
+                []
+              end
+            ' "$PACKAGE_JSON"
+          )"
+
+          if [ "$(jq 'length' <<< "$BIN_ENTRIES")" -eq 0 ]; then
+            echo "Packed package declares no CLI bin entries; CLI validation is not required."
+
+            {
+              echo "## Packaged CLI validation"
+              echo
+              echo "_Skipped: the packed package does not declare any `package.json#bin` entries._"
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          EXTRACT_DIR="$RUNNER_TEMP/npm-package-contents"
+          TEST_DIR="$RUNNER_TEMP/npm-package-consumer"
+          rm -rf "$EXTRACT_DIR" "$TEST_DIR"
+          mkdir -p "$EXTRACT_DIR" "$TEST_DIR"
+          tar -xzf "$CANONICAL_ARTIFACT_PATH" -C "$EXTRACT_DIR"
+
+          while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
+            if [ ! -f "$EXTRACT_DIR/package/$BIN_TARGET" ]; then
+              echo "::error::Packed CLI target is missing: $BIN_NAME -> $BIN_TARGET"
+              exit 1
+            fi
+          done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
+
+          (
+            cd "$TEST_DIR"
+            npm init --yes >/dev/null
+            npm install \
+              --ignore-scripts \
+              --no-audit \
+              --no-fund \
+              "$CANONICAL_ARTIFACT_PATH" >/dev/null
+
+            while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
+              BIN_PATH="$TEST_DIR/node_modules/.bin/$BIN_NAME"
+
+              if [ ! -x "$BIN_PATH" ]; then
+                echo "::error::npm did not create an executable CLI shim: $BIN_NAME"
+                exit 1
+              fi
+
+              echo "Validated $BIN_NAME -> $BIN_TARGET"
+            done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
+          )
+
+          {
+            echo "## Packaged CLI validation"
+            echo
+            echo "Installed the canonical `.tgz` into an isolated consumer project and verified every declared `bin` target and npm-created executable shim."
+            echo
+            while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
+              printf -- '- `%s` → `%s`\n' "$BIN_NAME" "$BIN_TARGET"
+            done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish package
         id: publish
@@ -316,11 +516,11 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
           set -euo pipefail
 
           ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
-          rm -rf "$ARTIFACT_DIRECTORY"
           mkdir -p "$ARTIFACT_DIRECTORY"
 
           PUBLISH_ARGS=(
@@ -332,6 +532,10 @@ jobs:
 
           if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
             PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
+          fi
+
+          if [ -n "$CANONICAL_ARTIFACT_PATH" ]; then
+            PUBLISH_ARGS+=(--artifact-file="$CANONICAL_ARTIFACT_PATH")
           fi
 
           if [ "$DRY_RUN" = "true" ]; then
@@ -427,9 +631,16 @@ jobs:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+          RELEASE_IS_DRAFT: ${{ steps.release-draft.outputs.draft }}
         shell: bash
         run: |
           set -euo pipefail
+
+          if [ "$RELEASE_IS_DRAFT" != "true" ]; then
+            echo "status=published-existing" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release is already published and remains unchanged."
+            exit 0
+          fi
 
           if jq -e '
             [.results[]? | select(.status == "staged")] | length > 0
@@ -448,7 +659,7 @@ jobs:
           RELEASE="$(
             gh api \
               --method PATCH \
-              "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
+              "repos/$GH_REPO/releases/$GITHUB_RELEASE_ID" \
               -f tag_name="$RELEASE_TAG" \
               -f name="$RELEASE_NAME" \
               -F draft=false
@@ -476,14 +687,14 @@ jobs:
         if: ${{ always() }}
         env:
           CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
+          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
         shell: bash
         run: |
           set -euo pipefail
 
           CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
 
-          if [ "${RELEASE_DRAFT_VALID:-false}" != "true" ]; then
+          if [ "${GITHUB_RELEASE_VALID:-false}" != "true" ]; then
             CAN_PUBLISH="false"
           fi
 
@@ -493,13 +704,13 @@ jobs:
         if: ${{ always() }}
         env:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
-          RELEASE_DRAFT_EXISTS: ${{ steps.release-draft.outputs.exists }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
-          RELEASE_DRAFT_ID: ${{ steps.release-draft.outputs.id }}
-          RELEASE_DRAFT_URL: ${{ steps.release-draft.outputs.url }}
-          RELEASE_DRAFT_NAME: ${{ steps.release-draft.outputs.name }}
-          RELEASE_DRAFT_BODY: ${{ steps.release-draft.outputs.body }}
-          RELEASE_DRAFT_REASON: ${{ steps.release-draft.outputs.reason }}
+          GITHUB_RELEASE_EXISTS: ${{ steps.release-draft.outputs.exists }}
+          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
+          GITHUB_RELEASE_SUMMARY_ID: ${{ steps.release-draft.outputs.id }}
+          GITHUB_RELEASE_SUMMARY_URL: ${{ steps.release-draft.outputs.url }}
+          GITHUB_RELEASE_SUMMARY_NAME: ${{ steps.release-draft.outputs.name }}
+          GITHUB_RELEASE_BODY: ${{ steps.release-draft.outputs.body }}
+          GITHUB_RELEASE_REASON: ${{ steps.release-draft.outputs.reason }}
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
           ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
@@ -570,19 +781,20 @@ jobs:
               echo "| CLI readiness reason | unresolved |"
             fi
 
-            echo "| GitHub draft exists | **${RELEASE_DRAFT_EXISTS:-false}** |"
-            echo "| GitHub draft identity valid | **${RELEASE_DRAFT_VALID:-false}** |"
-            echo "| GitHub draft ID | \`${RELEASE_DRAFT_ID:-none}\` |"
-            echo "| GitHub draft name | \`${RELEASE_DRAFT_NAME:-none}\` |"
+            echo "| GitHub release exists | **${GITHUB_RELEASE_EXISTS:-false}** |"
+            echo "| GitHub release identity valid | **${GITHUB_RELEASE_VALID:-false}** |"
+            echo "| GitHub release ID | \`${GITHUB_RELEASE_SUMMARY_ID:-none}\` |"
+            echo "| GitHub release name | \`${GITHUB_RELEASE_SUMMARY_NAME:-none}\` |"
+            echo "| GitHub release state | \`${{ steps.release-draft.outputs.draft == 'true' && 'draft' || 'published' }}\` |"
 
-            if [ -n "$RELEASE_DRAFT_URL" ]; then
-              echo "| GitHub draft | [Open draft](${RELEASE_DRAFT_URL}) |"
+            if [ -n "$GITHUB_RELEASE_SUMMARY_URL" ]; then
+              echo "| GitHub release | [Open draft](${GITHUB_RELEASE_SUMMARY_URL}) |"
             else
-              echo "| GitHub draft | unavailable |"
+              echo "| GitHub release | unavailable |"
             fi
 
-            if [ -n "$RELEASE_DRAFT_REASON" ]; then
-              echo "| Draft readiness reason | $RELEASE_DRAFT_REASON |"
+            if [ -n "$GITHUB_RELEASE_REASON" ]; then
+              echo "| Release readiness reason | $GITHUB_RELEASE_REASON |"
             fi
 
             echo "| GitHub Release after workflow | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
@@ -640,14 +852,14 @@ jobs:
             fi
 
             echo
-            echo "### GitHub Release draft content"
+            echo "### GitHub Release content"
             echo
 
-            if [ -n "$RELEASE_DRAFT_BODY" ]; then
-              printf '%s\n' "$RELEASE_DRAFT_BODY"
-            elif [ "${RELEASE_DRAFT_EXISTS:-false}" = "true" ]; then
+            if [ -n "$GITHUB_RELEASE_BODY" ]; then
+              printf '%s\n' "$GITHUB_RELEASE_BODY"
+            elif [ "${GITHUB_RELEASE_EXISTS:-false}" = "true" ]; then
               echo "> The matching GitHub Release draft has an empty body."
             else
-              echo "> No matching GitHub Release draft content is available."
+              echo "> No matching GitHub Release content is available."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

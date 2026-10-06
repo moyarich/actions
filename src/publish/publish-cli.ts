@@ -38,6 +38,10 @@ program
     "Keep generated package tarballs in this directory",
   )
   .option(
+    "--artifact-file <file>",
+    "Publish an existing canonical package tarball instead of rebuilding it",
+  )
+  .option(
     "-w, --with-dependencies",
     "Include publishable workspace dependencies",
   )

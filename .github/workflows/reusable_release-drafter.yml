@@ -43,6 +43,11 @@ on:
         required: false
         default: ""
         type: string
+      include-paths:
+        description: Optional JSON array of repository path globs included in this draft
+        required: false
+        default: "[]"
+        type: string
       target-key:
         description: Stable draft target identifier; derived when omitted
         required: false
@@ -104,6 +109,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       TARGET_BRANCH: ${{ inputs.target-branch }}
       TARGET_PATH: ${{ inputs.package-directory }}
+      INCLUDE_PATHS: ${{ inputs.include-paths }}
       TARGET_KEY_INPUT: ${{ inputs.target-key }}
       PACKAGE_NAME: ${{ inputs.package-name }}
       CHANGELOG_PATH: ${{ inputs.changelog-path }}
@@ -276,7 +282,7 @@ jobs:
 
           GENERATED=".github/release-drafter-generated.yml"
 
-          SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INPUT_VERSION="$INPUT_VERSION"           node --input-type=module <<'NODE'
+          SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INCLUDE_PATHS="$INCLUDE_PATHS"           INPUT_VERSION="$INPUT_VERSION"           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
 
           const versionToken = process.env.INPUT_VERSION || "$RESOLVED_VERSION";
@@ -289,16 +295,24 @@ jobs:
             `${process.env.TAG_PREFIX}${versionToken}`;
 
           const packageDirectory = process.env.PACKAGE_DIRECTORY;
-          const packagePath =
-            packageDirectory && packageDirectory !== "."
-              ? `${packageDirectory}/**`
-              : "**";
+          const configuredPaths = JSON.parse(process.env.INCLUDE_PATHS || "[]");
+          const packagePaths =
+            configuredPaths.length > 0
+              ? configuredPaths
+              : [
+                  packageDirectory && packageDirectory !== "."
+                    ? `${packageDirectory}/**`
+                    : "**",
+                ];
+          const packagePathsYaml = packagePaths
+            .map((path) => `        - ${JSON.stringify(path)}`)
+            .join("\n");
 
           const template = readFileSync(process.env.SOURCE_TEMPLATE, "utf8");
           const config = template
             .replaceAll("{{PACKAGE_NAME}}", process.env.PACKAGE_NAME)
             .replaceAll("{{PACKAGE_DIRECTORY}}", packageDirectory)
-            .replaceAll("{{PACKAGE_PATH}}", packagePath)
+            .replaceAll("{{PACKAGE_PATHS}}", packagePathsYaml)
             .replaceAll("{{RELEASE_NAME_TEMPLATE}}", releaseName)
             .replaceAll("{{TAG_TEMPLATE}}", releaseTag)
             .replaceAll("{{TAG_PREFIX}}", process.env.TAG_PREFIX);

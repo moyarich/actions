@@ -2,7 +2,7 @@
 
 The repository release system separates **drafting**, **releasing**, and **publishing** into distinct stages of one package release lifecycle.
 
-The draft workflow prepares release notes proactively. The release workflow determines the exact target version and ensures the correct draft exists. Publishing completes the package release and promotes that same GitHub Release from draft to published.
+The draft workflow prepares release notes proactively. The npm release workflow determines the exact package version and creates the package commit/tag, while the generic `reusable_release.yml` layer ensures the matching GitHub Release draft exists. Publishing completes the package release and promotes that same GitHub Release from draft to published.
 
 ## Release lifecycle
 
@@ -278,9 +278,9 @@ package.json version
 
 If the target is already published or its immutable Git tag already exists, the real release is blocked.
 
-## 2. Ensure the matching draft
+## 2. Ensure the matching draft through `reusable_release.yml`
 
-Once the target version is known, the release workflow looks for a GitHub Release draft with the exact canonical tag.
+Once the target version is known, `reusable_npm-release.yml` delegates GitHub Release handling to the generic `reusable_release.yml` workflow, which looks for a GitHub Release with the exact canonical tag.
 
 ### Matching draft exists
 
@@ -297,7 +297,7 @@ The workflow can still normalize:
 
 ### Matching draft does not exist
 
-The workflow creates one using:
+`reusable_release.yml` creates one using:
 
 - canonical release name
 - canonical release tag
@@ -522,14 +522,15 @@ A Git tag with neither a matching draft nor a published GitHub Release is an orp
 
 ## Workflow responsibilities
 
-| Stage                        | Responsibility                                      |
-| ---------------------------- | --------------------------------------------------- |
-| Draft workflow               | Select changed packages and prepare candidate notes |
-| Release workflow             | Resolve target version and ensure its draft exists  |
-| `workspace-release-identity` | Produce canonical release name and Git tag          |
-| Release operation            | Version, commit, and create immutable Git tag       |
-| Publish operation            | Publish package                                     |
-| Finalization                 | Change existing GitHub Release draft to published   |
+| Stage                        | Responsibility                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| Draft workflow               | Select changed packages and prepare candidate notes                                    |
+| `reusable_npm-release.yml`   | Resolve the package version and run package-specific release preparation               |
+| `workspace-release-identity` | Produce the canonical package release name and Git tag                                 |
+| `workspace-release`          | Version package files, create the release commit, and create the immutable package tag |
+| `reusable_release.yml`       | Create or reuse the matching GitHub Release draft from explicit release identity       |
+| `reusable_npm-publish.yml`   | Publish the canonical package artifact                                                 |
+| Finalization                 | Change the existing GitHub Release draft to published after publication completes      |
 
 ## Safety rules
 
@@ -567,3 +568,14 @@ Release tooling should preserve these invariants:
 9. Publish now or later.
 10. After package publication succeeds, the same GitHub Release is published.
 ```
+
+## Package releases versus reusable workflow releases
+
+The repository has independent public release lines.
+
+| Surface                    | Version source          | Immutable tag                         | Changelog                |
+| -------------------------- | ----------------------- | ------------------------------------- | ------------------------ |
+| npm package                | `package.json`          | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md`           |
+| reusable workflows/actions | `workflow-version.json` | `workflows-v<version>`                | `CHANGELOG_WORKFLOWS.md` |
+
+Reusable workflow releases also use `reusable_release.yml`, but their release identity is resolved by `workflows-release.yml`. The workflow release remains a GitHub Release draft after tagging, and the optional `workflows-v<major>` alias points consumers at the latest compatible workflow release.

@@ -11,7 +11,7 @@ permissions:
   contents: write
 jobs:
   publish:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_vscode-extension-publish.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_vscode-extension-publish.yml@workflows-v0.1.0
     with:
       target-branch: main
       extension-directory: .
