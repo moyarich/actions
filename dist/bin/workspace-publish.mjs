@@ -3578,11 +3578,11 @@ function registryConfig(registry) {
         token: process.env["_NPM_TOKEN"] || process.env["NODE_AUTH_TOKEN"]
       };
     default:
-      throw new Error("Registry must be github, npm, or both.");
+      throw new Error("Registry must be github, npm, all, or both.");
   }
 }
 function destinations(registry) {
-  return registry === "both" ? ["github", "npm"] : [registry];
+  return registry === "all" || registry === "both" ? ["github", "npm"] : [registry];
 }
 function suggestedDistributionTag(version) {
   if (!version.includes("-")) {
@@ -4166,7 +4166,7 @@ function runCliCommand(selector, options) {
 program.name("workspace-publish").description("Validate and publish workspace packages.").addArgument(
   new Argument("[package]", "Package name, directory, or workspace selector")
 ).addOption(
-  new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "both"]).default("github")
+  new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "all", "both"]).default("github")
 ).addOption(
   new Option(
     "-t, --tag <tag>",
