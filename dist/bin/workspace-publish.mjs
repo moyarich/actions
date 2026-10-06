@@ -3833,15 +3833,11 @@ Validating ${pkg.manifest.name}@${pkg.manifest.version} (${pkg.directory})`
     "--pack-destination",
     artifactDirectory
   ];
-  const raw = execFileSync(
-    "npm",
-    packArgs,
-    {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"]
-    }
-  );
+  const raw = execFileSync("npm", packArgs, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"]
+  });
   const artifact = parsePackResult(raw, pkg, artifactDirectory);
   if (!existsSync(artifact.path)) {
     throw new Error(
