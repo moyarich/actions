@@ -20,7 +20,10 @@ program
       .default("github"),
   )
   .addOption(
-    new Option("-t, --tag <tag>", "npm distribution tag").default("latest"),
+    new Option(
+      "-t, --tag <tag>",
+      "npm distribution tag (required to publish; previews suggest one)",
+    ),
   )
   .addOption(
     new Option("-a, --access <access>", "Package access level")

@@ -27,9 +27,9 @@ on:
           - github
           - npm
       tag:
-        description: Distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
-        required: true
-        default: auto
+        description: Distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        required: false
+        default: ""
         type: string
       verify-git-tag:
         description: Verify matching package release Git tag before publishing
@@ -68,9 +68,9 @@ on:
         default: github
         type: string
       tag:
-        description: npm distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
+        description: npm distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
         required: false
-        default: auto
+        default: ""
         type: string
       verify-git-tag:
         description: Verify matching package release Git tag before publishing
@@ -169,13 +169,19 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
         shell: bash
         run: |
+          PLAN_ARGS=(
+            "$PACKAGE_SELECTOR"
+            --registry="${{ inputs.registry }}"
+            --list
+            --json
+          )
+
+          if [ -n "${{ inputs.tag }}" ]; then
+            PLAN_ARGS+=(--tag="${{ inputs.tag }}")
+          fi
+
           PLAN="$(
-            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" \
-              "$PACKAGE_SELECTOR" \
-              --registry="${{ inputs.registry }}" \
-              --tag="${{ inputs.tag }}" \
-              --list \
-              --json
+            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
           )"
 
           echo "$PLAN" | jq -e '
@@ -189,18 +195,16 @@ jobs:
 
           PACKAGE_VERSION="$(jq -r '.packages[0].version' <<< "$PLAN")"
           RESOLVED_DIST_TAG="${{ inputs.tag }}"
+          SUGGESTED_DIST_TAG="$(jq -r '.suggestedTag // .packages[0].suggestedTag // "latest"' <<< "$PLAN")"
 
-          if [ "$RESOLVED_DIST_TAG" = "auto" ]; then
-            if [[ "$PACKAGE_VERSION" == *-* ]]; then
-              PRERELEASE="${PACKAGE_VERSION#*-}"
-              RESOLVED_DIST_TAG="${PRERELEASE%%.*}"
-            else
-              RESOLVED_DIST_TAG="latest"
-            fi
+          if [ -n "$RESOLVED_DIST_TAG" ] && ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
+            exit 1
           fi
 
-          if ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
-            echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
+          if [ "${{ inputs.dry-run }}" != "true" ] && [ -z "$RESOLVED_DIST_TAG" ]; then
+            echo "::error::An explicit npm distribution tag is required for publishing."
+            echo "::error::Suggested tag: $SUGGESTED_DIST_TAG"
             exit 1
           fi
 
@@ -210,6 +214,7 @@ jobs:
             echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
             echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
+            echo "suggested-distribution-tag=$SUGGESTED_DIST_TAG"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate requested version
@@ -279,10 +284,13 @@ jobs:
           PUBLISH_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
-            --tag="${{ steps.plan.outputs.distribution-tag }}"
             --artifact-directory="$ARTIFACT_DIRECTORY"
             --json
           )
+
+          if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
+            PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
+          fi
 
           if [ "$DRY_RUN" = "true" ]; then
             PUBLISH_ARGS+=(--dry-run)
@@ -383,7 +391,9 @@ jobs:
             echo "| GitHub Release | \`${{ steps.plan.outputs.release-name || 'unresolved' }}\` |"
             echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
             echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || inputs.tag }}\` |"\n            echo "| Distribution tag request | \`${{ inputs.tag }}\` |"
+            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag }}\` |"
+            echo "| Suggested distribution tag | \`${{ steps.plan.outputs.suggested-distribution-tag || 'unresolved' }}\` |"
+            echo "| Distribution tag request | \`${{ inputs.tag }}\` |"
             echo "| Packed artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo "| Node.js | \`${{ inputs.node-version }}\` |"

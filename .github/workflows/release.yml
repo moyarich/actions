@@ -53,9 +53,9 @@ on:
           - npm
           - both
       dist-tag:
-        description: Distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
-        required: true
-        default: auto
+        description: Distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        required: false
+        default: ""
         type: string
       dry-run:
         description: Preview without repository or registry mutation

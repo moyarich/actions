@@ -60,11 +60,13 @@ jobs:
 
 Create the `NPM_TOKEN` repository secret before running the npm example. The reusable tooling validates the selected package before publishing/staging it.
 
+`tag` has no publishing default. Dry-run previews report a suggested tag (`latest` for stable versions or the prerelease identifier for prereleases), but a real publish requires an explicit `tag` value.
+
 ## Inputs
 
 | Input          | Required | Default  |
 | -------------- | -------- | -------- |
 | `package`      | Yes      | —        |
 | `registry`     | No       | `github` |
-| `tag`          | No       | `latest` |
+| `tag`          | No       | —        |
 | `node-version` | No       | `24`     |

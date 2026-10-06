@@ -59,7 +59,7 @@ interface SerializablePublishPlanItem {
 }
 interface PublishSettings {
   registry: RegistrySelection;
-  tag: string;
+  tag?: string;
   access: PackageAccess;
 }
 
@@ -139,6 +139,21 @@ function registryConfig(registry: Registry): RegistryConfig {
  */
 function destinations(registry: RegistrySelection): Registry[] {
   return registry === "both" ? ["github", "npm"] : [registry];
+}
+
+/**
+ * Suggest an npm distribution tag for a package version.
+ *
+ * Suggestions are informational only. Publishing still requires an explicit
+ * tag so a stable release can never move `latest` implicitly.
+ */
+export function suggestedDistributionTag(version: string): string {
+  if (!version.includes("-")) {
+    return "latest";
+  }
+
+  const prerelease = version.slice(version.indexOf("-") + 1);
+  return prerelease.split(".")[0] || "next";
 }
 
 /**
@@ -401,13 +416,18 @@ export function serializePublishPlan(
 ) {
   return {
     registry,
-    tag,
+    tag: tag ?? null,
+    suggestedTag:
+      plan.length === 1
+        ? suggestedDistributionTag(plan[0].pkg.manifest.version)
+        : null,
     access,
     packages: plan.map(({ pkg, registries }) => ({
       name: pkg.manifest.name,
       version: pkg.manifest.version,
       directory: pkg.directory,
       releaseIdentity: releaseIdentity(pkg),
+      suggestedTag: suggestedDistributionTag(pkg.manifest.version),
       registries,
       publishable: Object.values(registries).includes("missing"),
     })),
@@ -680,7 +700,7 @@ function publishOne(
  * @param {object} options
  * @param {string | undefined} options.selector
  * @param {RegistrySelection} [options.registry="github"]
- * @param {string} [options.tag="latest"]
+ * @param {string} [options.tag]
  * @param {PackageAccess} [options.access="public"]
  * @param {boolean} [options.dryRun=false]
  * @param {boolean} [options.list=false]
@@ -690,7 +710,7 @@ function publishOne(
 export function publish({
   selector,
   registry = "github",
-  tag = "latest",
+  tag,
   access = "public",
   dryRun = false,
   list = false,
@@ -710,8 +730,16 @@ export function publish({
   verifyGitTag?: boolean;
   artifactDirectory?: string;
 }) {
-  if (!/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)) {
+  if (
+    tag !== undefined &&
+    tag !== "" &&
+    !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)
+  ) {
     throw new Error("Invalid npm distribution tag.");
+  }
+
+  if (tag === "") {
+    tag = undefined;
   }
 
   if (!["public", "restricted"].includes(access)) {
@@ -819,6 +847,13 @@ export function publish({
   }
 
   const plan = publishPlan(packages, registry);
+  const suggestedTag = suggestedDistributionTag(pkg.manifest.version);
+
+  if (!tag && !dryRun && !list) {
+    throw new Error(
+      `An explicit npm distribution tag is required for publishing. Suggested tag: ${suggestedTag}. Pass --tag ${suggestedTag} to accept it.`,
+    );
+  }
 
   const gitTags = Object.fromEntries(
     packages.map((item) => [
@@ -938,7 +973,7 @@ export function publish({
           );
         }
 
-        publishOne(root, item, artifact, destination, tag, access, {
+        publishOne(root, item, artifact, destination, tag!, access, {
           quiet: json,
         });
         results.push({
@@ -957,7 +992,8 @@ export function publish({
       verifyGitTag,
       gitTags,
       registry,
-      tag,
+      tag: tag ?? null,
+      suggestedTag,
       access,
       results,
       artifacts: [...artifacts.values()].map(

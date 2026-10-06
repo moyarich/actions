@@ -3584,6 +3584,13 @@ function registryConfig(registry) {
 function destinations(registry) {
   return registry === "both" ? ["github", "npm"] : [registry];
 }
+function suggestedDistributionTag(version) {
+  if (!version.includes("-")) {
+    return "latest";
+  }
+  const prerelease = version.slice(version.indexOf("-") + 1);
+  return prerelease.split(".")[0] || "next";
+}
 function commandExists(command) {
   const lookupCommand = process.platform === "win32" ? "where" : "which";
   const result = spawnSync(lookupCommand, [command], {
@@ -3743,13 +3750,15 @@ function printPlan(plan) {
 function serializePublishPlan(plan, { registry, tag, access }) {
   return {
     registry,
-    tag,
+    tag: tag ?? null,
+    suggestedTag: plan.length === 1 ? suggestedDistributionTag(plan[0].pkg.manifest.version) : null,
     access,
     packages: plan.map(({ pkg, registries }) => ({
       name: pkg.manifest.name,
       version: pkg.manifest.version,
       directory: pkg.directory,
       releaseIdentity: releaseIdentity(pkg),
+      suggestedTag: suggestedDistributionTag(pkg.manifest.version),
       registries,
       publishable: Object.values(registries).includes("missing")
     }))
@@ -3908,7 +3917,7 @@ function publishOne(root, pkg, artifact, registry, tag, access, { quiet = false 
 function publish({
   selector,
   registry = "github",
-  tag = "latest",
+  tag,
   access = "public",
   dryRun = false,
   list = false,
@@ -3917,8 +3926,11 @@ function publish({
   verifyGitTag = true,
   artifactDirectory
 }) {
-  if (!/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)) {
+  if (tag !== void 0 && tag !== "" && !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)) {
     throw new Error("Invalid npm distribution tag.");
+  }
+  if (tag === "") {
+    tag = void 0;
   }
   if (!["public", "restricted"].includes(access)) {
     throw new Error("Access must be public or restricted.");
@@ -3998,6 +4010,12 @@ Publish preview completed for ${packages2.length} package(s). Nothing was publis
     );
   }
   const plan = publishPlan(packages, registry);
+  const suggestedTag = suggestedDistributionTag(pkg.manifest.version);
+  if (!tag && !dryRun && !list) {
+    throw new Error(
+      `An explicit npm distribution tag is required for publishing. Suggested tag: ${suggestedTag}. Pass --tag ${suggestedTag} to accept it.`
+    );
+  }
   const gitTags = Object.fromEntries(
     packages.map((item) => [
       item.manifest.name,
@@ -4108,7 +4126,8 @@ Release checks passed for ${names.join(", ")}. Nothing was published.` : "\nAll 
       verifyGitTag,
       gitTags,
       registry,
-      tag,
+      tag: tag ?? null,
+      suggestedTag,
       access,
       results,
       artifacts: [...artifacts.values()].map(
@@ -4155,7 +4174,10 @@ program.name("workspace-publish").description("Validate and publish workspace pa
 ).addOption(
   new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "both"]).default("github")
 ).addOption(
-  new Option("-t, --tag <tag>", "npm distribution tag").default("latest")
+  new Option(
+    "-t, --tag <tag>",
+    "npm distribution tag (required to publish; previews suggest one)"
+  )
 ).addOption(
   new Option("-a, --access <access>", "Package access level").choices(["public", "restricted"]).default("public")
 ).option("-d, --dry-run", "Run release checks without publishing").option("-l, --list", "Print the publish plan without publishing").option("-j, --json", "Print the operation result as JSON").option(

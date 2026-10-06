@@ -62,9 +62,9 @@ on:
           - both
 
       dist-tag:
-        description: Publish — distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
-        required: true
-        default: auto
+        description: Publish — distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        required: false
+        default: ""
         type: string
 
       verify-git-tag:
@@ -129,9 +129,9 @@ on:
         type: string
 
       dist-tag:
-        description: Publish — distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
+        description: Publish — distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
         required: false
-        default: auto
+        default: ""
         type: string
 
       verify-git-tag:
@@ -511,17 +511,21 @@ jobs:
           CAN_RELEASE="$(jq -r '.canRelease' <<< "$RELEASE_JSON")"
 
           RESOLVED_DIST_TAG="$DIST_TAG"
-          if [ "$RESOLVED_DIST_TAG" = "auto" ]; then
-            if [[ "$PACKAGE_VERSION" == *-* ]]; then
-              PRERELEASE="${PACKAGE_VERSION#*-}"
-              RESOLVED_DIST_TAG="${PRERELEASE%%.*}"
-            else
-              RESOLVED_DIST_TAG="latest"
-            fi
+          if [[ "$PACKAGE_VERSION" == *-* ]]; then
+            PRERELEASE="${PACKAGE_VERSION#*-}"
+            SUGGESTED_DIST_TAG="${PRERELEASE%%.*}"
+          else
+            SUGGESTED_DIST_TAG="latest"
           fi
 
-          if ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
+          if [ -n "$RESOLVED_DIST_TAG" ] && ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
             echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
+            exit 1
+          fi
+
+          if [ "$PUBLISH" = "true" ] && [ "${{ steps.execution.outputs.dry-run }}" = "false" ] && [ -z "$RESOLVED_DIST_TAG" ]; then
+            echo "::error::An explicit npm distribution tag is required when publish=true."
+            echo "::error::Suggested tag: $SUGGESTED_DIST_TAG"
             exit 1
           fi
 
@@ -533,6 +537,7 @@ jobs:
             echo "RELEASE_TAG=$RELEASE_TAG"
             echo "RELEASE_NAME=$RELEASE_NAME"
             echo "RESOLVED_DIST_TAG=$RESOLVED_DIST_TAG"
+            echo "SUGGESTED_DIST_TAG=$SUGGESTED_DIST_TAG"
           } >> "$GITHUB_ENV"
 
           {
@@ -565,7 +570,8 @@ jobs:
             echo "| Can release | **$CAN_RELEASE** |"
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo "| Publish after release | **$PUBLISH** |"
-            printf '| Distribution tag | `%s` |\n' "$RESOLVED_DIST_TAG"
+            printf '| Distribution tag | `%s` |\n' "${RESOLVED_DIST_TAG}"
+            printf '| Suggested distribution tag | `%s` |\n' "$SUGGESTED_DIST_TAG"
             echo
 
             MANIFEST_PATH="package.json"
@@ -866,9 +872,12 @@ jobs:
           PUBLISH_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
-            --tag="$RESOLVED_DIST_TAG"
             --json
           )
+
+          if [ -n "$RESOLVED_DIST_TAG" ]; then
+            PUBLISH_ARGS+=(--tag="$RESOLVED_DIST_TAG")
+          fi
 
           if [ "$VERIFY_GIT_TAG" != "true" ]; then
             PUBLISH_ARGS+=(--no-verify-git-tag)
@@ -883,7 +892,8 @@ jobs:
             echo "| Package | \`$PACKAGE_NAME\` |"
             echo "| Package selector | \`$PACKAGE_SELECTOR\` |"
             echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`$RESOLVED_DIST_TAG\` |"
+            echo "| Distribution tag | \`${RESOLVED_DIST_TAG}\` |"
+            echo "| Suggested distribution tag | \`$SUGGESTED_DIST_TAG\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo
             echo '```text'
