@@ -344,6 +344,36 @@ export function changelogSection(
  * @returns {string}
  * Registry URL.
  */
+/**
+ * Read a curated changelog section for a release version.
+ *
+ * Supports both `## 1.2.3` and `## [1.2.3]` headings.
+ */
+export function existingChangelogSection(
+  changelog: string,
+  version: string,
+): string | null {
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const heading = new RegExp(
+    `^## (?:\\[${escapedVersion}\\]|${escapedVersion})(?:\\s|$)`,
+    "m",
+  );
+  const match = heading.exec(changelog);
+
+  if (!match) {
+    return null;
+  }
+
+  const start = match.index;
+  const remainder = changelog.slice(start + match[0].length);
+  const nextHeading = remainder.search(/^## /m);
+  const end =
+    nextHeading === -1
+      ? changelog.length
+      : start + match[0].length + nextHeading;
+
+  return changelog.slice(start, end).trimEnd() + "\n";
+}
 function registryFor(pkg: ReturnType<typeof packageInfo>): string {
   return pkg.manifest.publishConfig?.registry || "https://registry.npmjs.org";
 }
