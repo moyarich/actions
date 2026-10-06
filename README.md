@@ -27,15 +27,15 @@ npm exec -- discover-packages --workspaces --include-root-package
 
 ## What it provides
 
-| Capability | Command | Use it to |
-| --- | --- | --- |
-| Package discovery | `discover-packages` | Discover root and workspace packages and expose normalized package metadata. |
-| Dependency validation | `workspace-dependency-check` | Find outdated external dependencies and mismatched internal workspace versions. |
-| Lockfile maintenance | `workspace-package-lock` | Review, recreate, or commit the root `package-lock.json`. |
-| Release preparation | `workspace-release` | Preview or prepare a package release using an exact version, semantic bump, or `package.json` version. |
-| Release identity | `workspace-release-identity` | Resolve the canonical package Git tag and GitHub Release name. |
-| Publishing | `workspace-publish` | Validate package artifacts and publish to GitHub Packages, npm, or both. |
-| Issue dependencies | `issue-dependency-tree` | Render native GitHub issue dependency relationships as a tree or JSON. |
+| Capability            | Command                      | Use it to                                                                                              |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Package discovery     | `discover-packages`          | Discover root and workspace packages and expose normalized package metadata.                           |
+| Dependency validation | `workspace-dependency-check` | Find outdated external dependencies and mismatched internal workspace versions.                        |
+| Lockfile maintenance  | `workspace-package-lock`     | Review, recreate, or commit the root `package-lock.json`.                                              |
+| Release preparation   | `workspace-release`          | Preview or prepare a package release using an exact version, semantic bump, or `package.json` version. |
+| Release identity      | `workspace-release-identity` | Resolve the canonical package Git tag and GitHub Release name.                                         |
+| Publishing            | `workspace-publish`          | Validate package artifacts and publish to GitHub Packages, npm, or both.                               |
+| Issue dependencies    | `issue-dependency-tree`      | Render native GitHub issue dependency relationships as a tree or JSON.                                 |
 
 ## Quick start
 
