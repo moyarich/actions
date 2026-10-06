@@ -3839,7 +3839,7 @@ ${body}`.trimEnd() + "\n"
   );
   return changelog.path;
 }
-function buildReleasePlan(root, pkg, mode, versionSpec) {
+function buildReleasePlan(root, pkg, selector, mode, versionSpec) {
   const currentVersion = pkg.manifest.version;
   const nextVersion = mode === "package-json" ? currentVersion : resolveNextVersion(currentVersion, versionSpec);
   const registry = registryFor(pkg);
@@ -3860,6 +3860,7 @@ function buildReleasePlan(root, pkg, mode, versionSpec) {
   return {
     package: {
       name: pkg.manifest.name,
+      selector,
       directory: pkg.directory,
       manifest: pkg.file
     },
@@ -3913,7 +3914,7 @@ function release(argument, options = {}) {
     printDependencyCheck(dependencies);
   }
   assertDependencies(dependencies);
-  const plan = buildReleasePlan(root, pkg, mode, versionSpec);
+  const plan = buildReleasePlan(root, pkg, selector, mode, versionSpec);
   if (options.dryRun) {
     if (!options.json) {
       const versionCommand = plan.versionCommand ? [plan.versionCommand.command, ...plan.versionCommand.args].join(" ") : "none (package.json version is used as-is)";
@@ -3947,7 +3948,6 @@ ${plan.changelog.section}`);
       operation: "release",
       status: plan.canRelease ? "preview" : "warning",
       dryRun: true,
-      selector,
       ...plan,
       changelog: plan.changelog.section,
       changelogSource: plan.changelog.source
@@ -3981,7 +3981,6 @@ ${plan.changelog.section}`);
     operation: "release",
     status: "success",
     dryRun: false,
-    selector,
     ...plan,
     tag: {
       ...plan.tag,
