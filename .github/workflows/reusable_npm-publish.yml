@@ -216,6 +216,9 @@ jobs:
             echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
             echo "suggested-distribution-tag=$SUGGESTED_DIST_TAG"
+            echo "plan-json<<EOF"
+            echo "$PLAN" | jq -c .
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate requested version
