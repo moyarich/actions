@@ -49,10 +49,14 @@ jobs:
           set -euo pipefail
 
           ENCODED_TAG="$(jq -rn --arg value "$TAG" '$value | @uri')"
-          REF="$(gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG")"
 
-          echo "exists=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$(jq -r '.object.sha' <<< "$REF")" >> "$GITHUB_OUTPUT"
+          if REF="$(gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" 2>/dev/null)"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "sha=$(jq -r '.object.sha' <<< "$REF")" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Delete tag
         shell: bash
@@ -90,9 +94,9 @@ jobs:
             echo "| --- | --- |"
             printf '| Repository | `%s` |\n' "$GH_REPO"
             printf '| Tag | `%s` |\n' "$TAG"
-            printf '| Previous tag commit | `%s` |\n' "${{ steps.verify.outputs.sha || 'unresolved' }}"
+            printf '| Previous tag commit | `%s` |\n' "${{ steps.verify.outputs.sha || 'none' }}"
             echo "| Tag existed | **${{ steps.verify.outputs.exists || 'false' }}** |"
-            echo "| Delete requested | **${{ steps.delete.outputs.deleted || 'false' }}** |"
+            echo "| Delete requested | **${{ steps.delete.outputs.deleted || 'not needed' }}** |"
             echo "| Deletion verified | **${{ steps.verify-deleted.outputs.deleted || 'false' }}** |"
             echo "| GitHub Release | **unchanged** |"
             echo "| Result | **${{ job.status }}** |"
