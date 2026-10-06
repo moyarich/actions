@@ -45,7 +45,6 @@ on:
         default: ""
         type: string
 
-
       node-version:
         description: Advanced — Node.js version
         required: true
@@ -88,7 +87,6 @@ on:
         required: false
         default: ""
         type: string
-
 
       node-version:
         description: Advanced — Node.js version
@@ -276,7 +274,6 @@ jobs:
             exit 1
           fi
 
-
       - name: Configure release author
         if: ${{ steps.execution.outputs.dry-run == 'false' }}
         run: |
@@ -390,7 +387,6 @@ jobs:
           RELEASE_TAG="$(jq -r '.identity.tagName' <<< "$RELEASE_JSON")"
           RELEASE_NAME="$(jq -r '.identity.releaseName' <<< "$RELEASE_JSON")"
           CAN_RELEASE="$(jq -r '.canRelease' <<< "$RELEASE_JSON")"
-
 
           {
             echo "PACKAGE_NAME=$PACKAGE_NAME"
