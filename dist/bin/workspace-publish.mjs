@@ -2,10 +2,11 @@
 import { EventEmitter } from "node:events";
 import childProcess, { execFileSync, spawnSync } from "node:child_process";
 import path, { resolve, join } from "node:path";
-import fs, { readFileSync, existsSync, readdirSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import fs, { readFileSync, existsSync, readdirSync, mkdtempSync, rmSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 class CommanderError extends Error {
   /**
    * Constructs the CommanderError class
@@ -3764,6 +3765,43 @@ function serializePublishPlan(plan, { registry, tag, access }) {
     }))
   };
 }
+function packageArtifactFromFile(artifactPath, pkg) {
+  const resolvedPath = resolve(artifactPath);
+  if (!existsSync(resolvedPath)) {
+    throw new Error(`Package artifact does not exist: ${resolvedPath}`);
+  }
+  let manifestRaw = "";
+  try {
+    manifestRaw = execFileSync(
+      "tar",
+      ["-xOf", resolvedPath, "package/package.json"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"]
+      }
+    );
+  } catch {
+    throw new Error(
+      `Unable to read package/package.json from ${resolvedPath}.`
+    );
+  }
+  const manifest = JSON.parse(manifestRaw);
+  if (manifest.name !== pkg.manifest.name || manifest.version !== pkg.manifest.version) {
+    throw new Error(
+      `Package artifact identity mismatch: expected ${pkg.manifest.name}@${pkg.manifest.version}, received ${manifest.name ?? "unknown"}@${manifest.version ?? "unknown"}.`
+    );
+  }
+  const bytes = readFileSync(resolvedPath);
+  return {
+    path: resolvedPath,
+    filename: resolvedPath.split(/[\\/]/).pop() ?? resolvedPath,
+    name: pkg.manifest.name,
+    version: pkg.manifest.version,
+    size: statSync(resolvedPath).size,
+    shasum: createHash("sha1").update(bytes).digest("hex"),
+    integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`
+  };
+}
 function parsePackResult(raw, pkg, artifactDirectory) {
   let parsed;
   try {
@@ -3918,7 +3956,8 @@ function publish({
   json = false,
   withDependencies = false,
   verifyGitTag = true,
-  artifactDirectory
+  artifactDirectory,
+  artifactFile
 }) {
   if (tag !== void 0 && tag !== "" && !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)) {
     throw new Error("Invalid npm distribution tag.");
@@ -4046,6 +4085,11 @@ Publish preview completed for ${packages2.length} package(s). Nothing was publis
 ${tagProblems.map((problem) => `- ${problem}`).join("\n")}`
     );
   }
+  if (artifactFile && pendingPackages.length > 1) {
+    throw new Error(
+      "--artifact-file can only be used when exactly one package requires publication."
+    );
+  }
   const ownedArtifactDirectory = !artifactDirectory;
   const artifactRoot = artifactDirectory ? resolve(root, artifactDirectory) : mkdtempSync(join(tmpdir(), "workspace-publish-artifacts-"));
   const artifacts = /* @__PURE__ */ new Map();
@@ -4053,7 +4097,7 @@ ${tagProblems.map((problem) => `- ${problem}`).join("\n")}`
     for (const item of pendingPackages) {
       artifacts.set(
         item.manifest.name,
-        validateAndPack(root, item, artifactRoot, { quiet: json })
+        artifactFile ? packageArtifactFromFile(artifactFile, item) : validateAndPack(root, item, artifactRoot, { quiet: json })
       );
     }
     if (dryRun) {
@@ -4177,6 +4221,9 @@ program.name("workspace-publish").description("Validate and publish workspace pa
 ).option("-d, --dry-run", "Run release checks without publishing").option("-l, --list", "Print the publish plan without publishing").option("-j, --json", "Print the operation result as JSON").option(
   "--artifact-directory <directory>",
   "Keep generated package tarballs in this directory"
+).option(
+  "--artifact-file <file>",
+  "Publish an existing canonical package tarball instead of rebuilding it"
 ).option(
   "-w, --with-dependencies",
   "Include publishable workspace dependencies"
