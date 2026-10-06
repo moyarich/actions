@@ -522,15 +522,15 @@ A Git tag with neither a matching draft nor a published GitHub Release is an orp
 
 ## Workflow responsibilities
 
-| Stage | Responsibility |
-| --- | --- |
-| Draft workflow | Select changed packages and prepare candidate notes |
-| `reusable_npm-release.yml` | Resolve the package version and run package-specific release preparation |
-| `workspace-release-identity` | Produce the canonical package release name and Git tag |
-| `workspace-release` | Version package files, create the release commit, and create the immutable package tag |
-| `reusable_release.yml` | Create or reuse the matching GitHub Release draft from explicit release identity |
-| `reusable_npm-publish.yml` | Publish the canonical package artifact |
-| Finalization | Change the existing GitHub Release draft to published after publication completes |
+| Stage                        | Responsibility                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| Draft workflow               | Select changed packages and prepare candidate notes                                    |
+| `reusable_npm-release.yml`   | Resolve the package version and run package-specific release preparation               |
+| `workspace-release-identity` | Produce the canonical package release name and Git tag                                 |
+| `workspace-release`          | Version package files, create the release commit, and create the immutable package tag |
+| `reusable_release.yml`       | Create or reuse the matching GitHub Release draft from explicit release identity       |
+| `reusable_npm-publish.yml`   | Publish the canonical package artifact                                                 |
+| Finalization                 | Change the existing GitHub Release draft to published after publication completes      |
 
 ## Safety rules
 
@@ -569,14 +569,13 @@ Release tooling should preserve these invariants:
 10. After package publication succeeds, the same GitHub Release is published.
 ```
 
-
 ## Package releases versus reusable workflow releases
 
 The repository has independent public release lines.
 
-| Surface | Version source | Immutable tag | Changelog |
-| --- | --- | --- | --- |
-| npm package | `package.json` | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md` |
-| reusable workflows/actions | `workflow-version.json` | `workflows-v<version>` | `CHANGELOG_WORKFLOWS.md` |
+| Surface                    | Version source          | Immutable tag                         | Changelog                |
+| -------------------------- | ----------------------- | ------------------------------------- | ------------------------ |
+| npm package                | `package.json`          | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md`           |
+| reusable workflows/actions | `workflow-version.json` | `workflows-v<version>`                | `CHANGELOG_WORKFLOWS.md` |
 
 Reusable workflow releases also use `reusable_release.yml`, but their release identity is resolved by `workflows-release.yml`. The workflow release remains a GitHub Release draft after tagging, and the optional `workflows-v<major>` alias points consumers at the latest compatible workflow release.
