@@ -43,3 +43,26 @@ test("releaseIdentity supports prereleases and release-drafter template tokens",
     "@moyarich/workspace-tools v$RESOLVED_VERSION",
   );
 });
+
+test("releaseIdentity uses the package name as the root tag scope", () => {
+  assert.deepEqual(
+    releaseIdentity(
+      {
+        directory: ".",
+        manifest: {
+          name: "@moyarich/workspace-tools",
+          version: "0.1.0",
+        },
+      },
+      "0.1.0",
+    ),
+    {
+      packageName: "@moyarich/workspace-tools",
+      packageDirectory: ".",
+      version: "0.1.0",
+      tagName: "@moyarich/workspace-tools@0.1.0",
+      tagPrefix: "@moyarich/workspace-tools@",
+      releaseName: "@moyarich/workspace-tools v0.1.0",
+    },
+  );
+});
