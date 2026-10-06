@@ -23,8 +23,8 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `reusable_release-drafter.yml`          | Create and update persistent GitHub Release drafts for repositories or scoped monorepo targets. |
 | `reusable_npm-prepare-release.yml`      | Prepare an npm package release, including version and release state.                            |
-| `reusable_npm-publish.yml`              | Publish selected npm packages and verify the published release.                                 |
-| `reusable_npm-release.yml`              | Run the complete npm release lifecycle through one reusable workflow.                           |
+| `reusable_npm-publish.yml`              | Preflight and publish selected npm packages, including validation, packing, and release checks. |
+| `reusable_npm-release.yml`              | Preview and create package releases and matching GitHub Release drafts.                         |
 | `reusable_vscode-extension-publish.yml` | Validate, package, and publish a VS Code extension and its matching GitHub Release.             |
 | `reusable_codemod-publish.yml`          | Validate and publish a Codemod Registry package.                                                |
 

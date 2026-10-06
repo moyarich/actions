@@ -3818,32 +3818,26 @@ Validating ${pkg.manifest.name}@${pkg.manifest.version} (${pkg.directory})`
   if (!quiet) printDependencyCheck(dependencies);
   assertDependencies(dependencies);
   for (const script of ["typecheck", "test", "build"]) {
-    execFileSync(
-      "npm",
-      ["run", script, "--workspace", pkg.manifest.name, "--if-present"],
-      {
-        cwd: root,
-        stdio: quiet ? ["ignore", "ignore", "inherit"] : "inherit"
-      }
-    );
+    const args = pkg.directory === "." ? ["run", script, "--if-present"] : ["run", script, "--workspace", pkg.manifest.name, "--if-present"];
+    execFileSync("npm", args, {
+      cwd: root,
+      stdio: quiet ? ["ignore", "ignore", "inherit"] : "inherit"
+    });
   }
   mkdirSync(artifactDirectory, { recursive: true });
-  const raw = execFileSync(
-    "npm",
-    [
-      "pack",
-      "--workspace",
-      pkg.manifest.name,
-      "--json",
-      "--pack-destination",
-      artifactDirectory
-    ],
-    {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"]
-    }
-  );
+  const packArgs = pkg.directory === "." ? ["pack", "--json", "--pack-destination", artifactDirectory] : [
+    "pack",
+    "--workspace",
+    pkg.manifest.name,
+    "--json",
+    "--pack-destination",
+    artifactDirectory
+  ];
+  const raw = execFileSync("npm", packArgs, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"]
+  });
   const artifact = parsePackResult(raw, pkg, artifactDirectory);
   if (!existsSync(artifact.path)) {
     throw new Error(
