@@ -92,7 +92,7 @@ The playground currently imports `examples/*/workflow.yml` directly as raw sourc
 
 ## Workflow, action, and source boundaries
 
-`.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. The concise `ci.yml`, `pages.yml`, `release-draft.yml`, `release.yml`, `publish.yml`, and `self-heal.yml` files are repository-local entry workflows.
+`.github/workflows/reusable_*.yml` is the supported cross-repository workflow API. The concise `check-dist.yml`, `ci.yml`, `pages.yml`, `release-draft.yml`, `release.yml`, `publish.yml`, and `self-heal.yml` files are repository-local entry workflows.
 
 Standalone JavaScript actions expose reusable executable behavior beneath the workflow layer. GitHub Action adapters live under `src/actions/*.ts`, reusable feature implementations live under `src/<feature>/`, Vite auto-discovers the action entrypoints and writes committed runtimes to `dist/actions/<action>/`. Public Action manifests live under `actions/<action>/action.yml`.
 
@@ -189,6 +189,7 @@ Repository-local workflows use concise capability names:
 
 ```text
 .github/workflows/
+├── check-dist.yml
 ├── ci.yml
 ├── pages.yml
 ├── release-draft.yml
@@ -200,6 +201,7 @@ Repository-local workflows use concise capability names:
 
 Keep implementation-oriented or cross-repository orchestration behind the `reusable_*.yml` boundary. Local entry workflows should be thin callers of those reusable workflows whenever possible.
 
+- `check-dist.yml` manually rebuilds and compares committed distribution output.
 - `release-draft.yml` prepares or updates persistent GitHub Release drafts.
 - `release.yml` drives the repository's package release flow.
 - `publish.yml` publishes an already prepared package release.
