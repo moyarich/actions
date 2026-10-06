@@ -66,4 +66,4 @@ jobs:
       create-tag: true
       major-tag: ${{ needs.resolve.outputs.major-tag }}
       update-major-tag: ${{ inputs.update-major-tag }}
-      draft: false
+      draft: true
