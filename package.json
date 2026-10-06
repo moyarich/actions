@@ -13,7 +13,10 @@
     "ci",
     "cli",
     "automation",
-    "developer-tools"
+    "developer-tools",
+    "workspace-tools",
+    "release-draft",
+    "github-pages"
   ],
   "homepage": "https://github.com/moyarich/workspace-tools#readme",
   "bugs": {
