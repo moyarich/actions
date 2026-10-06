@@ -43,13 +43,16 @@ jobs:
           fi
 
       - name: Verify tag exists
+        id: verify
         shell: bash
         run: |
           set -euo pipefail
 
           ENCODED_TAG="$(jq -rn --arg value "$TAG" '$value | @uri')"
+          REF="$(gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG")"
 
-          gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" >/dev/null
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r '.object.sha' <<< "$REF")" >> "$GITHUB_OUTPUT"
 
       - name: Delete tag
         shell: bash
@@ -61,6 +64,7 @@ jobs:
           gh api             --method DELETE             "repos/$GH_REPO/git/refs/tags/$ENCODED_TAG"
 
       - name: Verify tag was deleted
+        id: verify-deleted
         shell: bash
         run: |
           set -euo pipefail
@@ -68,9 +72,12 @@ jobs:
           ENCODED_TAG="$(jq -rn --arg value "$TAG" '$value | @uri')"
 
           if gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" >/dev/null 2>&1; then
+            echo "deleted=false" >> "$GITHUB_OUTPUT"
             echo "::error::Tag still exists after deletion: $TAG"
             exit 1
           fi
+
+          echo "deleted=true" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         if: ${{ always() }}
@@ -81,7 +88,12 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
+            printf '| Repository | `%s` |\n' "$GH_REPO"
             printf '| Tag | `%s` |\n' "$TAG"
-            echo "| GitHub Release | unchanged |"
+            printf '| Previous tag commit | `%s` |\n' "${{ steps.verify.outputs.sha || 'unresolved' }}"
+            echo "| Tag existed | **${{ steps.verify.outputs.exists || 'false' }}** |"
+            echo "| Delete requested | **${{ steps.delete.outputs.deleted || 'false' }}** |"
+            echo "| Deletion verified | **${{ steps.verify-deleted.outputs.deleted || 'false' }}** |"
+            echo "| GitHub Release | **unchanged** |"
             echo "| Result | **${{ job.status }}** |"
           } >> "$GITHUB_STEP_SUMMARY"
