@@ -778,7 +778,7 @@ jobs:
 
           git push origin \
             "HEAD:${TARGET_BRANCH}" \
-            --follow-tags
+            "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
       - name: Release result
         if: ${{ always() }}
