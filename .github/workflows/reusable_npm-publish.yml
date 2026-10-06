@@ -368,6 +368,58 @@ jobs:
 
           echo "$RESULT" | jq .
 
+      - name: Attach packaged distribution to GitHub Release
+        id: release-assets
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
+          TARBALL="$(find "$ARTIFACT_DIRECTORY" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+
+          if [ -z "$TARBALL" ]; then
+            echo "::error::Packed npm artifact was not found."
+            exit 1
+          fi
+
+          SAFE_NAME="${PACKAGE_NAME#@}"
+          SAFE_NAME="${SAFE_NAME//\//-}"
+          ZIP_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.zip"
+          ZIP_PATH="$ARTIFACT_DIRECTORY/$ZIP_NAME"
+          EXTRACT_DIR="$RUNNER_TEMP/npm-release-package"
+
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          tar -xzf "$TARBALL" -C "$EXTRACT_DIR"
+
+          (
+            cd "$EXTRACT_DIR/package"
+            zip -qr "$ZIP_PATH" .
+          )
+
+          gh release upload "$RELEASE_TAG"             "$TARBALL"             "$ZIP_PATH"             --clobber             --repo "$GH_REPO"
+
+          {
+            echo "tarball=$(basename "$TARBALL")"
+            echo "zip=$ZIP_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## GitHub Release package assets"
+            echo
+            echo "| Asset | Value |"
+            echo "| --- | --- |"
+            printf '| npm package | `%s` |\n' "$(basename "$TARBALL")"
+            printf '| ZIP package | `%s` |\n' "$ZIP_NAME"
+            echo "| GitHub source archives | **repository snapshot (unchanged)** |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish GitHub Release draft
         id: github-release
         if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
@@ -555,6 +607,8 @@ jobs:
             echo "| Workflow artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Workflow artifact ID | \`${ARTIFACT_ID:-none}\` |"
             echo "| Workflow artifact digest | \`${ARTIFACT_DIGEST:-none}\` |"
+            echo "| GitHub Release npm asset | \`${{ steps.release-assets.outputs.tarball || (inputs.dry-run && 'preview only' || 'none') }}\` |"
+            echo "| GitHub Release ZIP asset | \`${{ steps.release-assets.outputs.zip || (inputs.dry-run && 'preview only' || 'none') }}\` |"
 
             if [ -n "$ARTIFACT_URL" ]; then
               echo "| Workflow artifact download | [Open artifact](${ARTIFACT_URL}) |"
