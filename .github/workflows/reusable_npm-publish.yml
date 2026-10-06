@@ -451,7 +451,15 @@ jobs:
           )"
 
           if [ "$(jq 'length' <<< "$BIN_ENTRIES")" -eq 0 ]; then
-            echo "Packed package declares no CLI bin entries."
+            echo "Packed package declares no CLI bin entries; CLI validation is not required."
+
+            {
+              echo "## Packaged CLI validation"
+              echo
+              echo "_Skipped: the packed package does not declare any `package.json#bin` entries._"
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+
             exit 0
           fi
 
