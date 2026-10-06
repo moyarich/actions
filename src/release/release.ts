@@ -652,6 +652,7 @@ function applyReleaseChangelog(
 export function buildReleasePlan(
   root: string,
   pkg: ReturnType<typeof packageInfo>,
+  selector: string,
   mode: "bump" | "exact" | "package-json",
   versionSpec: string | null,
 ) {
@@ -688,6 +689,7 @@ export function buildReleasePlan(
   return {
     package: {
       name: pkg.manifest.name,
+      selector,
       directory: pkg.directory,
       manifest: pkg.file,
     },
@@ -781,7 +783,7 @@ export function release(argument: string, options: ReleaseOptions = {}) {
 
   assertDependencies(dependencies);
 
-  const plan = buildReleasePlan(root, pkg, mode, versionSpec);
+  const plan = buildReleasePlan(root, pkg, selector, mode, versionSpec);
 
   if (options.dryRun) {
     if (!options.json) {
@@ -824,7 +826,6 @@ ${plan.changelog.section}`);
       operation: "release",
       status: plan.canRelease ? "preview" : "warning",
       dryRun: true,
-      selector,
       ...plan,
       changelog: plan.changelog.section,
       changelogSource: plan.changelog.source,
@@ -879,7 +880,6 @@ ${plan.changelog.section}`);
     operation: "release",
     status: "success",
     dryRun: false,
-    selector,
     ...plan,
     tag: {
       ...plan.tag,
