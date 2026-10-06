@@ -53,4 +53,5 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       verify-git-tag: true
       node-version: "24"
+      workspace-tools-source: caller
     secrets: inherit
