@@ -231,11 +231,13 @@ jobs:
             echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
             exit 1
           fi
-      - name: Verify matching GitHub draft
+      - name: Verify matching GitHub release
         id: release-draft
         env:
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
           DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
@@ -246,7 +248,7 @@ jobs:
               jq -c --arg tag "$RELEASE_TAG" '
                 [
                   .[][] |
-                  select(.draft == true and .tag_name == $tag)
+                  select(.tag_name == $tag)
                 ]
                 | first // empty
               '
@@ -259,33 +261,47 @@ jobs:
               echo "id="
               echo "url="
               echo "name="
-              echo "reason=No matching GitHub draft release exists for $RELEASE_TAG."
+              echo "reason=No matching GitHub release exists for $RELEASE_TAG."
             } >> "$GITHUB_OUTPUT"
 
             if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::No matching GitHub draft release exists for $RELEASE_TAG."
+              echo "::error::No matching GitHub release exists for $RELEASE_TAG."
               exit 1
             fi
 
             exit 0
           fi
 
-          DRAFT_NAME="$(jq -r '.name' <<< "$RELEASE")"
-          DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
-          DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
-          DRAFT_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+          ACTUAL_NAME="$(jq -r '.name' <<< "$RELEASE")"
+          RELEASE_ID="$(jq -r '.id' <<< "$RELEASE")"
+          RELEASE_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+          RELEASE_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+          RELEASE_IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
+          SAFE_NAME="${PACKAGE_NAME#@}"
+          SAFE_NAME="${SAFE_NAME//\//-}"
+          CANONICAL_ASSET_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.tgz"
+          CANONICAL_ASSET_ID="$(
+            jq -r --arg name "$CANONICAL_ASSET_NAME" '
+              [.assets[]? | select(.name == $name)]
+              | first
+              | .id // empty
+            ' <<< "$RELEASE"
+          )"
 
           {
             echo "exists=true"
-            echo "id=$DRAFT_ID"
-            echo "url=$DRAFT_URL"
-            echo "name=$DRAFT_NAME"
+            echo "id=$RELEASE_ID"
+            echo "url=$RELEASE_URL"
+            echo "name=$ACTUAL_NAME"
+            echo "draft=$RELEASE_IS_DRAFT"
+            echo "asset-name=$CANONICAL_ASSET_NAME"
+            echo "asset-id=$CANONICAL_ASSET_ID"
             echo "body<<EOF"
-            printf '%s\n' "$DRAFT_BODY"
+            printf '%s\n' "$RELEASE_BODY"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          if [ "$DRAFT_NAME" != "$RELEASE_NAME" ]; then
+          if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
             {
               echo "valid=false"
               echo "reason=Draft release name does not match the canonical release identity."
@@ -294,7 +310,7 @@ jobs:
             if [ "$DRY_RUN" != "true" ]; then
               echo "::error::Draft release name does not match the canonical release identity."
               echo "::error::Expected: $RELEASE_NAME"
-              echo "::error::Actual:   $DRAFT_NAME"
+              echo "::error::Actual:   $ACTUAL_NAME"
               exit 1
             fi
 
@@ -307,8 +323,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "RELEASE_DRAFT_ID=$DRAFT_ID"
-            echo "RELEASE_DRAFT_URL=$DRAFT_URL"
+            echo "GITHUB_RELEASE_ID=$RELEASE_ID"
+            echo "GITHUB_RELEASE_URL=$RELEASE_URL"
           } >> "$GITHUB_ENV"
 
       - name: Publish package
