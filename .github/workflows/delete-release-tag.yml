@@ -1,0 +1,28 @@
+name: Delete release tag
+
+run-name: >-
+  Delete release tag · ${{ inputs.tag }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact Git tag or fuzzy search text
+        required: true
+        type: string
+      dry-run:
+        description: Preview tag resolution without deleting
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  delete-release-tag:
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
+    with:
+      tag: ${{ inputs.tag }}
+      dry-run: ${{ inputs.dry-run }}
