@@ -229,10 +229,11 @@ jobs:
             exit 1
           fi
       - name: Verify matching GitHub draft
-        if: ${{ !inputs.dry-run }}
+        id: release-draft
         env:
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
+          DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -249,22 +250,59 @@ jobs:
           )"
 
           if [ -z "$RELEASE" ]; then
-            echo "::error::No matching GitHub draft release exists for $RELEASE_TAG."
-            exit 1
+            {
+              echo "exists=false"
+              echo "valid=false"
+              echo "id="
+              echo "url="
+              echo "name="
+              echo "reason=No matching GitHub draft release exists for $RELEASE_TAG."
+            } >> "$GITHUB_OUTPUT"
+
+            if [ "$DRY_RUN" != "true" ]; then
+              echo "::error::No matching GitHub draft release exists for $RELEASE_TAG."
+              exit 1
+            fi
+
+            exit 0
           fi
 
           DRAFT_NAME="$(jq -r '.name' <<< "$RELEASE")"
+          DRAFT_ID="$(jq -r '.id' <<< "$RELEASE")"
+          DRAFT_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+          DRAFT_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+
+          {
+            echo "exists=true"
+            echo "id=$DRAFT_ID"
+            echo "url=$DRAFT_URL"
+            echo "name=$DRAFT_NAME"
+            echo "body<<EOF"
+            printf '%s\n' "$DRAFT_BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$DRAFT_NAME" != "$RELEASE_NAME" ]; then
-            echo "::error::Draft release name does not match the canonical release identity."
-            echo "::error::Expected: $RELEASE_NAME"
-            echo "::error::Actual:   $DRAFT_NAME"
-            exit 1
+            {
+              echo "valid=false"
+              echo "reason=Draft release name does not match the canonical release identity."
+            } >> "$GITHUB_OUTPUT"
+
+            if [ "$DRY_RUN" != "true" ]; then
+              echo "::error::Draft release name does not match the canonical release identity."
+              echo "::error::Expected: $RELEASE_NAME"
+              echo "::error::Actual:   $DRAFT_NAME"
+              exit 1
+            fi
+
+            exit 0
           fi
 
           {
-            echo "RELEASE_DRAFT_ID=$(jq -r '.id' <<< "$RELEASE")"
-            echo "RELEASE_DRAFT_URL=$(jq -r '.html_url' <<< "$RELEASE")"
+            echo "valid=true"
+            echo "reason="
+            echo "RELEASE_DRAFT_ID=$DRAFT_ID"
+            echo "RELEASE_DRAFT_URL=$DRAFT_URL"
           } >> "$GITHUB_ENV"
 
       - name: Publish package
@@ -369,6 +407,7 @@ jobs:
           echo "status=published" >> "$GITHUB_OUTPUT"
 
       - name: Upload packed npm artifact
+        id: packed-artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
@@ -379,7 +418,29 @@ jobs:
 
       - name: Publish summary
         if: ${{ always() }}
+        env:
+          RESULT_JSON: ${{ steps.publish.outputs.result-json }}
+          RELEASE_DRAFT_EXISTS: ${{ steps.release-draft.outputs.exists }}
+          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
+          RELEASE_DRAFT_ID: ${{ steps.release-draft.outputs.id }}
+          RELEASE_DRAFT_URL: ${{ steps.release-draft.outputs.url }}
+          RELEASE_DRAFT_NAME: ${{ steps.release-draft.outputs.name }}
+          RELEASE_DRAFT_BODY: ${{ steps.release-draft.outputs.body }}
+          RELEASE_DRAFT_REASON: ${{ steps.release-draft.outputs.reason }}
+          ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
+        shell: bash
         run: |
+          set -euo pipefail
+
+          CLI_CAN_PUBLISH="${{ steps.publish.outputs.can-publish || 'unresolved' }}"
+          OVERALL_CAN_PUBLISH="$CLI_CAN_PUBLISH"
+
+          if [ "$RELEASE_DRAFT_VALID" != "true" ]; then
+            OVERALL_CAN_PUBLISH="false"
+          fi
+
           {
             echo "## Package publish"
             echo
@@ -388,18 +449,135 @@ jobs:
             echo "| Dry run | **${{ inputs.dry-run }}** |"
             echo "| Package | \`${{ steps.plan.outputs.name || inputs.package-directory }}\` |"
             echo "| Package version | \`${{ steps.plan.outputs.version || 'unresolved' }}\` |"
-            echo "| Release tag | \`${{ steps.plan.outputs.release-tag || 'unresolved' }}\` |"
-            echo "| GitHub Release | \`${{ steps.plan.outputs.release-name || 'unresolved' }}\` |"
+            echo "| Package directory | \`${{ inputs.package-directory }}\` |"
             echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
-            echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag }}\` |"
+            echo "| Access | \`$(jq -r '.access // "unresolved"' <<< "$RESULT_JSON" 2>/dev/null || echo unresolved)\` |"
+            echo "| Registry selection | \`${{ inputs.registry }}\` |"
+            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || '(preview suggestion only)' }}\` |"
             echo "| Suggested distribution tag | \`${{ steps.plan.outputs.suggested-distribution-tag || 'unresolved' }}\` |"
-            echo "| Distribution tag request | \`${{ inputs.tag }}\` |"
-            echo "| Packed artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo "| Node.js | \`${{ inputs.node-version }}\` |"
             echo "| Publish status | \`${{ steps.publish.outputs.status || 'unresolved' }}\` |"
-            echo "| GitHub Release state | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
-            echo "| Can publish | **${{ steps.publish.outputs.can-publish || 'unresolved' }}** |"
+            echo "| Can publish | **$OVERALL_CAN_PUBLISH** |"
             echo "| Result | **${{ job.status }}** |"
+            echo
+
+            echo "### Registry readiness"
+            echo
+            echo "| Registry | Current version | Action |"
+            echo "| --- | --- | --- |"
+
+            if [ -n "$RESULT_JSON" ]; then
+              jq -r '
+                .packages[0].registries // {} |
+                to_entries[] |
+                "| \(.key) | **\(.value)** | \(if .value == "missing" then "publish" else "skip" end) |"
+              ' <<< "$RESULT_JSON"
+            else
+              echo "| unresolved | unresolved | unresolved |"
+            fi
+
+            echo
+            echo "### Release preflight"
+            echo
+            echo "| Check | Value |"
+            echo "| --- | --- |"
+            echo "| Release tag | \`${{ steps.plan.outputs.release-tag || 'unresolved' }}\` |"
+
+            if [ -n "$RESULT_JSON" ]; then
+              PACKAGE_NAME="${{ steps.plan.outputs.name }}"
+              TAG_EXISTS="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].exists // false' <<< "$RESULT_JSON")"
+              TAG_AT_HEAD="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].atHead // false' <<< "$RESULT_JSON")"
+              TAG_COMMIT="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].commit // "none"' <<< "$RESULT_JSON")"
+              CLI_REASON="$(jq -r '.reason // "none"' <<< "$RESULT_JSON")"
+
+              echo "| Git tag exists | **$TAG_EXISTS** |"
+              echo "| Git tag points to HEAD | **$TAG_AT_HEAD** |"
+              echo "| Git tag commit | \`$TAG_COMMIT\` |"
+              echo "| CLI readiness reason | $CLI_REASON |"
+            else
+              echo "| Git tag exists | **unresolved** |"
+              echo "| Git tag points to HEAD | **unresolved** |"
+              echo "| Git tag commit | \`unresolved\` |"
+              echo "| CLI readiness reason | unresolved |"
+            fi
+
+            echo "| GitHub draft exists | **${RELEASE_DRAFT_EXISTS:-false}** |"
+            echo "| GitHub draft identity valid | **${RELEASE_DRAFT_VALID:-false}** |"
+            echo "| GitHub draft ID | \`${RELEASE_DRAFT_ID:-none}\` |"
+            echo "| GitHub draft name | \`${RELEASE_DRAFT_NAME:-none}\` |"
+
+            if [ -n "$RELEASE_DRAFT_URL" ]; then
+              echo "| GitHub draft | [Open draft](${RELEASE_DRAFT_URL}) |"
+            else
+              echo "| GitHub draft | unavailable |"
+            fi
+
+            if [ -n "$RELEASE_DRAFT_REASON" ]; then
+              echo "| Draft readiness reason | $RELEASE_DRAFT_REASON |"
+            fi
+
+            echo "| GitHub Release after workflow | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
+            echo
+
+            echo "### Packed package"
+            echo
+            echo "| Artifact | Value |"
+            echo "| --- | --- |"
+
+            if [ -n "$RESULT_JSON" ] && [ "$(jq '.artifacts | length' <<< "$RESULT_JSON")" -gt 0 ]; then
+              echo "| Tarball | \`$(jq -r '.artifacts[0].filename' <<< "$RESULT_JSON")\` |"
+              echo "| Package | \`$(jq -r '.artifacts[0].name' <<< "$RESULT_JSON")\` |"
+              echo "| Version | \`$(jq -r '.artifacts[0].version' <<< "$RESULT_JSON")\` |"
+              echo "| Size | \`$(jq -r '.artifacts[0].size // "unknown"' <<< "$RESULT_JSON") bytes\` |"
+              echo "| npm shasum | \`$(jq -r '.artifacts[0].shasum // "unknown"' <<< "$RESULT_JSON")\` |"
+              echo "| npm integrity | \`$(jq -r '.artifacts[0].integrity // "unknown"' <<< "$RESULT_JSON")\` |"
+            else
+              echo "| Tarball | none |"
+            fi
+
+            echo "| Workflow artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
+            echo "| Workflow artifact ID | \`${ARTIFACT_ID:-none}\` |"
+            echo "| Workflow artifact digest | \`${ARTIFACT_DIGEST:-none}\` |"
+
+            if [ -n "$ARTIFACT_URL" ]; then
+              echo "| Workflow artifact download | [Open artifact](${ARTIFACT_URL}) |"
+            else
+              echo "| Workflow artifact download | unavailable |"
+            fi
+
+            echo
+            echo "### CHANGELOG.md"
+            echo
+
+            CHANGELOG_VERSION="${{ steps.plan.outputs.version }}"
+            if [ -n "$CHANGELOG_VERSION" ] && [ -f CHANGELOG.md ]; then
+              CHANGELOG_SECTION="$(
+                awk -v version="$CHANGELOG_VERSION" '
+                  $0 ~ "^## \\[" version "\\]" { in_section=1 }
+                  in_section && /^## / && $0 !~ "^## \\[" version "\\]" { exit }
+                  in_section { print }
+                ' CHANGELOG.md
+              )"
+
+              if [ -n "$CHANGELOG_SECTION" ]; then
+                printf '%s\n' "$CHANGELOG_SECTION"
+              else
+                echo "> No matching `CHANGELOG.md` section found for version `$CHANGELOG_VERSION`."
+              fi
+            else
+              echo "> `CHANGELOG.md` is unavailable or the package version was unresolved."
+            fi
+
+            echo
+            echo "### GitHub Release draft content"
+            echo
+
+            if [ -n "$RELEASE_DRAFT_BODY" ]; then
+              printf '%s\n' "$RELEASE_DRAFT_BODY"
+            elif [ "${RELEASE_DRAFT_EXISTS:-false}" = "true" ]; then
+              echo "> The matching GitHub Release draft has an empty body."
+            else
+              echo "> No matching GitHub Release draft content is available."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
