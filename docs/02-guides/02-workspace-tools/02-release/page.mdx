@@ -23,7 +23,7 @@ workspace-release css-expand-collapse --mode=package-json
 
 `package-json` does not run `npm version` and does not create a release-only version change. It creates the package-scoped tag, such as `packages/css-expand-collapse@1.0.0`, at the current `HEAD`.
 
-The command requires a clean Git working tree. Bump and exact modes run `npm version` with npm Git tagging disabled, update the release files, create the release commit, and create the package-scoped Git tag.
+The command requires a clean Git working tree. Bump and exact modes run `npm version` with npm Git tagging disabled, update package release files, create the release commit, and create the package-scoped Git tag.
 
 ## Existing tags
 
@@ -33,25 +33,52 @@ A dry run reports the conflict without mutating the repository. Its JSON include
 
 Multiple package release tags may legitimately point to the same commit when their `package.json` versions are already correct.
 
-## Canonical release identity
+## Canonical package release identity
 
-Drafting, releasing, and publishing use the same release identity:
+Package releases use:
 
 ```text
-Git tag:                <package-directory>@<version>
-GitHub Release name:    <package-name> v<version>
+Version source:          package.json
+Git tag:                 <package-directory>@<version>
+GitHub Release name:     <package-name> v<version>
+Package changelog:       CHANGELOG.md
 ```
 
 For example:
 
 ```text
-Package:        @moyarich/auto-glow-md
-Directory:      packages/moyarich-auto-glow-md
+Package:        @moyarich/workspace-tools
 Version:        0.1.0
-Git tag:        packages/moyarich-auto-glow-md@0.1.0
-Release name:   @moyarich/auto-glow-md v0.1.0
+Git tag:        @moyarich/workspace-tools@0.1.0
+Release name:   @moyarich/workspace-tools v0.1.0
 ```
 
-Use `workspace-release-identity` when another tool or workflow needs these values.
+Use `workspace-release-identity` when another tool or workflow needs the package identity.
 
-The release workflow creates and pushes the canonical Git tag and keeps the matching GitHub Release as a draft. Publishing is a separate operation handled by the publish workflow.
+The package-specific release job handles versioning, changelog updates, commit creation, and the immutable package tag. GitHub Release creation is delegated to the generic `reusable_release.yml` workflow and remains a draft until package publication is complete.
+
+## Separate workflow releases
+
+Reusable workflows are not versioned from `package.json`.
+
+They use:
+
+```text
+Version source:          workflow-version.json
+Git tag:                 workflows-v<version>
+GitHub Release name:     Workspace Tools Workflows v<version>
+Workflow changelog:      CHANGELOG_WORKFLOWS.md
+Compatible major alias:  workflows-v<major>
+```
+
+For example:
+
+```text
+workflow-version.json:   0.1.0
+Immutable tag:           workflows-v0.1.0
+Major alias:             workflows-v0
+Release name:            Workspace Tools Workflows v0.1.0
+GitHub Release state:    draft
+```
+
+The workflow and npm package release lines can advance independently.
