@@ -944,7 +944,7 @@ export function publish({
             return `Git release tag ${state.name} does not exist.`;
           }
 
-          if (!state.atHead) {
+          if (!artifactFile && !state.atHead) {
             return `Git release tag ${state.name} points to ${state.commit}, not HEAD.`;
           }
 
