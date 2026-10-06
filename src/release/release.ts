@@ -433,13 +433,21 @@ function registryVersion(
  * Previous tag or release commit.
  */
 function tagState(root: string, tag: string) {
-  const commit = execFileSync("git", ["rev-list", "-n", "1", tag], {
-    cwd: root,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  const result = spawnSync(
+    "git",
+    ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 
-  if (!commit) {
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
     return {
       name: tag,
       exists: false,
@@ -448,6 +456,7 @@ function tagState(root: string, tag: string) {
     };
   }
 
+  const commit = result.stdout.trim();
   const head = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
