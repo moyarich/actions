@@ -127,8 +127,7 @@ function registryConfig(registry: Registry): RegistryConfig {
       return {
         url: "https://registry.npmjs.org",
         host: "registry.npmjs.org",
-        token:
-          process.env["_NPM_" + "TOKEN"] || process.env["NODE_AUTH_" + "TOKEN"],
+        token: process.env["_NPM_" + "TOKEN"],
       };
 
     default:
@@ -286,6 +285,16 @@ export function packageRegistryState(
   registry: Registry,
 ) {
   const config = registryConfig(registry);
+  const directory = mkdtempSync(join(tmpdir(), "workspace-publish-registry-"));
+  const npmrc = join(directory, "npmrc");
+
+  const configLines = [`registry=${config.url}`];
+
+  if (config.token) {
+    configLines.push(`//${config.host}/:_authToken=\${NODE_AUTH_TOKEN}`);
+  }
+
+  writeFileSync(npmrc, configLines.concat("").join("\n"));
 
   const args = [
     "view",
@@ -298,10 +307,13 @@ export function packageRegistryState(
 
   const env = {
     ...process.env,
+    npm_config_userconfig: npmrc,
   };
 
   if (config.token) {
     env.NODE_AUTH_TOKEN = config.token;
+  } else {
+    delete env.NODE_AUTH_TOKEN;
   }
 
   try {
@@ -329,6 +341,11 @@ export function packageRegistryState(
     throw new Error(
       `Could not check ${pkg.manifest.name}@${pkg.manifest.version} on ${registry}: ${commandError.message}`,
     );
+  } finally {
+    rmSync(directory, {
+      recursive: true,
+      force: true,
+    });
   }
 }
 
