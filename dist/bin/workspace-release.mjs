@@ -3671,6 +3671,33 @@ ${entries.map((entry) => `- ${entry}`).join("\n")}`
 ${sections.join("\n\n") || "### Changed\n\n- Package release."}
 `;
 }
+function existingChangelogSection(changelog, version) {
+  const escapedVersion = version.replace(/[.*+?^$()|[\]\\]/g, "\\function changelogSection(version, notes) {
+  const sections = Object.entries(notes).filter(([, entries]) => entries.length).map(
+    ([heading, entries]) => `### ${heading}
+
+${entries.map((entry) => `- ${entry}`).join("\n")}`
+  );
+  return `## ${version}
+
+${sections.join("\n\n") || "### Changed\n\n- Package release."}
+`;
+}
+");
+  const heading = new RegExp(
+    `^## \\[${escapedVersion}\\]|^## ${escapedVersion}(?:\\s|$)`,
+    "m"
+  );
+  const match = heading.exec(changelog);
+  if (!match) {
+    return null;
+  }
+  const start = match.index;
+  const remainder = changelog.slice(start);
+  const nextHeading = remainder.slice(match[0].length).search(/^## /m);
+  const end = nextHeading === -1 ? changelog.length : start + match[0].length + nextHeading;
+  return changelog.slice(start, end).trimEnd() + "\n";
+}
 function registryFor(pkg) {
   return pkg.manifest.publishConfig?.registry || "https://registry.npmjs.org";
 }
@@ -3791,14 +3818,26 @@ function packageChanges(root, pkg, previousRef) {
   ).trim();
   return log ? log.split("").map((message) => message.trim()).filter(Boolean) : [];
 }
-function updateChangelog(root, pkg, version, selector) {
+function releaseChangelogSection(root, pkg, version) {
   const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
+  const current = existsSync(changelog) ? readFileSync(changelog, "utf8") : "# Changelog\n";
+  const existing = existingChangelogSection(current, version);
+  if (existing) {
+    return existing;
+  }
   const previous = previousReleaseRef(root, pkg.directory);
-  const section = changelogSection(
+  return changelogSection(
     version,
     releaseNotes(packageChanges(root, pkg, previous))
   );
+}
+function updateChangelog(root, pkg, version) {
+  const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
   const current = existsSync(changelog) ? readFileSync(changelog, "utf8") : "# Changelog\n";
+  if (existingChangelogSection(current, version)) {
+    return changelog;
+  }
+  const section = releaseChangelogSection(root, pkg, version);
   const body = current.replace(/^# Changelog\s*/, "");
   writeFileSync(
     changelog,
@@ -3859,10 +3898,7 @@ function release(argument, options = {}) {
     const canRelease = !alreadyPublished && !gitTag.exists;
     const reason = alreadyPublished ? `${pkg.manifest.name}@${nextVersion} is already published.` : gitTag.exists ? gitTag.atHead ? `Git tag ${identity2.tagName} already exists at HEAD.` : `Git tag ${identity2.tagName} already exists at ${gitTag.commit} and will not be moved.` : null;
     const previous = previousReleaseRef(root, pkg.directory);
-    const section = changelogSection(
-      nextVersion,
-      releaseNotes(packageChanges(root, pkg, previous))
-    );
+    const section = releaseChangelogSection(root, pkg, nextVersion);
     const registryName = registry === "https://npm.pkg.github.com" ? "GitHub Packages" : registry === "https://registry.npmjs.org" ? "npm" : registry;
     const selection = mode === "package-json" ? "Release the package.json version without changing it." : mode === "exact" ? "Release the explicitly requested version." : `Increment the ${versionSpec} version.`;
     const versionChange = mode === "package-json" ? "" : `
@@ -3996,7 +4032,7 @@ ${section}`);
   }
   const identity = releaseIdentity(pkg, version);
   const tag = identity.tagName;
-  const changelog = updateChangelog(root, pkg, version, pkg.directory);
+  const changelog = updateChangelog(root, pkg, version);
   execFileSync("git", ["add", pkg.file, "package-lock.json", changelog], {
     cwd: root,
     ...operationRunOptions
