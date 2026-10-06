@@ -1,17 +1,17 @@
-name: Delete release tag
+name: Delete release and tag
 
 run-name: >-
-  Delete release tag · ${{ inputs.tag }} · dry-run=${{ inputs.dry-run }}
+  Delete release and tag · ${{ inputs.tag }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Exact Git tag or fuzzy search text
+        description: Exact release tag or fuzzy search text
         required: true
         type: string
       dry-run:
-        description: Preview tag resolution without deleting
+        description: Preview release and tag cleanup without deleting
         required: true
         default: true
         type: boolean
