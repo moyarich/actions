@@ -883,7 +883,7 @@ jobs:
             echo "| Package | \`$PACKAGE_NAME\` |"
             echo "| Package selector | \`$PACKAGE_SELECTOR\` |"
             echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${{ inputs.dist-tag }}\` |"
+            echo "| Distribution tag | \`$RESOLVED_DIST_TAG\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo
             echo '```text'
