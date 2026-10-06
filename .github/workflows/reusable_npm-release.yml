@@ -62,9 +62,9 @@ on:
           - both
 
       dist-tag:
-        description: Publish — package tag (usually "latest")
+        description: Publish — distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
         required: true
-        default: latest
+        default: auto
         type: string
 
       verify-git-tag:
@@ -129,9 +129,9 @@ on:
         type: string
 
       dist-tag:
-        description: Publish — package tag (usually "latest")
+        description: Publish — distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
         required: false
-        default: latest
+        default: auto
         type: string
 
       verify-git-tag:
@@ -510,6 +510,21 @@ jobs:
           RELEASE_NAME="$(jq -r '.identity.releaseName' <<< "$RELEASE_JSON")"
           CAN_RELEASE="$(jq -r '.canRelease' <<< "$RELEASE_JSON")"
 
+          RESOLVED_DIST_TAG="$DIST_TAG"
+          if [ "$RESOLVED_DIST_TAG" = "auto" ]; then
+            if [[ "$PACKAGE_VERSION" == *-* ]]; then
+              PRERELEASE="${PACKAGE_VERSION#*-}"
+              RESOLVED_DIST_TAG="${PRERELEASE%%.*}"
+            else
+              RESOLVED_DIST_TAG="latest"
+            fi
+          fi
+
+          if ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
+            exit 1
+          fi
+
           {
             echo "PACKAGE_NAME=$PACKAGE_NAME"
             echo "PACKAGE_SELECTOR=$PACKAGE_SELECTOR"
@@ -517,6 +532,7 @@ jobs:
             echo "PACKAGE_VERSION=$PACKAGE_VERSION"
             echo "RELEASE_TAG=$RELEASE_TAG"
             echo "RELEASE_NAME=$RELEASE_NAME"
+            echo "RESOLVED_DIST_TAG=$RESOLVED_DIST_TAG"
           } >> "$GITHUB_ENV"
 
           {
@@ -549,6 +565,7 @@ jobs:
             echo "| Can release | **$CAN_RELEASE** |"
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo "| Publish after release | **$PUBLISH** |"
+            printf '| Distribution tag | `%s` |\n' "$RESOLVED_DIST_TAG"
             echo
 
             MANIFEST_PATH="package.json"
@@ -849,7 +866,7 @@ jobs:
           PUBLISH_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
-            --tag="${{ inputs.dist-tag }}"
+            --tag="$RESOLVED_DIST_TAG"
             --json
           )
 
