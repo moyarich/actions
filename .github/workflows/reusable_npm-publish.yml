@@ -304,11 +304,11 @@ jobs:
           if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
             {
               echo "valid=false"
-              echo "reason=Draft release name does not match the canonical release identity."
+              echo "reason=GitHub release name does not match the canonical release identity."
             } >> "$GITHUB_OUTPUT"
 
             if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::Draft release name does not match the canonical release identity."
+              echo "::error::GitHub release name does not match the canonical release identity."
               echo "::error::Expected: $RELEASE_NAME"
               echo "::error::Actual:   $ACTUAL_NAME"
               exit 1
@@ -327,6 +327,78 @@ jobs:
             echo "GITHUB_RELEASE_URL=$RELEASE_URL"
           } >> "$GITHUB_ENV"
 
+      - name: Prepare package artifact directory
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/npm-package-artifacts"
+          mkdir -p "$RUNNER_TEMP/npm-package-artifacts"
+
+      - name: Resolve canonical package artifact
+        id: canonical-artifact
+        env:
+          RELEASE_ASSET_ID: ${{ steps.release-draft.outputs.asset-id }}
+          RELEASE_ASSET_NAME: ${{ steps.release-draft.outputs.asset-name }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
+          GITHUB_TOKEN_VALUE: ${{ github.token }}
+          NPM_TOKEN_VALUE: ${{ secrets.npm-token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
+          ARTIFACT_PATH=""
+          SOURCE="fresh-pack"
+
+          if [ -n "$RELEASE_ASSET_ID" ]; then
+            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
+            gh api               "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID"               -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
+            SOURCE="github-release"
+          else
+            if env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm view               "$PACKAGE_NAME@$PACKAGE_VERSION"               version               --registry=https://npm.pkg.github.com               --json >/dev/null 2>&1; then
+              PACK_JSON="$(
+                env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm pack                   "$PACKAGE_NAME@$PACKAGE_VERSION"                   --registry=https://npm.pkg.github.com                   --json                   --pack-destination "$ARTIFACT_DIRECTORY"
+              )"
+              ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+              SOURCE="github-packages"
+            elif npm view               "$PACKAGE_NAME@$PACKAGE_VERSION"               version               --registry=https://registry.npmjs.org               --json >/dev/null 2>&1; then
+              PACK_ENV=()
+              if [ -n "$NPM_TOKEN_VALUE" ]; then
+                PACK_ENV=(env NODE_AUTH_TOKEN="$NPM_TOKEN_VALUE")
+              fi
+              PACK_JSON="$(
+                "${PACK_ENV[@]}" npm pack                   "$PACKAGE_NAME@$PACKAGE_VERSION"                   --registry=https://registry.npmjs.org                   --json                   --pack-destination "$ARTIFACT_DIRECTORY"
+              )"
+              ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+              SOURCE="npm"
+            fi
+          fi
+
+          {
+            echo "source=$SOURCE"
+            echo "path=$ARTIFACT_PATH"
+            if [ -n "$ARTIFACT_PATH" ]; then
+              echo "filename=$(basename "$ARTIFACT_PATH")"
+            else
+              echo "filename="
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Canonical package artifact"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Source | `%s` |\n' "$SOURCE"
+            if [ -n "$ARTIFACT_PATH" ]; then
+              printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
+              printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
+            else
+              echo "| Artifact | fresh package will be built from the release source |"
+            fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish package
         id: publish
         env:
@@ -335,11 +407,11 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
           set -euo pipefail
 
           ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
-          rm -rf "$ARTIFACT_DIRECTORY"
           mkdir -p "$ARTIFACT_DIRECTORY"
 
           PUBLISH_ARGS=(
@@ -351,6 +423,10 @@ jobs:
 
           if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
             PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
+          fi
+
+          if [ -n "$CANONICAL_ARTIFACT_PATH" ]; then
+            PUBLISH_ARGS+=(--artifact-file="$CANONICAL_ARTIFACT_PATH")
           fi
 
           if [ "$DRY_RUN" = "true" ]; then
