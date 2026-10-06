@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   changelogSection,
+  npmVersionArgs,
   parseReleaseArgument,
   releaseNotes,
   resolveNextVersion,
@@ -91,4 +92,37 @@ test("resolveNextVersion computes release versions without touching package file
   );
   assert.equal(resolveNextVersion("1.2.3-beta", "prerelease"), "1.2.3-beta.0");
   assert.equal(resolveNextVersion("1.2.3", "1.2.4"), "1.2.4");
+});
+
+
+test("npmVersionArgs versions the repository root without treating it as a workspace", () => {
+  assert.deepEqual(
+    npmVersionArgs(
+      {
+        directory: ".",
+        manifest: { name: "@moyarich/workspace-tools" },
+      } as never,
+      "patch",
+    ),
+    ["version", "patch", "--git-tag-version=false"],
+  );
+});
+
+test("npmVersionArgs keeps --workspace for nested workspace packages", () => {
+  assert.deepEqual(
+    npmVersionArgs(
+      {
+        directory: "packages/demo-tools",
+        manifest: { name: "@moyarich/demo-tools" },
+      } as never,
+      "minor",
+    ),
+    [
+      "version",
+      "minor",
+      "--workspace",
+      "@moyarich/demo-tools",
+      "--git-tag-version=false",
+    ],
+  );
 });
