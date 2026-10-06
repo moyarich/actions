@@ -3674,6 +3674,14 @@ ${sections.join("\n\n") || "### Changed\n\n- Package release."}
 function registryFor(pkg) {
   return pkg.manifest.publishConfig?.registry || "https://registry.npmjs.org";
 }
+function npmVersionArgs(pkg, versionSpec) {
+  const args = ["version", versionSpec];
+  if (pkg.directory !== ".") {
+    args.push("--workspace", pkg.manifest.name);
+  }
+  args.push("--git-tag-version=false");
+  return args;
+}
 function registryVersion(root, pkg, version) {
   const registry = registryFor(pkg);
   const spec = version ? `${pkg.manifest.name}@${version}` : pkg.manifest.name;
@@ -3972,20 +3980,10 @@ ${section}`);
     }
     return result2;
   }
-  execFileSync(
-    "npm",
-    [
-      "version",
-      versionSpec,
-      "--workspace",
-      pkg.manifest.name,
-      "--git-tag-version=false"
-    ],
-    {
-      cwd: root,
-      ...operationRunOptions
-    }
-  );
+  execFileSync("npm", npmVersionArgs(pkg, versionSpec), {
+    cwd: root,
+    ...operationRunOptions
+  });
   const version = JSON.parse(readFileSync(pkg.file, "utf8")).version;
   if (registryVersion(root, pkg, version).status === "published") {
     execFileSync("git", ["checkout", "--", pkg.file, "package-lock.json"], {
