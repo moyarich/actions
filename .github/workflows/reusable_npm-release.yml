@@ -570,7 +570,7 @@ jobs:
             echo "| Can release | **$CAN_RELEASE** |"
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo "| Publish after release | **$PUBLISH** |"
-            printf '| Distribution tag | `%s` |\n' "${RESOLVED_DIST_TAG:-not set}"
+            printf '| Distribution tag | `%s` |\n' "${RESOLVED_DIST_TAG}"
             printf '| Suggested distribution tag | `%s` |\n' "$SUGGESTED_DIST_TAG"
             echo
 
@@ -892,7 +892,7 @@ jobs:
             echo "| Package | \`$PACKAGE_NAME\` |"
             echo "| Package selector | \`$PACKAGE_SELECTOR\` |"
             echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${RESOLVED_DIST_TAG:-not set}\` |"
+            echo "| Distribution tag | \`${RESOLVED_DIST_TAG}\` |"
             echo "| Suggested distribution tag | \`$SUGGESTED_DIST_TAG\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo
