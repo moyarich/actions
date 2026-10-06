@@ -45,33 +45,6 @@ on:
         default: ""
         type: string
 
-      publish:
-        description: Publish — publish after creating the release
-        required: true
-        default: false
-        type: boolean
-
-      registry:
-        description: Publish — registry to publish to
-        required: true
-        default: github
-        type: choice
-        options:
-          - github
-          - npm
-          - both
-
-      dist-tag:
-        description: Publish — distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
-        required: false
-        default: ""
-        type: string
-
-      verify-git-tag:
-        description: Publish — verify matching release Git tag before publishing
-        required: true
-        default: true
-        type: boolean
 
       node-version:
         description: Advanced — Node.js version
@@ -116,29 +89,6 @@ on:
         default: ""
         type: string
 
-      publish:
-        description: Publish — publish after creating the release
-        required: false
-        default: false
-        type: boolean
-
-      registry:
-        description: Publish — registry to publish to
-        required: false
-        default: github
-        type: string
-
-      dist-tag:
-        description: Publish — distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
-        required: false
-        default: ""
-        type: string
-
-      verify-git-tag:
-        description: Publish — verify matching release Git tag before publishing
-        required: false
-        default: true
-        type: boolean
 
       node-version:
         description: Advanced — Node.js version
@@ -165,16 +115,6 @@ on:
       release-json:
         description: Complete workspace-release JSON result
         value: ${{ jobs.release-package.outputs.release-json }}
-      publish-status:
-        description: Publish result status when publishing was requested
-        value: ${{ jobs.release-package.outputs.publish-status }}
-      publish-json:
-        description: Complete workspace-publish JSON result when publishing was requested
-        value: ${{ jobs.release-package.outputs.publish-json }}
-
-    secrets:
-      _NPM_TOKEN:
-        required: false
 
 permissions: {}
 
@@ -183,7 +123,6 @@ jobs:
     name: "job: Release"
     permissions:
       contents: write
-      packages: write
     runs-on: ubuntu-latest
     outputs:
       package-name: ${{ steps.release.outputs.package-name || steps.preview.outputs.package-name }}
@@ -192,8 +131,6 @@ jobs:
       release-status: ${{ steps.release.outputs.status || steps.preview.outputs.status }}
       can-release: ${{ steps.release.outputs.can-release || steps.preview.outputs.can-release }}
       release-json: ${{ steps.release.outputs.release-json || steps.preview.outputs.release-json }}
-      publish-status: ${{ steps.publish.outputs.status }}
-      publish-json: ${{ steps.publish.outputs.publish-json }}
 
     env:
       GH_TOKEN: ${{ github.token }}
@@ -312,8 +249,6 @@ jobs:
           VERSION_MODE: ${{ inputs.version-mode }}
           VERSION_BUMP: ${{ inputs.version-bump }}
           EXACT_VERSION: ${{ inputs.exact-version }}
-          REGISTRY: ${{ inputs.registry }}
-          DIST_TAG: ${{ inputs.dist-tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -341,52 +276,6 @@ jobs:
             exit 1
           fi
 
-          case "$REGISTRY" in
-            github|npm|both)
-              ;;
-            *)
-              echo "::error::Registry must be github, npm, or both."
-              exit 1
-              ;;
-          esac
-
-      - name: Validate publishing credentials
-        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish }}
-        env:
-          GITHUB_TOKEN_VALUE: ${{ github.token }}
-          NPM_TOKEN_VALUE: ${{ secrets._NPM_TOKEN }}
-          REGISTRY: ${{ inputs.registry }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          case "$REGISTRY" in
-            github)
-              if [ -z "$GITHUB_TOKEN_VALUE" ]; then
-                echo "::error::github.token is required to publish to GitHub Packages."
-                exit 1
-              fi
-              ;;
-
-            npm)
-              if [ -z "$NPM_TOKEN_VALUE" ]; then
-                echo "::error::_NPM_TOKEN is required to publish to npm."
-                exit 1
-              fi
-              ;;
-
-            both)
-              if [ -z "$GITHUB_TOKEN_VALUE" ]; then
-                echo "::error::github.token is required to publish to GitHub Packages."
-                exit 1
-              fi
-
-              if [ -z "$NPM_TOKEN_VALUE" ]; then
-                echo "::error::_NPM_TOKEN is required to publish to npm."
-                exit 1
-              fi
-              ;;
-          esac
 
       - name: Configure release author
         if: ${{ steps.execution.outputs.dry-run == 'false' }}
@@ -462,9 +351,6 @@ jobs:
         id: preview
         env:
           VERSION_MODE: ${{ inputs.version-mode }}
-          PUBLISH: ${{ inputs.publish }}
-          REGISTRY: ${{ inputs.registry }}
-          DIST_TAG: ${{ inputs.dist-tag }}
           GIT_REF: ${{ env.TARGET_BRANCH }}
         shell: bash
         run: |
@@ -505,24 +391,6 @@ jobs:
           RELEASE_NAME="$(jq -r '.identity.releaseName' <<< "$RELEASE_JSON")"
           CAN_RELEASE="$(jq -r '.canRelease' <<< "$RELEASE_JSON")"
 
-          RESOLVED_DIST_TAG="$DIST_TAG"
-          if [[ "$PACKAGE_VERSION" == *-* ]]; then
-            PRERELEASE="${PACKAGE_VERSION#*-}"
-            SUGGESTED_DIST_TAG="${PRERELEASE%%.*}"
-          else
-            SUGGESTED_DIST_TAG="latest"
-          fi
-
-          if [ -n "$RESOLVED_DIST_TAG" ] && ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
-            echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
-            exit 1
-          fi
-
-          if [ "$PUBLISH" = "true" ] && [ "${{ steps.execution.outputs.dry-run }}" = "false" ] && [ -z "$RESOLVED_DIST_TAG" ]; then
-            echo "::error::An explicit npm distribution tag is required when publish=true."
-            echo "::error::Suggested tag: $SUGGESTED_DIST_TAG"
-            exit 1
-          fi
 
           {
             echo "PACKAGE_NAME=$PACKAGE_NAME"
@@ -531,8 +399,6 @@ jobs:
             echo "PACKAGE_VERSION=$PACKAGE_VERSION"
             echo "RELEASE_TAG=$RELEASE_TAG"
             echo "RELEASE_NAME=$RELEASE_NAME"
-            echo "RESOLVED_DIST_TAG=$RESOLVED_DIST_TAG"
-            echo "SUGGESTED_DIST_TAG=$SUGGESTED_DIST_TAG"
           } >> "$GITHUB_ENV"
 
           {
@@ -564,9 +430,6 @@ jobs:
             printf '| GitHub Release | `%s` |\n' "$RELEASE_NAME"
             echo "| Can release | **$CAN_RELEASE** |"
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
-            echo "| Publish after release | **$PUBLISH** |"
-            printf '| Distribution tag | `%s` |\n' "${RESOLVED_DIST_TAG}"
-            printf '| Suggested distribution tag | `%s` |\n' "$SUGGESTED_DIST_TAG"
             echo
 
             MANIFEST_PATH="package.json"
@@ -921,120 +784,6 @@ jobs:
             "HEAD:${TARGET_BRANCH}" \
             --follow-tags
 
-      - name: Ensure staged publishing CLI support
-        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish && inputs.registry != 'github' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          npm install --global npm@">=11.15.0 <12"
-
-      - name: Publish released version
-        id: publish
-        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish }}
-        env:
-          _GITHUB_TOKEN: ${{ github.token }}
-          _NPM_TOKEN: ${{ secrets._NPM_TOKEN }}
-          VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          PUBLISH_ARGS=(
-            "$PACKAGE_SELECTOR"
-            --registry="${{ inputs.registry }}"
-            --json
-          )
-
-          if [ -n "$RESOLVED_DIST_TAG" ]; then
-            PUBLISH_ARGS+=(--tag="$RESOLVED_DIST_TAG")
-          fi
-
-          if [ "$VERIFY_GIT_TAG" != "true" ]; then
-            PUBLISH_ARGS+=(--no-verify-git-tag)
-          fi
-
-          {
-            echo
-            echo "## Publishing"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            echo "| Package | \`$PACKAGE_NAME\` |"
-            echo "| Package selector | \`$PACKAGE_SELECTOR\` |"
-            echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${RESOLVED_DIST_TAG}\` |"
-            echo "| Suggested distribution tag | \`$SUGGESTED_DIST_TAG\` |"
-            echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
-            echo
-            echo '```text'
-
-            PUBLISH_JSON="$(
-              node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PUBLISH_ARGS[@]}"
-            )"
-
-            echo "$PUBLISH_JSON" | jq -e '
-              type == "object" and
-              .operation == "publish" and
-              .status == "success"
-            ' >/dev/null
-
-            {
-              echo "status=$(jq -r '.status' <<< "$PUBLISH_JSON")"
-              echo "publish-json<<EOF"
-              echo "$PUBLISH_JSON" | jq -c .
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-
-            echo "$PUBLISH_JSON" | jq .
-
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Publish GitHub Release draft
-        id: github-release
-        if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish && steps.publish.outcome == 'success' }}
-        env:
-          PUBLISH_JSON: ${{ steps.publish.outputs.publish-json }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if jq -e '
-            [.results[]? | select(.status == "staged")] | length > 0
-          ' <<< "$PUBLISH_JSON" >/dev/null; then
-            echo "status=draft" >> "$GITHUB_OUTPUT"
-            echo
-            echo "Package publication includes a staged registry release."
-            echo "The GitHub Release remains a draft until registry publication is complete."
-            exit 0
-          fi
-
-          RELEASE="$(
-            gh api \
-              --method PATCH \
-              "repos/$GH_REPO/releases/$RELEASE_DRAFT_ID" \
-              -f tag_name="$RELEASE_TAG" \
-              -f name="$RELEASE_NAME" \
-              -F draft=false
-          )"
-
-          if [ "$(jq -r '.draft' <<< "$RELEASE")" != "false" ]; then
-            echo "::error::GitHub Release remained in draft state."
-            exit 1
-          fi
-
-          echo "status=published" >> "$GITHUB_OUTPUT"
-
-          {
-            echo
-            echo "## GitHub Release"
-            echo
-            echo "Published `$RELEASE_NAME` after package publication completed."
-            echo
-            echo "[Open published release]($(jq -r '.html_url' <<< "$RELEASE"))"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Release result
         if: ${{ always() }}
         shell: bash
@@ -1061,28 +810,12 @@ jobs:
             elif [ "${{ steps.execution.outputs.dry-run }}" = "true" ]; then
               echo "### ✅ Release preview completed"
               echo
-              echo "No files, commits, tags, pushes, or package publishing were performed."
-
-            elif [ "${{ inputs.publish }}" = "true" ]; then
-              if [ "${{ steps.github-release.outputs.status }}" = "published" ]; then
-                echo "### ✅ Release and publish completed"
-                echo
-                echo "Published to: \`${{ inputs.registry }}\`"
-                echo "GitHub Release: **published**"
-              else
-                echo "### ✅ Package publication staged"
-                echo
-                echo "Registry: \`${{ inputs.registry }}\`"
-                echo "GitHub Release: **draft**"
-                echo
-                echo "The GitHub Release remains a draft while staged registry publication awaits completion."
-              fi
+              echo "No files, commits, tags, pushes, or GitHub Release changes were performed."
 
             else
               echo "### ✅ Release completed"
               echo
-              echo "Git tag: \`$RELEASE_TAG\`"
+              echo "Git tag: `$RELEASE_TAG`"
               echo "GitHub Release: **draft**"
-              echo "Package publication: **not requested**"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
