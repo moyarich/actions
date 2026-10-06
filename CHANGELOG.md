@@ -6,46 +6,55 @@ The changelog is the canonical source used to seed the initial GitHub Release dr
 
 ## [0.1.0] - Initial Release
 
-### Reusable workflows
+### CI and package automation
 
-- Run reusable Node.js and package CI with configurable Node versions, install commands, checks, and workspace/package targets.
-- Verify committed distribution output by rebuilding it, detecting modified, deleted, or untracked generated files, and preserving the rebuilt output as a downloadable workflow artifact when validation fails.
-- Discover root, workspace, and direct-child packages with filters for private packages, publish configuration, test scripts, and build scripts, and expose normalized package and matrix outputs for downstream jobs.
-- Check or automatically repair Prettier formatting and root `package-lock.json` drift, with dry-run/commit modes and workflow summaries.
-- Build and deploy static sites to GitHub Pages with repository-relative base-path support.
-- Generate README screenshots through reusable repository automation.
-- Manage native GitHub issue blocking relationships and render cycle-aware dependency trees.
+- **`reusable_node-ci.yml`** — Run Node.js CI for the repository root or a selected workspace package. Builds the selected package and its local workspace dependencies, runs tests, linting, and type checking, and validates workspace package contents with `npm pack`.
+- **`reusable_package-ci.yml`** — Discover packages with test scripts and run reusable Node.js CI across them as a GitHub Actions matrix.
+- **`reusable_check-dist.yml`** — Rebuild committed distribution output and verify that it matches the repository. When validation fails, preserve the rebuilt distribution as a downloadable artifact and report the result in the workflow summary.
+- **`reusable_discover-packages.yml`** — Discover repository packages from npm workspaces, the root package, or direct children of a package directory. Filter by private status, publish configuration, test scripts, and build scripts, and expose package metadata, matrix data, package count, and match status to downstream jobs.
+- **`reusable_prettier.yml`** — Run Prettier self-healing using the repository's declared Prettier version, preview formatting changes, verify the result, and optionally commit corrections back to the current branch.
+- **`reusable_npm-package-lock.yml`** — Recreate and validate the root `package-lock.json`, report lockfile drift, and optionally commit a corrected lockfile.
 
-### Release drafts and package publishing
+### Releases and publishing
 
-- Create persistent GitHub Release drafts for repositories and scoped monorepo packages, with semantic-version resolution, path-aware release history, and dry-run previews.
-- Seed a missing release draft from the matching changelog when available, with Release Drafter PR history, scoped commit history, and a minimal initial-release body as fallbacks.
-- Preserve maintainer-authored draft text and existing generated entries while appending only newly discovered release-note PRs.
-- Prepare npm package releases with bump, exact-version, and package.json version modes, canonical package release identity, dry-run support, and release state validation.
-- Publish selected workspace packages to GitHub Packages, npm, or both, with distribution-tag/access controls, dependency-aware publishing, package artifacts, and Git tag verification.
-- Run the complete npm release lifecycle through the reusable release workflow.
-- Validate, package, and publish VS Code extensions, including dry runs, Marketplace publication, VSIX artifacts, release-environment approval, tag/version verification, already-published mode, and matching GitHub Release publication.
-- Validate and publish Codemod Registry packages from configurable package directories.
+- **`reusable_release-drafter.yml`** — Maintain a persistent GitHub Release draft for a repository or scoped monorepo package, with semantic-version resolution, path-aware release history, and dry-run previews.
+- Seed missing release drafts from the matching changelog when available, with Release Drafter PR history, scoped commit history, and an initial-release body as fallbacks.
+- Preserve maintainer-authored release text and previously generated entries while appending only newly discovered release-note PRs.
+- **`reusable_npm-prepare-release.yml`** — Prepare an npm package release using a semantic version bump, an exact version, or the version already defined in `package.json`. Resolve canonical package version, Git tag, and GitHub Release identity and validate release state before publishing.
+- **`reusable_npm-publish.yml`** — Publish selected workspace packages to npm, GitHub Packages, or both, with configurable distribution tags, access levels, dependency-aware publishing, package artifacts, dry-run support, and Git tag verification.
+- **`reusable_npm-release.yml`** — Run the complete npm release lifecycle through a single reusable workflow, coordinating release preparation, package publication, and matching GitHub Release publication.
+- **`reusable_vscode-extension-publish.yml`** — Validate and package VS Code extensions as VSIX artifacts, publish to the VS Code Marketplace or handle already-published versions, verify canonical tags and versions, support dry runs and release-environment approval, and publish the matching GitHub draft release.
+- **`reusable_codemod-publish.yml`** — Validate Codemod Registry packages and workflow definitions, run available build, typecheck, and test commands, support dry runs, and publish through an approved release environment.
+
+### GitHub Pages and documentation automation
+
+- **`reusable_github-pages.yml`** — Build and deploy static sites to GitHub Pages with configurable install and build commands, working and output directories, Node.js versions, and repository-relative base-path support.
+- **`reusable_readme-screenshots.yml`** — Start a documentation or demo site, capture configured screenshots with Playwright and `@moyarich/readme-screenshots`, write them to a configurable output directory, and commit changed screenshots.
+
+### Issue dependency automation
+
+- **`reusable_manage-issue-dependencies.yml`** — Add or remove native GitHub `blocked by` and `blocking` relationships between issues, with support for issue numbers or URLs, multiple related issues, and dry-run previews.
+- **`reusable_show-issue-dependency-tree.yml`** — Read native GitHub issue dependencies and expose both a rendered Markdown dependency tree and normalized graph JSON for downstream jobs, including cycle-aware traversal.
 
 ### Standalone GitHub Actions
 
-- Use `discover-packages` directly to discover repository packages and emit normalized package metadata, GitHub Actions matrix data, package counts, and match status.
-- Use `issue-dependency-tree` directly to render native GitHub issue blocking relationships as Markdown and normalized graph JSON.
-- Use `release-draft-sync` directly to reconcile persistent release draft content without overwriting maintainer-authored text.
+- **`discover-packages`** — Discover root, workspace, or direct-child packages directly inside a job and emit normalized package metadata, GitHub Actions matrix data, package counts, and match status.
+- **`issue-dependency-tree`** — Render native GitHub issue blocking relationships directly as a cycle-aware Markdown tree and normalized dependency graph.
+- **`release-draft-sync`** — Reconcile persistent GitHub Release draft content while treating existing draft text as authoritative and appending only previously unseen generated release entries.
 
 ### Workspace Tools CLI
 
-- Install `@moyarich/workspace-tools` and use the same workspace automation outside reusable workflows.
-- Discover repository packages from the command line with workspace, root-package, filtering, and JSON output support.
-- Inspect native GitHub issue dependencies from the command line, including root selection, JSON output, and optional interactive multi-select with `fzf`.
-- Check workspace dependencies for outdated external versions and internal workspace version mismatches.
-- Review, recreate, dry-run, or commit the root workspace `package-lock.json`.
-- Resolve canonical workspace package release versions, Git tags, and GitHub Release names.
-- Preview or create workspace package releases using bump, exact-version, or package.json version modes.
-- Validate and publish workspace packages with registry, tag, access, dependency, artifact, dry-run, and Git tag verification options.
+- Install `@moyarich/workspace-tools` to use workspace, dependency, release, publishing, and issue-dependency tooling outside reusable workflows.
+- **`discover-packages`** — Discover root, workspace, or direct-child packages with filtering and JSON output.
+- **`workspace-dependency-check`** — Check external dependencies for outdated versions and detect internal workspace version mismatches.
+- **`workspace-package-lock`** — Review or recreate the root npm lockfile, with dry-run and commit modes.
+- **`workspace-release-identity`** — Resolve canonical package versions, Git tags, and GitHub Release names.
+- **`workspace-release`** — Preview or prepare package releases using semantic bumps, exact versions, or the version already present in `package.json`.
+- **`workspace-publish`** — Validate and publish workspace packages with registry, distribution-tag, access, dependency, artifact, dry-run, and Git tag verification controls.
+- **`issue-dependency-tree`** — Inspect native GitHub issue dependencies from the terminal, select roots explicitly or interactively with optional `fzf` multi-select, and emit Markdown or JSON output.
 
 ### Documentation and examples
 
-- Start from copyable caller examples for the supported reusable workflows.
-- Use browsable documentation for workflow inputs, release behavior, workspace CLI commands, and package/repository automation.
-- Use `reusable_*.yml` workflows as the supported cross-repository workflow API.
+- Start from copyable caller examples for each supported reusable workflow.
+- Browse workflow-specific documentation for inputs, outputs, permissions, CI behavior, release management, publishing, GitHub Pages, issue dependencies, and workspace CLI commands.
+- Use the versioned **`reusable_*.yml`** workflows as the supported cross-repository GitHub Actions API.
