@@ -100,7 +100,7 @@ test("npmVersionArgs versions the repository root without treating it as a works
       {
         directory: ".",
         manifest: { name: "@moyarich/workspace-tools" },
-      } as never,
+      },
       "patch",
     ),
     ["version", "patch", "--git-tag-version=false"],
@@ -113,7 +113,7 @@ test("npmVersionArgs keeps --workspace for nested workspace packages", () => {
       {
         directory: "packages/demo-tools",
         manifest: { name: "@moyarich/demo-tools" },
-      } as never,
+      },
       "minor",
     ),
     [
