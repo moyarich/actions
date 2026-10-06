@@ -55,4 +55,4 @@ jobs:
       node-version: "24"
       workspace-tools-source: caller
     secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}
+      npm-token: ${{ secrets._NPM_TOKEN }}
