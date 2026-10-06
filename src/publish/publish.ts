@@ -2,14 +2,17 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 import { releaseIdentity } from "../release-identity/release-identity.ts";
 import {
@@ -37,6 +40,7 @@ export interface PublishOptions {
   withDependencies?: boolean;
   verifyGitTag?: boolean;
   artifactDirectory?: string;
+  artifactFile?: string;
 }
 
 interface PackageArtifact {
@@ -99,6 +103,7 @@ import {
  * @property {boolean} [withDependencies]
  * @property {boolean} [verifyGitTag]
  * @property {string} [artifactDirectory]
+ * @property {string} [artifactFile]
  */
 
 /**
@@ -444,6 +449,68 @@ export function serializePublishPlan(
  * @param {string} artifactDirectory Directory containing the tarball.
  * @returns {PackageArtifact} Packed package artifact.
  */
+export function packageArtifactFromFile(
+  artifactPath: string,
+  pkg: Pick<WorkspacePackage, "directory" | "manifest">,
+): PackageArtifact {
+  const resolvedPath = resolve(artifactPath);
+
+  if (!existsSync(resolvedPath)) {
+    throw new Error(`Package artifact does not exist: ${resolvedPath}`);
+  }
+
+  let manifestRaw = "";
+
+  try {
+    manifestRaw = execFileSync(
+      "tar",
+      ["-xOf", resolvedPath, "package/package.json"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  } catch {
+    throw new Error(
+      `Unable to read package/package.json from ${resolvedPath}.`,
+    );
+  }
+
+  const manifest = JSON.parse(manifestRaw) as {
+    name?: string;
+    version?: string;
+  };
+
+  if (
+    manifest.name !== pkg.manifest.name ||
+    manifest.version !== pkg.manifest.version
+  ) {
+    throw new Error(
+      `Package artifact identity mismatch: expected ${pkg.manifest.name}@${pkg.manifest.version}, received ${manifest.name ?? "unknown"}@${manifest.version ?? "unknown"}.`,
+    );
+  }
+
+  const bytes = readFileSync(resolvedPath);
+
+  return {
+    path: resolvedPath,
+    filename: resolvedPath.split(/[\\/]/).pop() ?? resolvedPath,
+    name: pkg.manifest.name,
+    version: pkg.manifest.version,
+    size: statSync(resolvedPath).size,
+    shasum: createHash("sha1").update(bytes).digest("hex"),
+    integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
+  };
+}
+
+/**
+ * Parse npm pack JSON output and validate its package identity.
+ *
+ * @param {string} raw Raw `npm pack --json` output.
+ * @param {Pick<WorkspacePackage, "directory" | "manifest">} pkg Expected workspace package.
+ * @param {string} artifactDirectory Directory containing the tarball.
+ * @returns {PackageArtifact} Packed package artifact.
+ */
 export function parsePackResult(
   raw: string,
   pkg: Pick<WorkspacePackage, "directory" | "manifest">,
@@ -722,6 +789,7 @@ export function publish({
   withDependencies = false,
   verifyGitTag = true,
   artifactDirectory,
+  artifactFile,
 }: {
   selector?: string;
   registry?: RegistrySelection;
@@ -733,6 +801,7 @@ export function publish({
   withDependencies?: boolean;
   verifyGitTag?: boolean;
   artifactDirectory?: string;
+  artifactFile?: string;
 }) {
   if (
     tag !== undefined &&
@@ -909,6 +978,12 @@ export function publish({
     );
   }
 
+  if (artifactFile && pendingPackages.length > 1) {
+    throw new Error(
+      "--artifact-file can only be used when exactly one package requires publication.",
+    );
+  }
+
   const ownedArtifactDirectory = !artifactDirectory;
   const artifactRoot = artifactDirectory
     ? resolve(root, artifactDirectory)
@@ -919,7 +994,9 @@ export function publish({
     for (const item of pendingPackages) {
       artifacts.set(
         item.manifest.name,
-        validateAndPack(root, item, artifactRoot, { quiet: json }),
+        artifactFile
+          ? packageArtifactFromFile(artifactFile, item)
+          : validateAndPack(root, item, artifactRoot, { quiet: json }),
       );
     }
 
