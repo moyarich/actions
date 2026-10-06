@@ -7,6 +7,15 @@ on:
         required: true
         default: packages/my-package
         type: string
+      registry:
+        description: Package registry
+        required: true
+        default: all
+        type: choice
+        options:
+          - github
+          - npm
+          - all
       tag:
         description: npm distribution tag
         required: true
@@ -20,7 +29,7 @@ jobs:
     with:
       package-directory: ${{ inputs.package-directory }}
       target-branch: main
-      registry: github
+      registry: ${{ inputs.registry }}
       tag: ${{ inputs.tag }}
       node-version: "24"
     secrets: inherit
