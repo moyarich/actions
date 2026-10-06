@@ -21,6 +21,7 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 
 | Workflow                                | Use it to                                                                                                                  |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `reusable_release.yml`                  | Create or preview a generic versioned GitHub Release from an explicit version, tag, name, and changelog.                       |
 | `reusable_release-drafter.yml`          | Create and update persistent GitHub Release drafts for repositories or scoped monorepo targets.                            |
 | `reusable_delete-release-tag.yml`       | Find and delete Git release tags manually or from another workflow, with fuzzy lookup, dry-run previews, and verification. |
 | `reusable_npm-prepare-release.yml`      | Prepare an npm package release, including version and release state.                                                       |
@@ -49,9 +50,9 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 Use standalone actions directly when you need the lower-level executable behavior:
 
 ```yaml
-- uses: moyarich/workspace-tools/actions/release-draft-sync@v1
-- uses: moyarich/workspace-tools/actions/discover-packages@v1
-- uses: moyarich/workspace-tools/actions/issue-dependency-tree@v1
+- uses: moyarich/workspace-tools/actions/release-draft-sync@workflows-v0
+- uses: moyarich/workspace-tools/actions/discover-packages@workflows-v0
+- uses: moyarich/workspace-tools/actions/issue-dependency-tree@workflows-v0
 ```
 
 ## CLI
@@ -96,19 +97,33 @@ on:
 
 jobs:
   ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
 ```
 
 Each reusable workflow defines its supported inputs, outputs, secrets, and permissions. See the [documentation](./docs/page.mdx) and [examples](./examples) for workflow-specific configuration and copyable callers.
 
 ## Versioning
 
-Pin callers to a release tag. Stable major tags may be used when available.
+The npm package and reusable workflows have independent release lines.
+
+- `package.json#version` versions `@moyarich/workspace-tools`, with package tags such as `@moyarich/workspace-tools@0.1.0`.
+- `workflow-version.json#version` versions reusable workflows and standalone actions, with immutable tags such as `workflows-v0.1.0`.
+- Moving major aliases such as `workflows-v0` can be used to receive compatible workflow updates.
+
+Pin reusable workflow callers to an immutable workflow tag when reproducibility matters:
 
 ```yaml
 jobs:
   ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
+```
+
+Or use the moving major alias:
+
+```yaml
+jobs:
+  ci:
+    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0
 ```
 
 ## License
