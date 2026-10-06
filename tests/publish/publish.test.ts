@@ -30,7 +30,6 @@ test("suggestedDistributionTag uses the prerelease identifier", () => {
   assert.equal(suggestedDistributionTag("1.2.3-beta.4"), "beta");
 });
 
-
 test("serializePublishPlan returns stable machine-readable package metadata", () => {
   const plan = [
     {
