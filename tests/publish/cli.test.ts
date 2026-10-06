@@ -80,7 +80,6 @@ test("publish rejects values assigned to boolean flags", () => {
   expect(result.stderr).toMatch(/unknown option '--dry-run=invalid'/);
 });
 
-
 test("publish accepts all as a registry selection", () => {
   const result = invoke(
     "dist/bin/workspace-publish.mjs",
