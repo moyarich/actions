@@ -3672,20 +3672,9 @@ ${sections.join("\n\n") || "### Changed\n\n- Package release."}
 `;
 }
 function existingChangelogSection(changelog, version) {
-  const escapedVersion = version.replace(/[.*+?^$()|[\]\\]/g, "\\function changelogSection(version, notes) {
-  const sections = Object.entries(notes).filter(([, entries]) => entries.length).map(
-    ([heading, entries]) => `### ${heading}
-
-${entries.map((entry) => `- ${entry}`).join("\n")}`
-  );
-  return `## ${version}
-
-${sections.join("\n\n") || "### Changed\n\n- Package release."}
-`;
-}
-");
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const heading = new RegExp(
-    `^## \\[${escapedVersion}\\]|^## ${escapedVersion}(?:\\s|$)`,
+    `^## (?:\\[${escapedVersion}\\]|${escapedVersion})(?:\\s|$)`,
     "m"
   );
   const match = heading.exec(changelog);
@@ -3693,8 +3682,8 @@ ${sections.join("\n\n") || "### Changed\n\n- Package release."}
     return null;
   }
   const start = match.index;
-  const remainder = changelog.slice(start);
-  const nextHeading = remainder.slice(match[0].length).search(/^## /m);
+  const remainder = changelog.slice(start + match[0].length);
+  const nextHeading = remainder.search(/^## /m);
   const end = nextHeading === -1 ? changelog.length : start + match[0].length + nextHeading;
   return changelog.slice(start, end).trimEnd() + "\n";
 }
@@ -3818,35 +3807,78 @@ function packageChanges(root, pkg, previousRef) {
   ).trim();
   return log ? log.split("").map((message) => message.trim()).filter(Boolean) : [];
 }
-function releaseChangelogSection(root, pkg, version) {
-  const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
-  const current = existsSync(changelog) ? readFileSync(changelog, "utf8") : "# Changelog\n";
+function releaseChangelog(root, pkg, version) {
+  const path2 = resolve(root, pkg.directory, "CHANGELOG.md");
+  const current = existsSync(path2) ? readFileSync(path2, "utf8") : "# Changelog\n";
   const existing = existingChangelogSection(current, version);
   if (existing) {
-    return existing;
+    return { source: "existing", section: existing, path: path2 };
   }
   const previous = previousReleaseRef(root, pkg.directory);
-  return changelogSection(
-    version,
-    releaseNotes(packageChanges(root, pkg, previous))
-  );
+  return {
+    source: "generated",
+    section: changelogSection(
+      version,
+      releaseNotes(packageChanges(root, pkg, previous))
+    ),
+    path: path2
+  };
 }
-function updateChangelog(root, pkg, version) {
-  const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
-  const current = existsSync(changelog) ? readFileSync(changelog, "utf8") : "# Changelog\n";
-  if (existingChangelogSection(current, version)) {
-    return changelog;
+function applyReleaseChangelog(changelog) {
+  if (changelog.source === "existing") {
+    return changelog.path;
   }
-  const section = releaseChangelogSection(root, pkg, version);
+  const current = existsSync(changelog.path) ? readFileSync(changelog.path, "utf8") : "# Changelog\n";
   const body = current.replace(/^# Changelog\s*/, "");
   writeFileSync(
-    changelog,
+    changelog.path,
     `# Changelog
 
-${section}
+${changelog.section}
 ${body}`.trimEnd() + "\n"
   );
-  return changelog;
+  return changelog.path;
+}
+function buildReleasePlan(root, pkg, mode, versionSpec) {
+  const currentVersion = pkg.manifest.version;
+  const nextVersion = mode === "package-json" ? currentVersion : resolveNextVersion(currentVersion, versionSpec);
+  const registry = registryFor(pkg);
+  const published = registryVersion(root, pkg);
+  const proposed = registryVersion(root, pkg, nextVersion);
+  const identity = releaseIdentity(pkg, nextVersion);
+  const tag = tagState(root, identity.tagName);
+  const changelog = releaseChangelog(root, pkg, nextVersion);
+  const previousRelease = previousReleaseRef(root, pkg.directory);
+  const alreadyPublished = proposed.status === "published";
+  const canRelease = !alreadyPublished && !tag.exists;
+  const reason = alreadyPublished ? `${pkg.manifest.name}@${nextVersion} is already published.` : tag.exists ? tag.atHead ? `Git tag ${identity.tagName} already exists at HEAD.` : `Git tag ${identity.tagName} already exists at ${tag.commit} and will not be moved.` : null;
+  const versionCommand = mode === "package-json" ? null : {
+    command: "npm",
+    args: npmVersionArgs(pkg, versionSpec),
+    cwd: root
+  };
+  return {
+    package: {
+      name: pkg.manifest.name,
+      directory: pkg.directory,
+      manifest: pkg.file
+    },
+    mode,
+    versionRequest: versionSpec,
+    currentVersion,
+    nextVersion,
+    registry,
+    latestPublished: published.status === "published" ? published.version : "",
+    alreadyPublished,
+    identity,
+    tag,
+    canRelease,
+    reason,
+    previousRelease,
+    changelog,
+    versionCommand,
+    files: mode === "package-json" ? [] : [pkg.file, resolve(root, "package-lock.json"), changelog.path]
+  };
 }
 function release(argument, options = {}) {
   const { selector, versionSpec: argumentVersionSpec } = parseReleaseArgument(
@@ -3883,165 +3915,76 @@ function release(argument, options = {}) {
     printDependencyCheck(dependencies);
   }
   assertDependencies(dependencies);
+  const plan = buildReleasePlan(root, pkg, mode, versionSpec);
   if (options.dryRun) {
-    let nextVersion = pkg.manifest.version;
-    if (mode !== "package-json") {
-      nextVersion = resolveNextVersion(pkg.manifest.version, versionSpec);
-    }
-    const registry = registryFor(pkg);
-    const published = registryVersion(root, pkg);
-    const proposed = registryVersion(root, pkg, nextVersion);
-    const latestPublished = published.status === "published" ? published.version : "";
-    const alreadyPublished = proposed.status === "published";
-    const identity2 = releaseIdentity(pkg, nextVersion);
-    const gitTag = tagState(root, identity2.tagName);
-    const canRelease = !alreadyPublished && !gitTag.exists;
-    const reason = alreadyPublished ? `${pkg.manifest.name}@${nextVersion} is already published.` : gitTag.exists ? gitTag.atHead ? `Git tag ${identity2.tagName} already exists at HEAD.` : `Git tag ${identity2.tagName} already exists at ${gitTag.commit} and will not be moved.` : null;
-    const previous = previousReleaseRef(root, pkg.directory);
-    const section = releaseChangelogSection(root, pkg, nextVersion);
-    const registryName = registry === "https://npm.pkg.github.com" ? "GitHub Packages" : registry === "https://registry.npmjs.org" ? "npm" : registry;
-    const selection = mode === "package-json" ? "Release the package.json version without changing it." : mode === "exact" ? "Release the explicitly requested version." : `Increment the ${versionSpec} version.`;
-    const versionChange = mode === "package-json" ? "" : `
-  ${pkg.manifest.version} → ${nextVersion}`;
-    const registryStatus = alreadyPublished ? `${pkg.manifest.name}@${nextVersion} is already published.` : `${pkg.manifest.name}@${nextVersion} is not published.
-  This version is available to publish.`;
-    const previousRelease = previous || "No previous release was found.";
-    const publishedDisplay = latestPublished ? style.cyan(latestPublished) : style.yellow("Not published");
-    const releaseDisplay = style.bold(style.green(nextVersion));
-    const statusDisplay = canRelease ? style.green(registryStatus) : style.red(reason || registryStatus);
-    const previousDisplay = previous ? style.cyan(previousRelease) : style.yellow(previousRelease);
     if (!options.json) {
+      const versionCommand = plan.versionCommand ? [plan.versionCommand.command, ...plan.versionCommand.args].join(" ") : "none (package.json version is used as-is)";
+      const changedFiles = plan.files.length ? plan.files.map((file) => `  - ${file}`).join("\n") : "  - none";
       console.log(`
 ${style.bold(style.cyan("Release preview"))}
 
-Package:          ${pkg.manifest.name}
-Registry:         ${registryName}
-Published:        ${publishedDisplay}
-Package version:  ${style.cyan(pkg.manifest.version)}
+Package:            ${pkg.manifest.name}
+Registry:           ${plan.registry}
+Current version:    ${style.cyan(plan.currentVersion)}
+Version to release: ${style.bold(style.green(plan.nextVersion))}
+Git tag:            ${plan.identity.tagName}
+Can release:        ${plan.canRelease ? style.green("yes") : style.red("no")}
 
-${style.bold("Release selection")}
-  ${selection}${versionChange}
-  Version to release: ${releaseDisplay}
+${style.bold("Execution plan")}
+  Version command: ${versionCommand}
+  Changelog source: ${plan.changelog.source}
+  Files that would change:
+${changedFiles}
 
 ${style.bold("Release readiness")}
-  ${statusDisplay}
-
-${style.bold("Previous release")}
-  ${previousDisplay}
+  ${plan.reason || `${pkg.manifest.name}@${plan.nextVersion} is available to release.`}
 
 ${style.dim(
-        "Dry run only — no files, commits, tags, or packages will be changed."
+        "Dry run only — this is the same resolved plan that real execution will use."
       )}
 
-${style.bold(style.cyan("Proposed changelog"))}
+${style.bold(style.cyan("Release notes"))}
 
-${section}`);
+${plan.changelog.section}`);
     }
     return {
       operation: "release",
-      status: canRelease ? "preview" : "warning",
+      status: plan.canRelease ? "preview" : "warning",
       dryRun: true,
-      package: {
-        name: pkg.manifest.name,
-        selector,
-        directory: pkg.directory
-      },
-      mode,
-      versionRequest: versionSpec,
-      registry,
-      latestPublished,
-      currentVersion: pkg.manifest.version,
-      nextVersion,
-      identity: identity2,
-      alreadyPublished,
-      tag: gitTag,
-      canRelease,
-      reason,
-      previousRelease: previous,
-      changelog: section
+      selector,
+      ...plan,
+      changelog: plan.changelog.section,
+      changelogSource: plan.changelog.source
     };
   }
-  const operationRunOptions = options.json ? { stdio: ["ignore", "ignore", "inherit"] } : { stdio: "inherit" };
-  if (mode === "package-json") {
-    const version2 = pkg.manifest.version;
-    const identity2 = releaseIdentity(pkg, version2);
-    const tag2 = identity2.tagName;
-    const gitTag = tagState(root, tag2);
-    if (gitTag.exists) {
-      throw new Error(
-        gitTag.atHead ? `Git tag ${identity2.tagName} already exists at HEAD.` : `Git tag ${identity2.tagName} already exists at ${gitTag.commit} and will not be moved.`
-      );
-    }
-    if (registryVersion(root, pkg, version2).status === "published") {
-      throw new Error(
-        `${pkg.manifest.name}@${version2} is already published to ${registryFor(pkg)}.`
-      );
-    }
-    execFileSync("git", ["tag", tag2], {
-      cwd: root,
-      ...operationRunOptions
-    });
-    const result2 = {
-      operation: "release",
-      status: "success",
-      dryRun: false,
-      package: {
-        name: pkg.manifest.name,
-        selector,
-        directory: pkg.directory
-      },
-      mode,
-      versionRequest: null,
-      registry: registryFor(pkg),
-      currentVersion: version2,
-      nextVersion: version2,
-      identity: identity2,
-      tag: {
-        name: tag2,
-        exists: true,
-        atHead: true,
-        commit: execFileSync("git", ["rev-parse", "HEAD"], {
-          cwd: root,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"]
-        }).trim()
-      },
-      git: {
-        committed: false,
-        tagged: true
-      }
-    };
-    if (!options.json) {
-      console.log(`Created tag ${tag2} at HEAD.`);
-    }
-    return result2;
-  }
-  execFileSync("npm", npmVersionArgs(pkg, versionSpec), {
-    cwd: root,
-    ...operationRunOptions
-  });
-  const version = JSON.parse(readFileSync(pkg.file, "utf8")).version;
-  if (registryVersion(root, pkg, version).status === "published") {
-    execFileSync("git", ["checkout", "--", pkg.file, "package-lock.json"], {
-      cwd: root,
-      ...operationRunOptions
-    });
+  if (!plan.canRelease) {
     throw new Error(
-      `${pkg.manifest.name}@${version} is already published to ${registryFor(pkg)}.`
+      plan.reason || "Resolved release target is not releasable."
     );
   }
-  const identity = releaseIdentity(pkg, version);
-  const tag = identity.tagName;
-  const changelog = updateChangelog(root, pkg, version);
-  execFileSync("git", ["add", pkg.file, "package-lock.json", changelog], {
-    cwd: root,
-    ...operationRunOptions
-  });
-  execFileSync("git", ["commit", "-m", `release: ${tag}`], {
-    cwd: root,
-    ...operationRunOptions
-  });
-  execFileSync("git", ["tag", tag], {
+  const operationRunOptions = options.json ? { stdio: ["ignore", "ignore", "inherit"] } : { stdio: "inherit" };
+  if (plan.versionCommand) {
+    execFileSync(plan.versionCommand.command, plan.versionCommand.args, {
+      cwd: plan.versionCommand.cwd,
+      ...operationRunOptions
+    });
+    const actualVersion = JSON.parse(readFileSync(pkg.file, "utf8")).version;
+    if (actualVersion !== plan.nextVersion) {
+      throw new Error(
+        `Version command produced ${actualVersion}; expected ${plan.nextVersion}.`
+      );
+    }
+    applyReleaseChangelog(plan.changelog);
+    execFileSync("git", ["add", ...plan.files], {
+      cwd: root,
+      ...operationRunOptions
+    });
+    execFileSync("git", ["commit", "-m", `release: ${plan.identity.tagName}`], {
+      cwd: root,
+      ...operationRunOptions
+    });
+  }
+  execFileSync("git", ["tag", plan.identity.tagName], {
     cwd: root,
     ...operationRunOptions
   });
@@ -4049,27 +3992,29 @@ ${section}`);
     operation: "release",
     status: "success",
     dryRun: false,
-    package: {
-      name: pkg.manifest.name,
-      selector,
-      directory: pkg.directory
+    selector,
+    ...plan,
+    tag: {
+      ...plan.tag,
+      name: plan.identity.tagName,
+      exists: true,
+      atHead: true,
+      commit: execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"]
+      }).trim()
     },
-    mode,
-    versionRequest: versionSpec,
-    registry: registryFor(pkg),
-    currentVersion: pkg.manifest.version,
-    nextVersion: version,
-    identity,
-    tag,
-    changelog,
+    changelog: plan.changelog.section,
+    changelogSource: plan.changelog.source,
     git: {
-      committed: true,
+      committed: Boolean(plan.versionCommand),
       tagged: true
     }
   };
   if (!options.json) {
     console.log(`
-Created release ${tag}
+Created release ${plan.identity.tagName}
 
 Push the release commit and tag with:
 
