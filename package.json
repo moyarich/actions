@@ -1,6 +1,6 @@
 {
   "name": "@moyarich/workspace-tools",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Reusable GitHub Actions workflows and CLI tooling for Node.js workspaces, releases, publishing, and repository automation.",
   "keywords": [
     "github-actions",
@@ -26,9 +26,11 @@
     "type": "git",
     "url": "git+https://github.com/moyarich/workspace-tools.git"
   },
+  "type": "module",
   "engines": {
     "node": ">=24"
   },
+  "packageManager": "npm@11",
   "files": [
     "dist/bin"
   ],
@@ -44,6 +46,7 @@
     "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity"
   },
   "devDependencies": {
+    "commander": "^15.0.0",
     "prettier": "^3.6.2",
     "vite": "^7.1.5",
     "vitest": "^3.2.4"
@@ -59,8 +62,5 @@
     "workspace-dependency-check": "dist/bin/workspace-dependency-check.mjs",
     "workspace-package-lock": "dist/bin/workspace-package-lock.mjs",
     "workspace-release-identity": "dist/bin/workspace-release-identity.mjs"
-  },
-  "dependencies": {
-    "commander": "^15.0.0"
   }
 }
