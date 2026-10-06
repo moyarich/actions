@@ -64,13 +64,13 @@ export const CONTENT_SECTIONS: ContentSection[] = [
   {
     id: "docs",
     label: "Docs",
-    description: "Authoritative documentation for the reusable workflows.",
+    description: "Authoritative documentation for the workspace-tools package.",
     pages: createPages(docsModules),
   },
   {
     id: "examples",
-    label: "Real usages",
-    description: "Copyable caller workflows loaded directly from examples.",
+    label: "CLI examples",
+    description: "Copyable command examples loaded directly from examples.",
     pages: createPages(exampleModules),
   },
 ];

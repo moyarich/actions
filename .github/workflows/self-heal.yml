@@ -15,22 +15,22 @@ concurrency:
 
 jobs:
   prettier:
-    uses: ./.github/workflows/reusable_prettier.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
     with:
       commit: true
       node-version: "24"
 
   package-lock:
     needs: prettier
-    uses: ./.github/workflows/reusable_npm-package-lock.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-package-lock.yml@main
     with:
       commit: true
       node-version: "24"
     secrets:
       package-token: ${{ secrets._GITHUB_TOKEN }}
 
-  action-dist:
-    name: Build action dist
+  cli-dist:
+    name: Build CLI dist
     needs: package-lock
     runs-on: ubuntu-latest
 
@@ -50,28 +50,28 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Build action runtime
-        run: npm run build:actions
+      - name: Build CLI distribution
+        run: npm run build
 
       - name: Commit generated dist
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ -z "$(git status --porcelain -- dist/)" ]; then
-            echo "Action dist is already current."
+          if [ -z "$(git status --porcelain -- dist/bin/)" ]; then
+            echo "CLI dist is already current."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/
-          git commit -m "build: update action dist"
+          git add -f dist/bin/
+          git commit -m "build: update CLI dist"
           git push
 
   validate-healed-head:
     name: Validate healed head
-    needs: action-dist
+    needs: cli-dist
     runs-on: ubuntu-latest
 
     steps:

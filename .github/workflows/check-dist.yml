@@ -9,9 +9,9 @@ permissions:
 jobs:
   check-dist:
     name: Check distribution
-    uses: ./.github/workflows/reusable_check-dist.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_check-dist.yml@main
     with:
-      dist-path: dist/
-      build-command: npm run build:actions
+      dist-path: dist/bin/
+      build-command: npm run build
       node-version: "24"
       artifact-name: dist

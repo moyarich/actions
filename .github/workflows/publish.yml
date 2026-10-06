@@ -43,7 +43,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: ./.github/workflows/reusable_npm-publish.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@main
     with:
       target-branch: main
       package-directory: ${{ inputs.package }}
@@ -53,4 +53,5 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       verify-git-tag: true
       node-version: "24"
+      workspace-tools-source: caller
     secrets: inherit

@@ -50,7 +50,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_npm-release.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
     with:
       target-branch: main
       package: ${{ inputs.package }}
@@ -59,3 +59,4 @@ jobs:
       exact-version: ${{ inputs.exact-version }}
       dry-run: ${{ inputs.dry-run }}
       node-version: "24"
+      workspace-tools-source: caller

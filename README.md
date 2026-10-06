@@ -1,131 +1,33 @@
-# Workspace Tools
+# @moyarich/workspace-tools
 
-Reusable GitHub Actions workflows for CI, package discovery, releases, publishing, GitHub Pages, repository maintenance, and developer tooling.
+CLI tooling for Node.js workspaces, package discovery, releases, publishing, dependency checks, and repository automation.
 
-## Reusable workflows
+Reusable GitHub workflows and standalone Actions are released separately from [moyarich/reusable-workflows](https://github.com/moyarich/reusable-workflows).
 
-Use these workflows from another repository with GitHub Actions `workflow_call`.
-
-### CI and package automation
-
-| Workflow                         | Use it to                                                                 |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `reusable_node-ci.yml`           | Run configurable Node.js CI.                                              |
-| `reusable_check-dist.yml`        | Rebuild committed distribution output and fail when it is stale.          |
-| `reusable_package-ci.yml`        | Run CI for a package or workspace target.                                 |
-| `reusable_discover-packages.yml` | Discover publishable root and workspace packages for downstream jobs.     |
-| `reusable_prettier.yml`          | Check Prettier formatting and optionally commit formatting fixes.         |
-| `reusable_npm-package-lock.yml`  | Validate `package-lock.json` and optionally commit regenerated lockfiles. |
-
-### Releases and publishing
-
-| Workflow                                | Use it to                                                                                                                  |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `reusable_release.yml`                  | Create or preview a generic versioned GitHub Release from an explicit version, tag, name, and changelog.                   |
-| `reusable_release-drafter.yml`          | Create and update persistent GitHub Release drafts for repositories or scoped monorepo targets.                            |
-| `reusable_delete-release-tag.yml`       | Find and delete Git release tags manually or from another workflow, with fuzzy lookup, dry-run previews, and verification. |
-| `reusable_npm-prepare-release.yml`      | Prepare an npm package release, including version and release state.                                                       |
-| `reusable_npm-publish.yml`              | Preflight and publish selected npm packages, including validation, packing, and release checks.                            |
-| `reusable_npm-release.yml`              | Preview and create package releases and matching GitHub Release drafts.                                                    |
-| `reusable_vscode-extension-publish.yml` | Validate, package, and publish a VS Code extension and its matching GitHub Release.                                        |
-| `reusable_codemod-publish.yml`          | Validate and publish a Codemod Registry package.                                                                           |
-
-### Sites and repository tooling
-
-| Workflow                                  | Use it to                                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `reusable_github-pages.yml`               | Build and deploy a static site to GitHub Pages with repository-relative base-path support. |
-| `reusable_readme-screenshots.yml`         | Generate README screenshots through a reusable workflow.                                   |
-| `reusable_manage-issue-dependencies.yml`  | Manage native GitHub issue blocking relationships.                                         |
-| `reusable_show-issue-dependency-tree.yml` | Render an issue dependency tree, including cycle-aware output.                             |
-
-## Standalone actions
-
-| Action                  | Use it to                                                                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `release-draft-sync`    | Reconcile persistent GitHub Release draft content while preserving maintainer-authored text and appending only unseen generated entries. |
-| `discover-packages`     | Discover root, workspace, or direct-child packages and emit normalized package and matrix metadata.                                      |
-| `issue-dependency-tree` | Render native GitHub issue blocking relationships as a cycle-aware dependency tree.                                                      |
-
-Use standalone actions directly when you need the lower-level executable behavior:
-
-```yaml
-- uses: moyarich/workspace-tools/actions/release-draft-sync@workflows-v0
-- uses: moyarich/workspace-tools/actions/discover-packages@workflows-v0
-- uses: moyarich/workspace-tools/actions/issue-dependency-tree@workflows-v0
-```
-
-## CLI
-
-The package also ships an `issue-dependency-tree` CLI built from the same dependency-graph implementation used by the GitHub Action.
+## Install
 
 ```sh
-issue-dependency-tree
-issue-dependency-tree --repo moyarich/workspace-tools
-issue-dependency-tree --root 29
-issue-dependency-tree --interactive
-issue-dependency-tree --json
+npm install @moyarich/workspace-tools
 ```
 
-Interactive mode uses the external `fzf` executable with multi-select. `fzf` is optional; non-interactive tree and JSON output do not require it.
+## Commands
 
-The repository also owns the workspace release/publishing CLIs used by its reusable workflows:
+- `discover-packages` — discover root, workspace, and direct-child packages.
+- `issue-dependency-tree` — render native GitHub issue dependency graphs.
+- `workspace-dependency-check` — check external and internal workspace dependency versions.
+- `workspace-package-lock` — validate or recreate the root npm lockfile.
+- `workspace-release-identity` — resolve canonical package release identity.
+- `workspace-release` — preview and prepare package releases.
+- `workspace-publish` — validate and publish canonical package artifacts.
 
-```sh
-discover-packages
-workspace-dependency-check
-workspace-package-lock
-workspace-release-identity
-workspace-release
-workspace-publish
+## Releases
+
+The package version comes from `package.json`. User-facing package changes are documented in `CHANGELOG.md`.
+
+Package releases use tags such as:
+
+```text
+@moyarich/workspace-tools@0.1.0
 ```
 
-These commands are organized by capability under `src/` and built into `dist/bin/`. Reusable workflows resolve them through the repo-local `workspace-tools` setup action, so workflow behavior stays pinned to the same `moyarich/workspace-tools` ref instead of installing a separate workspace-tools package.
-
-## Using a workflow
-
-Create a workflow in the consuming repository and call the reusable workflow with `uses`:
-
-```yaml
-name: CI
-
-on:
-  pull_request:
-  push:
-    branches:
-      - main
-
-jobs:
-  ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
-```
-
-Each reusable workflow defines its supported inputs, outputs, secrets, and permissions. See the [documentation](./docs/page.mdx) and [examples](./examples) for workflow-specific configuration and copyable callers.
-
-## Versioning
-
-The npm package and reusable workflows have independent release lines.
-
-- `package.json#version` versions `@moyarich/workspace-tools`, with package tags such as `@moyarich/workspace-tools@0.1.0`.
-- `workflow-version.json#version` versions reusable workflows and standalone actions, with immutable tags such as `workflows-v0.1.0`.
-- Moving major aliases such as `workflows-v0` can be used to receive compatible workflow updates.
-
-Pin reusable workflow callers to an immutable workflow tag when reproducibility matters:
-
-```yaml
-jobs:
-  ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
-```
-
-Or use the moving major alias:
-
-```yaml
-jobs:
-  ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0
-```
-
-## License
-
-MIT
+The repository-local workflows under `.github/workflows/` maintain this repository. Public reusable workflows live in `moyarich/reusable-workflows`.

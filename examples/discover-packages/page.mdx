@@ -1,20 +1,10 @@
 ---
-title: Discover Packages
-description: Copyable Discover Packages caller workflow.
+title: Discover packages
+description: Discover workspace packages from the command line.
 ---
 
-import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_discover-packages.yml?raw";
+# Discover packages
 
-# Discover Packages
-
-<Playground
-  files={[
-    { name: "workflow.yml", source: workflow, language: "yaml" },
-    {
-      name: "reusable_discover-packages.yml",
-      source: reusableWorkflow,
-      language: "yaml",
-    },
-  ]}
-/>
+```sh
+npx discover-packages --workspaces --include-root-package --json
+```
