@@ -54,7 +54,7 @@ function ContentRoute() {
         <p className="eyebrow">Not found</p>
         <h1>Page not found</h1>
         <p>
-          Choose documentation or a real workflow usage from the navigation.
+          Choose documentation or a CLI example from the navigation.
         </p>
       </article>
     );
@@ -83,7 +83,7 @@ export function App() {
       <header className="site-header">
         <div>
           <p className="eyebrow">moyarich/workspace-tools</p>
-          <h1>Reusable GitHub Actions</h1>
+          <h1>Workspace Tools</h1>
           <p>
             Documentation and real, copyable caller workflows for every
             supported reusable workflow.
