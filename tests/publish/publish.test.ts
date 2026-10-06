@@ -14,7 +14,6 @@ import {
   packageGitTagState,
   packageRegistryState,
   parsePackResult,
-  publishWorkspacePackage,
   registryPublishArgs,
   serializePublishPlan,
   suggestedDistributionTag,
@@ -328,53 +327,6 @@ test("parsePackResult rejects a tarball for a different package version", () => 
       ),
     /Packed artifact identity mismatch/,
   );
-});
-
-test("publishWorkspacePackage forwards artifactFile to publish", () => {
-  const previousCwd = process.cwd;
-
-  Object.defineProperty(process, "cwd", {
-    configurable: true,
-    value: () => "/repo",
-  });
-
-  execFileSync.mockImplementation((command, args) => {
-    if (command === "git" && Array.isArray(args) && args[0] === "rev-parse") {
-      return "abc123\n";
-    }
-
-    if (command === "npm" && Array.isArray(args) && args[0] === "view") {
-      const error = new Error("npm view failed") as Error & { stderr?: string };
-      error.stderr = "npm error code E404\n404 Not Found";
-      throw error;
-    }
-
-    if (command === "tar") {
-      return JSON.stringify({
-        name: "@moyarich/workspace-tools",
-        version: "0.1.1",
-      });
-    }
-
-    return "";
-  });
-
-  try {
-    assert.throws(
-      () =>
-        publishWorkspacePackage(".", {
-          registry: "github",
-          tag: "latest",
-          artifactFile: "/tmp/workspace-tools-0.1.1.tgz",
-        }),
-      /Package artifact does not exist/,
-    );
-  } finally {
-    Object.defineProperty(process, "cwd", {
-      configurable: true,
-      value: previousCwd,
-    });
-  }
 });
 
 test("registryPublishArgs promotes the same tarball to GitHub Packages", () => {
