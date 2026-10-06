@@ -53,12 +53,12 @@ on:
           - npm
           - both
       dist-tag:
-        description: Distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        description: Distribution tag; leave empty to preview the suggested tag. Publishing a release requires an explicit value. ie 'latest'
         required: false
         default: ""
         type: string
       dry-run:
-        description: Preview without repository or registry mutation
+        description: Dry-run — Preview without repository or registry mutation
         required: true
         default: true
         type: boolean
