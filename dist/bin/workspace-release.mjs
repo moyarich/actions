@@ -3809,8 +3809,8 @@ function packageChanges(root, pkg, previousRef) {
 }
 function releaseChangelog(root, pkg, version) {
   const path2 = resolve(root, pkg.directory, "CHANGELOG.md");
-  const current2 = existsSync(path2) ? readFileSync(path2, "utf8") : "# Changelog\n";
-  const existing = existingChangelogSection(current2, version);
+  const current = existsSync(path2) ? readFileSync(path2, "utf8") : "# Changelog\n";
+  const existing = existingChangelogSection(current, version);
   if (existing) {
     return { source: "existing", section: existing, path: path2 };
   }
@@ -3828,8 +3828,8 @@ function applyReleaseChangelog(changelog) {
   if (changelog.source === "existing") {
     return changelog.path;
   }
-  const current2 = existsSync(changelog.path) ? readFileSync(changelog.path, "utf8") : "# Changelog\n";
-  const body = current2.replace(/^# Changelog\s*/, "");
+  const current = existsSync(changelog.path) ? readFileSync(changelog.path, "utf8") : "# Changelog\n";
+  const body = current.replace(/^# Changelog\s*/, "");
   writeFileSync(
     changelog.path,
     `# Changelog
@@ -3907,7 +3907,9 @@ function release(argument, options = {}) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
   }).trim()) {
-    throw new Error("Working tree must be clean before creating a package release.");
+    throw new Error(
+      "Working tree must be clean before creating a package release."
+    );
   }
   const dependencies = dependencyCheck(root, pkg);
   if (!options.json) {
@@ -3938,7 +3940,9 @@ ${changedFiles}
 ${style.bold("Release readiness")}
   ${plan.reason || `${pkg.manifest.name}@${plan.nextVersion} is available to release.`}
 
-${style.dim("Dry run only — this is the same resolved plan that real execution will use.")}
+${style.dim(
+        "Dry run only — this is the same resolved plan that real execution will use."
+      )}
 
 ${style.bold(style.cyan("Release notes"))}
 
@@ -3954,7 +3958,9 @@ ${plan.changelog.section}`);
     };
   }
   if (!plan.canRelease) {
-    throw new Error(plan.reason || "Resolved release target is not releasable.");
+    throw new Error(
+      plan.reason || "Resolved release target is not releasable."
+    );
   }
   const operationRunOptions = options.json ? { stdio: ["ignore", "ignore", "inherit"] } : { stdio: "inherit" };
   if (plan.versionCommand) {
@@ -3964,10 +3970,15 @@ ${plan.changelog.section}`);
     });
     const actualVersion = JSON.parse(readFileSync(pkg.file, "utf8")).version;
     if (actualVersion !== plan.nextVersion) {
-      throw new Error(`Version command produced ${actualVersion}; expected ${plan.nextVersion}.`);
+      throw new Error(
+        `Version command produced ${actualVersion}; expected ${plan.nextVersion}.`
+      );
     }
     applyReleaseChangelog(plan.changelog);
-    execFileSync("git", ["add", ...plan.files], { cwd: root, ...operationRunOptions });
+    execFileSync("git", ["add", ...plan.files], {
+      cwd: root,
+      ...operationRunOptions
+    });
     execFileSync("git", ["commit", "-m", `release: ${plan.identity.tagName}`], {
       cwd: root,
       ...operationRunOptions
