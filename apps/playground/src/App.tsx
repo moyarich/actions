@@ -53,9 +53,7 @@ function ContentRoute() {
       <article className="content-page">
         <p className="eyebrow">Not found</p>
         <h1>Page not found</h1>
-        <p>
-          Choose documentation or a CLI example from the navigation.
-        </p>
+        <p>Choose documentation or a CLI example from the navigation.</p>
       </article>
     );
   }
