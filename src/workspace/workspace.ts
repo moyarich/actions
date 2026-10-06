@@ -71,7 +71,9 @@ export function packageInfo(root: string, selector: string): WorkspacePackage {
 
   if (normalized === "." || normalized === "") {
     const file = resolve(root, "package.json");
-    const manifest = JSON.parse(readFileSync(file, "utf8")) as WorkspaceManifest;
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8"),
+    ) as WorkspaceManifest;
 
     if (
       typeof manifest.name !== "string" ||
