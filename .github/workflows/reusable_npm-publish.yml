@@ -27,9 +27,9 @@ on:
           - github
           - npm
       tag:
-        description: Distribution tag
+        description: Distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
         required: true
-        default: latest
+        default: auto
         type: string
       verify-git-tag:
         description: Verify matching package release Git tag before publishing
@@ -68,9 +68,9 @@ on:
         default: github
         type: string
       tag:
-        description: npm distribution tag
+        description: npm distribution tag; auto uses latest for stable versions and the prerelease identifier for prereleases
         required: false
-        default: latest
+        default: auto
         type: string
       verify-git-tag:
         description: Verify matching package release Git tag before publishing
@@ -173,7 +173,7 @@ jobs:
             node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" \
               "$PACKAGE_SELECTOR" \
               --registry="${{ inputs.registry }}" \
-              --tag="${{ inputs.tag }}" \
+              --tag="${{ steps.plan.outputs.distribution-tag }}" \
               --list \
               --json
           )"
@@ -187,11 +187,29 @@ jobs:
             (.packages[0].releaseIdentity.releaseName | type == "string" and length > 0)
           ' >/dev/null
 
+          PACKAGE_VERSION="$(jq -r '.packages[0].version' <<< "$PLAN")"
+          RESOLVED_DIST_TAG="${{ inputs.tag }}"
+
+          if [ "$RESOLVED_DIST_TAG" = "auto" ]; then
+            if [[ "$PACKAGE_VERSION" == *-* ]]; then
+              PRERELEASE="${PACKAGE_VERSION#*-}"
+              RESOLVED_DIST_TAG="${PRERELEASE%%.*}"
+            else
+              RESOLVED_DIST_TAG="latest"
+            fi
+          fi
+
+          if ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
+            exit 1
+          fi
+
           {
             echo "name=$(jq -r '.packages[0].name' <<< "$PLAN")"
-            echo "version=$(jq -r '.packages[0].version' <<< "$PLAN")"
+            echo "version=$PACKAGE_VERSION"
             echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
             echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
+            echo "distribution-tag=$RESOLVED_DIST_TAG"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate requested version
