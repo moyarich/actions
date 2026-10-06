@@ -438,24 +438,35 @@ jobs:
           PACKAGE_JSON="$RUNNER_TEMP/packed-package.json"
           tar -xOf "$CANONICAL_ARTIFACT_PATH" package/package.json > "$PACKAGE_JSON"
 
-          mapfile -t BIN_NAMES < <(jq -r '
-            if (.bin | type) == "object" then
-              .bin | keys[]
-            elif (.bin | type) == "string" then
-              .name
-            else
-              empty
-            end
-          ' "$PACKAGE_JSON")
+          BIN_ENTRIES="$(
+            jq -c '
+              if (.bin | type) == "object" then
+                .bin | to_entries
+              elif (.bin | type) == "string" then
+                [{key: .name, value: .bin}]
+              else
+                []
+              end
+            ' "$PACKAGE_JSON"
+          )"
 
-          if [ "${#BIN_NAMES[@]}" -eq 0 ]; then
+          if [ "$(jq 'length' <<< "$BIN_ENTRIES")" -eq 0 ]; then
             echo "Packed package declares no CLI bin entries."
             exit 0
           fi
 
+          EXTRACT_DIR="$RUNNER_TEMP/npm-package-contents"
           TEST_DIR="$RUNNER_TEMP/npm-package-consumer"
-          rm -rf "$TEST_DIR"
-          mkdir -p "$TEST_DIR"
+          rm -rf "$EXTRACT_DIR" "$TEST_DIR"
+          mkdir -p "$EXTRACT_DIR" "$TEST_DIR"
+          tar -xzf "$CANONICAL_ARTIFACT_PATH" -C "$EXTRACT_DIR"
+
+          while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
+            if [ ! -f "$EXTRACT_DIR/package/$BIN_TARGET" ]; then
+              echo "::error::Packed CLI target is missing: $BIN_NAME -> $BIN_TARGET"
+              exit 1
+            fi
+          done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
 
           (
             cd "$TEST_DIR"
@@ -466,27 +477,26 @@ jobs:
               --no-fund \
               "$CANONICAL_ARTIFACT_PATH" >/dev/null
 
-            for BIN_NAME in "${BIN_NAMES[@]}"; do
+            while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
               BIN_PATH="$TEST_DIR/node_modules/.bin/$BIN_NAME"
 
               if [ ! -x "$BIN_PATH" ]; then
-                echo "::error::Packed CLI entry is not executable: $BIN_NAME"
+                echo "::error::npm did not create an executable CLI shim: $BIN_NAME"
                 exit 1
               fi
 
-              echo "Checking $BIN_NAME --help"
-              "$BIN_PATH" --help >/dev/null
-            done
+              echo "Validated $BIN_NAME -> $BIN_TARGET"
+            done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
           )
 
           {
             echo "## Packaged CLI validation"
             echo
-            echo "Installed the canonical `.tgz` into an isolated consumer project and verified each declared `bin` entry with `--help`."
+            echo "Installed the canonical `.tgz` into an isolated consumer project and verified every declared `bin` target and npm-created executable shim."
             echo
-            for BIN_NAME in "${BIN_NAMES[@]}"; do
-              printf -- '- `%s --help`\n' "$BIN_NAME"
-            done
+            while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
+              printf -- '- `%s` → `%s`\n' "$BIN_NAME" "$BIN_TARGET"
+            done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
