@@ -350,10 +350,6 @@ jobs:
               ;;
           esac
 
-          if [ -z "$DIST_TAG" ]; then
-            echo "::error::Distribution tag cannot be empty."
-            exit 1
-          fi
 
       - name: Validate publishing credentials
         if: ${{ steps.execution.outputs.dry-run == 'false' && inputs.publish }}
