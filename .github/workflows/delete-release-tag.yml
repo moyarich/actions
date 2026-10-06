@@ -13,7 +13,19 @@ on:
         description: Type DELETE to confirm
         required: true
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Exact Git tag to delete
+        required: true
+        type: string
+      confirm:
+        description: Type DELETE to confirm
+        required: true
+        type: string
 
+
+    
 permissions: {}
 
 jobs:
