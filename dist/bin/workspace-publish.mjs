@@ -3929,8 +3929,8 @@ function publish({
   if (!["public", "restricted"].includes(access)) {
     throw new Error("Access must be public or restricted.");
   }
-  if (!["github", "npm", "both"].includes(registry)) {
-    throw new Error("Registry must be github, npm, or both.");
+  if (!["github", "npm", "all", "both"].includes(registry)) {
+    throw new Error("Registry must be github, npm, all, or both.");
   }
   const root = repositoryRoot();
   if (dryRun && !selector) {
