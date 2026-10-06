@@ -3362,12 +3362,13 @@ function releaseIdentity(pkg, version = pkg.manifest.version) {
   if (!resolvedVersion) {
     throw new Error("Version is required for release identity.");
   }
+  const tagScope = packageDirectory === "." ? packageName : packageDirectory;
   return {
     packageName,
     packageDirectory,
     version: resolvedVersion,
-    tagName: `${packageDirectory}@${resolvedVersion}`,
-    tagPrefix: `${packageDirectory}@`,
+    tagName: `${tagScope}@${resolvedVersion}`,
+    tagPrefix: `${tagScope}@`,
     releaseName: `${packageName} v${resolvedVersion}`
   };
 }
@@ -3711,12 +3712,19 @@ ${commandError.message || ""}`;
   }
 }
 function tagState(root, tag) {
-  const commit = execFileSync("git", ["rev-list", "-n", "1", tag], {
-    cwd: root,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  }).trim();
-  if (!commit) {
+  const result = spawnSync(
+    "git",
+    ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
     return {
       name: tag,
       exists: false,
@@ -3724,6 +3732,7 @@ function tagState(root, tag) {
       commit: null
     };
   }
+  const commit = result.stdout.trim();
   const head = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
