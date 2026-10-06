@@ -730,7 +730,11 @@ export function publish({
   verifyGitTag?: boolean;
   artifactDirectory?: string;
 }) {
-  if (tag !== undefined && tag !== "" && !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)) {
+  if (
+    tag !== undefined &&
+    tag !== "" &&
+    !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag)
+  ) {
     throw new Error("Invalid npm distribution tag.");
   }
 
