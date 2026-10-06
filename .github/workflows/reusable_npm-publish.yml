@@ -173,7 +173,7 @@ jobs:
             node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" \
               "$PACKAGE_SELECTOR" \
               --registry="${{ inputs.registry }}" \
-              --tag="${{ steps.plan.outputs.distribution-tag }}" \
+              --tag="${{ inputs.tag }}" \
               --list \
               --json
           )"
@@ -279,7 +279,7 @@ jobs:
           PUBLISH_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
-            --tag="${{ inputs.tag }}"
+            --tag="${{ steps.plan.outputs.distribution-tag }}"
             --artifact-directory="$ARTIFACT_DIRECTORY"
             --json
           )
@@ -383,7 +383,7 @@ jobs:
             echo "| GitHub Release | \`${{ steps.plan.outputs.release-name || 'unresolved' }}\` |"
             echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
             echo "| Registry | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${{ inputs.tag }}\` |"
+            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || inputs.tag }}\` |"\n            echo "| Distribution tag request | \`${{ inputs.tag }}\` |"
             echo "| Packed artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
             echo "| Node.js | \`${{ inputs.node-version }}\` |"
