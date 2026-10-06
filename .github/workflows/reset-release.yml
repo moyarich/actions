@@ -1,0 +1,223 @@
+name: Reset Release
+
+run-name: >-
+  Reset release · ${{ inputs.package }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package selector
+        required: true
+        default: "."
+        type: string
+      target-branch:
+        description: Release target branch
+        required: true
+        default: main
+        type: string
+      dry-run:
+        description: Preview the full reset/rebuild without mutating the release, tag, or repository
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: reset-release-${{ github.repository }}-${{ inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: "job: Resolve release"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      package-name: ${{ steps.package.outputs.name }}
+      package-version: ${{ steps.package.outputs.version }}
+      package-directory: ${{ steps.package.outputs.directory }}
+      release-tag: ${{ steps.package.outputs.tag }}
+      release-name: ${{ steps.package.outputs.release-name }}
+      changelog-path: ${{ steps.package.outputs.changelog }}
+      tag-prefix: ${{ steps.package.outputs.tag-prefix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve package identity
+        id: package
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$PACKAGE_SELECTOR" = "." ]; then
+            PACKAGE_DIRECTORY="."
+            MANIFEST="package.json"
+          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+            PACKAGE_DIRECTORY="${PACKAGE_SELECTOR%/}"
+            MANIFEST="$PACKAGE_DIRECTORY/package.json"
+          else
+            MANIFEST="$(
+              find . -name package.json -not -path './node_modules/*' -print0 |
+                xargs -0 -r jq -r --arg selector "$PACKAGE_SELECTOR" '
+                  select(.name == $selector) | input_filename
+                ' |
+                head -n 1
+            )"
+
+            if [ -z "$MANIFEST" ]; then
+              echo "::error::Unable to resolve package selector: $PACKAGE_SELECTOR"
+              exit 1
+            fi
+
+            MANIFEST="${MANIFEST#./}"
+            PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
+          fi
+
+          PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
+          PACKAGE_VERSION="$(jq -r '.version // empty' "$MANIFEST")"
+
+          if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
+            echo "::error::Package name/version is missing from $MANIFEST."
+            exit 1
+          fi
+
+          if [ "$PACKAGE_DIRECTORY" = "." ]; then
+            CHANGELOG_PATH="CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_NAME@"
+          else
+            CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_DIRECTORY@"
+          fi
+
+          RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
+          RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
+
+          {
+            echo "name=$PACKAGE_NAME"
+            echo "version=$PACKAGE_VERSION"
+            echo "directory=$PACKAGE_DIRECTORY"
+            echo "tag=$RELEASE_TAG"
+            echo "release-name=$RELEASE_NAME"
+            echo "changelog=$CHANGELOG_PATH"
+            echo "tag-prefix=$TAG_PREFIX"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Reset release"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package | `%s` |\n' "$PACKAGE_NAME"
+            printf '| Directory | `%s` |\n' "$PACKAGE_DIRECTORY"
+            printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
+            printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Release name | `%s` |\n' "$RELEASE_NAME"
+            printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
+            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  delete-release:
+    name: "stage: Delete release + tag"
+    needs: resolve
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
+    with:
+      tag: ${{ needs.resolve.outputs.release-tag }}
+      dry-run: ${{ inputs.dry-run }}
+
+  create-draft:
+    name: "stage: Create release draft"
+    needs:
+      - resolve
+      - delete-release
+    if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      version: ${{ needs.resolve.outputs.package-version }}
+      initial-version: "0.1.0"
+      release-tag: ${{ needs.resolve.outputs.release-tag }}
+      tag-prefix: ${{ needs.resolve.outputs.tag-prefix }}
+      package-name: ${{ needs.resolve.outputs.package-name }}
+      package-directory: ${{ needs.resolve.outputs.package-directory }}
+      release-name: ${{ needs.resolve.outputs.release-name }}
+      changelog-path: ${{ needs.resolve.outputs.changelog-path }}
+      template-path: .github/release-drafter-package-template.yml
+      dry-run: ${{ inputs.dry-run }}
+
+  release:
+    name: "stage: Perform release"
+    needs:
+      - resolve
+      - create-draft
+    if: ${{ needs.resolve.result == 'success' && needs.create-draft.result == 'success' }}
+    permissions:
+      contents: write
+      packages: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      package: ${{ inputs.package }}
+      version-mode: package-json
+      version-bump: patch
+      exact-version: ""
+      dry-run: ${{ inputs.dry-run }}
+      node-version: "24"
+      workspace-tools-source: caller
+
+  summary:
+    name: "job: Reset summary"
+    needs:
+      - resolve
+      - delete-release
+      - create-draft
+      - release
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reset result
+        shell: bash
+        run: |
+          {
+            echo "# Release reset result"
+            echo
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| Resolve package | **${{ needs.resolve.result }}** |"
+            echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
+            echo "| Create release draft | **${{ needs.create-draft.result }}** |"
+            echo "| Perform release | **${{ needs.release.result }}** |"
+            echo
+            printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
+            printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
+            printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            echo "Dry run: **${{ inputs.dry-run }}**"
+            echo
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "> Preview only. Re-run with `dry-run=false` to reset and rebuild the release."
+            else
+              echo "> Reset/rebuild completed. The release is ready for the manual Publish workflow."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ needs.resolve.result }}" != "success" ] ||
+             [ "${{ needs.delete-release.result }}" != "success" ] ||
+             [ "${{ needs.create-draft.result }}" != "success" ] ||
+             [ "${{ needs.release.result }}" != "success" ]; then
+            exit 1
+          fi
