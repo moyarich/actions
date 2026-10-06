@@ -21,7 +21,7 @@ Use these workflows from another repository with GitHub Actions `workflow_call`.
 
 | Workflow                                | Use it to                                                                                                                  |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `reusable_release.yml`                  | Create or preview a generic versioned GitHub Release from an explicit version, tag, name, and changelog.                       |
+| `reusable_release.yml`                  | Create or preview a generic versioned GitHub Release from an explicit version, tag, name, and changelog.                   |
 | `reusable_release-drafter.yml`          | Create and update persistent GitHub Release drafts for repositories or scoped monorepo targets.                            |
 | `reusable_delete-release-tag.yml`       | Find and delete Git release tags manually or from another workflow, with fuzzy lookup, dry-run previews, and verification. |
 | `reusable_npm-prepare-release.yml`      | Prepare an npm package release, including version and release state.                                                       |
