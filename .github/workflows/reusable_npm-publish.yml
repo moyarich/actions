@@ -342,11 +342,8 @@ jobs:
           RELEASE_ASSET_ID: ${{ steps.release-draft.outputs.asset-id }}
           RELEASE_ASSET_NAME: ${{ steps.release-draft.outputs.asset-name }}
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
-          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
-          GITHUB_TOKEN_VALUE: ${{ github.token }}
-          NPM_TOKEN_VALUE: ${{ secrets.npm-token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -357,25 +354,10 @@ jobs:
 
           if [ -n "$RELEASE_ASSET_ID" ]; then
             ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
-            gh api               "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID"               -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
+            gh api \
+              "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID" \
+              -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
             SOURCE="github-release"
-          elif env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm view             "$PACKAGE_NAME@$PACKAGE_VERSION"             version             --registry=https://npm.pkg.github.com             --json >/dev/null 2>&1; then
-            PACK_JSON="$(
-              env NODE_AUTH_TOKEN="$GITHUB_TOKEN_VALUE" npm pack                 "$PACKAGE_NAME@$PACKAGE_VERSION"                 --registry=https://npm.pkg.github.com                 --json                 --pack-destination "$ARTIFACT_DIRECTORY"
-            )"
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-            SOURCE="github-packages"
-          elif npm view             "$PACKAGE_NAME@$PACKAGE_VERSION"             version             --registry=https://registry.npmjs.org             --json >/dev/null 2>&1; then
-            PACK_ENV=()
-            if [ -n "$NPM_TOKEN_VALUE" ]; then
-              PACK_ENV=(env NODE_AUTH_TOKEN="$NPM_TOKEN_VALUE")
-            fi
-
-            PACK_JSON="$(
-              "${PACK_ENV[@]}" npm pack                 "$PACKAGE_NAME@$PACKAGE_VERSION"                 --registry=https://registry.npmjs.org                 --json                 --pack-destination "$ARTIFACT_DIRECTORY"
-            )"
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-            SOURCE="npm"
           else
             if [ -z "$RELEASE_COMMIT" ]; then
               echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
@@ -385,6 +367,11 @@ jobs:
             WORKTREE="$RUNNER_TEMP/npm-release-source"
             rm -rf "$WORKTREE"
             git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
+
+            cleanup() {
+              git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+            }
+            trap cleanup EXIT
 
             (
               cd "$WORKTREE"
@@ -399,13 +386,22 @@ jobs:
                 npm run typecheck --workspace "$PACKAGE_NAME" --if-present
                 npm run test --workspace "$PACKAGE_NAME" --if-present
                 npm run build --workspace "$PACKAGE_NAME" --if-present
-                npm pack                   --workspace "$PACKAGE_NAME"                   --json                   --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+                npm pack \
+                  --workspace "$PACKAGE_NAME" \
+                  --json \
+                  --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
               fi
             )
 
-            git worktree remove --force "$WORKTREE"
             PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
             ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+            cleanup
+            trap - EXIT
+          fi
+
+          if [ ! -f "$ARTIFACT_PATH" ]; then
+            echo "::error::Canonical package artifact was not created."
+            exit 1
           fi
 
           {
