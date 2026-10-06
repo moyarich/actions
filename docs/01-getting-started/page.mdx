@@ -1,49 +1,22 @@
 ---
 title: Getting Started
-description: Call reusable Moya workflows from another GitHub repository.
+description: Install and use the Workspace Tools CLI package.
 ---
 
 # Getting Started
 
-Reusable workflows are called at the job level.
+Install the package:
 
-```yaml
-jobs:
-  ci:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_node-ci.yml@workflows-v0.1.0
+```sh
+npm install @moyarich/workspace-tools
 ```
 
-Reusable workflows have their own release line. Pin an immutable workflow release such as `workflows-v0.1.0` when reproducibility matters, or use the moving compatible major alias `workflows-v0`.
+Run commands through npm scripts, `npx`, or the installed package binaries.
 
-Do not use the npm package release tag for reusable workflow callers. Package tags such as `@moyarich/workspace-tools@0.1.0` identify the installable npm package, not the reusable workflow API.
-
-## Naming contract
-
-Only workflow files prefixed with `reusable_` are part of the supported cross-repository workflow API.
-
-```text
-.github/workflows/
-├── reusable_node-ci.yml
-├── reusable_npm-publish.yml
-├── reusable_vscode-extension-publish.yml
-└── ci.yml
+```sh
+npx discover-packages --workspaces --json
+npx workspace-dependency-check .
+npx workspace-release . --mode=package-json
 ```
 
-In this example, the first three workflows are public reusable workflows. `ci.yml` is repository-local automation.
-
-## Workflow versioning
-
-Workflow releases are versioned independently from the npm package:
-
-```text
-workflow-version.json
-└─ 0.1.0
-   ├─ workflows-v0.1.0   immutable release tag
-   └─ workflows-v0       moving compatible major alias
-```
-
-Workflow release notes are maintained in `CHANGELOG_WORKFLOWS.md`.
-
-## Secrets and permissions
-
-Reusable workflows declare their required inputs, secrets, and permissions through `workflow_call`. The calling repository remains responsible for supplying required secrets and granting compatible permissions.
+Reusable GitHub workflows are maintained separately in `moyarich/reusable-workflows`.

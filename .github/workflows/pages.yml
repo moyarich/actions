@@ -9,7 +9,6 @@ on:
       - "docs/**"
       - "examples/**"
       - ".github/workflows/pages.yml"
-      - ".github/workflows/reusable_github-pages.yml"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
@@ -21,7 +20,7 @@ permissions:
 
 jobs:
   pages:
-    uses: ./.github/workflows/reusable_github-pages.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_github-pages.yml@main
     with:
       node-version: "24"
       build-command: npm run build:playground

@@ -6,60 +6,28 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   check-dist:
-    name: Check committed dist
-    uses: ./.github/workflows/reusable_check-dist.yml
+    name: Check committed CLI distribution
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_check-dist.yml@main
     with:
-      dist-path: dist/
-      build-command: npm run build:actions
+      dist-path: dist/bin/
+      build-command: npm run build
       node-version: "24"
 
-  validate:
-    name: Validate reusable automation
+  test:
+    name: Test package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
-
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Validate reusable workflows
-        run: node scripts/validate-reusable-workflows.mjs
-
-      - name: Build action runtime
-        run: npm run build:actions
-
-      - name: Test action runtime
-        run: npm run test:actions
-
-      - name: Prepare packaged action smoke test
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s\n' 'Maintainer-authored release text.' > /tmp/existing-release-body.md
-          printf '%s\n' '### Changes' '- Added generated entry. <!-- release-draft-sync:pr=123 -->' > /tmp/generated-release-body.md
-          : > /tmp/reconciled-release-body.md
-
-      - name: Run packaged release draft sync action
-        uses: ./actions/release-draft-sync
-        with:
-          existing-body-file: /tmp/existing-release-body.md
-          generated-body-file: /tmp/generated-release-body.md
-          output-file: /tmp/reconciled-release-body.md
-          target-key: smoke-test
-          seed-sha: ${{ github.sha }}
-
-      - name: Verify packaged action output
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -F 'Maintainer-authored release text.' /tmp/reconciled-release-body.md
-          grep -F 'Added generated entry.' /tmp/reconciled-release-body.md
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm pack --dry-run

@@ -1,10 +1,8 @@
 {
   "name": "@moyarich/workspace-tools",
   "version": "0.1.0",
-  "description": "Reusable GitHub Actions workflows and CLI tooling for Node.js workspaces, releases, publishing, and repository automation.",
+  "description": "CLI tooling for Node.js workspaces, package discovery, releases, publishing, dependency checks, and repository automation.",
   "keywords": [
-    "github-actions",
-    "github-workflows",
     "workspace",
     "monorepo",
     "npm",
@@ -15,8 +13,7 @@
     "automation",
     "developer-tools",
     "workspace-tools",
-    "release-draft",
-    "github-pages"
+    "release-draft"
   ],
   "homepage": "https://github.com/moyarich/workspace-tools#readme",
   "bugs": {
@@ -43,10 +40,9 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/workspace-tools-playground",
     "build:playground": "npm run build --workspace @moyarich/workspace-tools-playground",
-    "build:actions": "vite build --config vite.actions.config.ts && npm run build:clis",
-    "test:actions": "vitest run tests",
     "test": "vitest run",
-    "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity"
+    "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity",
+    "build": "npm run build:clis"
   },
   "devDependencies": {
     "commander": "^15.0.0",
