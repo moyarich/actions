@@ -79,3 +79,30 @@ test("publish rejects values assigned to boolean flags", () => {
   expect(result.status).toBe(1);
   expect(result.stderr).toMatch(/unknown option '--dry-run=invalid'/);
 });
+
+
+test("publish accepts all as a registry selection", () => {
+  const result = invoke(
+    "dist/bin/workspace-publish.mjs",
+    ".",
+    "--registry=all",
+    "--list",
+    "--json",
+  );
+
+  expect(result.status).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual(
+    expect.objectContaining({
+      registry: "all",
+      packages: expect.arrayContaining([
+        expect.objectContaining({
+          name: "@moyarich/workspace-tools",
+          registries: expect.objectContaining({
+            github: expect.any(String),
+            npm: expect.any(String),
+          }),
+        }),
+      ]),
+    }),
+  );
+});
