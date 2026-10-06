@@ -1,5 +1,7 @@
 # Dependency check
 
+After installing `@moyarich/workspace-tools` in the repository:
+
 ```sh
-npx workspace-dependency-check .
+npm exec -- workspace-dependency-check .
 ```

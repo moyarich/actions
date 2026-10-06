@@ -1,5 +1,7 @@
 # Release
 
+Preview the release identity and package changes without mutating the repository:
+
 ```sh
-npx workspace-release . --mode=package-json
+npm exec -- workspace-release . --mode=package-json --dry-run
 ```
