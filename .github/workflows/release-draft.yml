@@ -220,3 +220,56 @@ jobs:
       package-name: ${{ matrix.name }}
       package-directory: ${{ matrix.directory }}
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+
+  draft-summary:
+    name: Release draft summary
+    needs:
+      - select-packages
+      - draft-package
+    if: ${{ always() && needs.draft-package.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Release draft content
+        env:
+          RELEASE_BODY: ${{ needs.draft-package.outputs.release-body }}
+          RELEASE_VERSION: ${{ needs.draft-package.outputs.version }}
+          RELEASE_TAG: ${{ needs.draft-package.outputs.tag }}
+          RELEASE_URL: ${{ needs.draft-package.outputs.release-url }}
+          DRAFT_ACTION: ${{ needs.draft-package.outputs.draft-action }}
+          SELECTED_COUNT: ${{ needs.select-packages.outputs.count }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "# GitHub Release Draft"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Selected packages | **%s** |\n' "$SELECTED_COUNT"
+            printf '| Version | `%s` |\n' "${RELEASE_VERSION:-unresolved}"
+            printf '| Tag | `%s` |\n' "${RELEASE_TAG:-unresolved}"
+            printf '| Result | **%s** |\n' "${DRAFT_ACTION:-unresolved}"
+            printf '| Dry run | **%s** |\n' "$DRY_RUN"
+
+            if [ -n "$RELEASE_URL" ]; then
+              printf '| Draft | [Open draft](%s) |\n' "$RELEASE_URL"
+            elif [ "$DRY_RUN" = "true" ]; then
+              echo "| Draft | _preview only; no release mutated_ |"
+            else
+              echo "| Draft | unavailable |"
+            fi
+
+            echo
+            echo "## Draft content"
+            echo
+            if [ -n "$RELEASE_BODY" ]; then
+              printf '%s\n' "$RELEASE_BODY"
+            else
+              echo "> No reconciled draft content was returned."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
