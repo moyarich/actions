@@ -94,6 +94,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release-tag }}
           RELEASE_NAME: ${{ inputs.release-name }}
           CHANGELOG_FILE: ${{ inputs.changelog-file }}
+          RELEASE_NOTES: ${{ inputs.release-notes }}
           MAJOR_TAG: ${{ inputs.major-tag }}
         shell: bash
         run: |
@@ -106,7 +107,11 @@ jobs:
 
           test -n "$RELEASE_TAG" || { echo "::error::release-tag is required."; exit 1; }
           test -n "$RELEASE_NAME" || { echo "::error::release-name is required."; exit 1; }
-          test -f "$CHANGELOG_FILE" || { echo "::error::Changelog not found: $CHANGELOG_FILE"; exit 1; }
+
+          if [ -z "$RELEASE_NOTES" ] && [ ! -f "$CHANGELOG_FILE" ]; then
+            echo "::error::Changelog not found: $CHANGELOG_FILE"
+            exit 1
+          fi
 
           if [ "${{ inputs.update-major-tag }}" = "true" ] && [ -z "$MAJOR_TAG" ]; then
             echo "::error::major-tag is required when update-major-tag is enabled."
