@@ -1,7 +1,7 @@
 # Publish
 
-Preview a package publication before mutating a registry.
+Preview registry readiness and the package artifact without publishing:
 
 ```sh
-npx workspace-publish . --dry-run
+npm exec -- workspace-publish . --dry-run
 ```
