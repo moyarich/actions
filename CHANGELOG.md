@@ -2,7 +2,7 @@
 
 All notable user-facing changes to the installable `@moyarich/workspace-tools` package are documented in this file.
 
-Reusable GitHub workflows and standalone actions have an independent release line documented in `WORKFLOWS_CHANGELOG.md`.
+Reusable GitHub workflows and standalone actions have an independent release line documented in `CHANGELOG_WORKFLOWS.md`.
 
 ## [0.1.0] - Initial Release
 
