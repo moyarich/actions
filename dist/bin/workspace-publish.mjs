@@ -3576,7 +3576,7 @@ function registryConfig(registry) {
       return {
         url: "https://registry.npmjs.org",
         host: "registry.npmjs.org",
-        token: process.env["_NPM_TOKEN"] || process.env["NODE_AUTH_TOKEN"]
+        token: process.env["_NPM_TOKEN"]
       };
     default:
       throw new Error("Registry must be github, npm, all, or both.");
@@ -3665,6 +3665,13 @@ function selectPackageWithFzf(root) {
 }
 function packageRegistryState(pkg, registry) {
   const config = registryConfig(registry);
+  const directory = mkdtempSync(join(tmpdir(), "workspace-publish-registry-"));
+  const npmrc = join(directory, "npmrc");
+  const configLines = [`registry=${config.url}`];
+  if (config.token) {
+    configLines.push(`//${config.host}/:_authToken=\${NODE_AUTH_TOKEN}`);
+  }
+  writeFileSync(npmrc, configLines.concat("").join("\n"));
   const args = [
     "view",
     `${pkg.manifest.name}@${pkg.manifest.version}`,
@@ -3674,10 +3681,13 @@ function packageRegistryState(pkg, registry) {
     "--json"
   ];
   const env = {
-    ...process.env
+    ...process.env,
+    npm_config_userconfig: npmrc
   };
   if (config.token) {
     env.NODE_AUTH_TOKEN = config.token;
+  } else {
+    delete env.NODE_AUTH_TOKEN;
   }
   try {
     execFileSync("npm", args, {
@@ -3698,6 +3708,11 @@ function packageRegistryState(pkg, registry) {
     throw new Error(
       `Could not check ${pkg.manifest.name}@${pkg.manifest.version} on ${registry}: ${commandError.message}`
     );
+  } finally {
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
   }
 }
 function packageGitTagState(root, pkg) {
