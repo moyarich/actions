@@ -336,6 +336,52 @@ export function changelogSection(
 }
 
 /**
+ * Read an existing changelog section for a release version.
+ *
+ * Supports both `## 1.2.3` and `## [1.2.3]` headings.
+ */
+export function existingChangelogSection(
+  changelog: string,
+  version: string,
+): string | null {
+  const escapedVersion = version.replace(/[.*+?^$()|[\]\\]/g, "\\export function changelogSection(
+  version: string,
+  notes: Record<string, string[]>,
+): string {
+  const sections = Object.entries(notes)
+    .filter(([, entries]) => entries.length)
+    .map(
+      ([heading, entries]) =>
+        `### ${heading}\n\n${entries.map((entry) => `- ${entry}`).join("\n")}`,
+    );
+
+  return `## ${version}\n\n${
+    sections.join("\n\n") || "### Changed\n\n- Package release."
+  }\n`;
+}
+");
+  const heading = new RegExp(
+    `^## \\[${escapedVersion}\\]|^## ${escapedVersion}(?:\\s|$)`,
+    "m",
+  );
+  const match = heading.exec(changelog);
+
+  if (!match) {
+    return null;
+  }
+
+  const start = match.index;
+  const remainder = changelog.slice(start);
+  const nextHeading = remainder.slice(match[0].length).search(/^## /m);
+  const end =
+    nextHeading === -1
+      ? changelog.length
+      : start + match[0].length + nextHeading;
+
+  return changelog.slice(start, end).trimEnd() + "\n";
+}
+
+/**
  * Get the configured package registry.
  *
  * @param {ReturnType<typeof packageInfo>} pkg
@@ -581,25 +627,45 @@ function packageChanges(
  * @returns {string}
  * Changelog path.
  */
-function updateChangelog(
+function releaseChangelogSection(
   root: string,
   pkg: ReturnType<typeof packageInfo>,
   version: string,
-  selector: string,
 ): string {
   const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
-
-  const previous = previousReleaseRef(root, pkg.directory);
-
-  const section = changelogSection(
-    version,
-    releaseNotes(packageChanges(root, pkg, previous)),
-  );
-
   const current = existsSync(changelog)
     ? readFileSync(changelog, "utf8")
     : "# Changelog\n";
 
+  const existing = existingChangelogSection(current, version);
+
+  if (existing) {
+    return existing;
+  }
+
+  const previous = previousReleaseRef(root, pkg.directory);
+
+  return changelogSection(
+    version,
+    releaseNotes(packageChanges(root, pkg, previous)),
+  );
+}
+
+function updateChangelog(
+  root: string,
+  pkg: ReturnType<typeof packageInfo>,
+  version: string,
+): string {
+  const changelog = resolve(root, pkg.directory, "CHANGELOG.md");
+  const current = existsSync(changelog)
+    ? readFileSync(changelog, "utf8")
+    : "# Changelog\n";
+
+  if (existingChangelogSection(current, version)) {
+    return changelog;
+  }
+
+  const section = releaseChangelogSection(root, pkg, version);
   const body = current.replace(/^# Changelog\s*/, "");
 
   writeFileSync(
@@ -712,10 +778,7 @@ export function release(argument: string, options: ReleaseOptions = {}) {
 
     const previous = previousReleaseRef(root, pkg.directory);
 
-    const section = changelogSection(
-      nextVersion,
-      releaseNotes(packageChanges(root, pkg, previous)),
-    );
+    const section = releaseChangelogSection(root, pkg, nextVersion);
 
     const registryName =
       registry === "https://npm.pkg.github.com"
@@ -899,7 +962,7 @@ ${section}`);
   const identity = releaseIdentity(pkg, version);
   const tag = identity.tagName;
 
-  const changelog = updateChangelog(root, pkg, version, pkg.directory);
+  const changelog = updateChangelog(root, pkg, version);
 
   execFileSync("git", ["add", pkg.file, "package-lock.json", changelog], {
     cwd: root,
