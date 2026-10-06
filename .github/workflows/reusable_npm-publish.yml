@@ -423,6 +423,73 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Validate packaged CLI entry points
+        env:
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CANONICAL_ARTIFACT_PATH" ] || [ ! -f "$CANONICAL_ARTIFACT_PATH" ]; then
+            echo "::error::Canonical package artifact is unavailable for CLI validation."
+            exit 1
+          fi
+
+          PACKAGE_JSON="$RUNNER_TEMP/packed-package.json"
+          tar -xOf "$CANONICAL_ARTIFACT_PATH" package/package.json > "$PACKAGE_JSON"
+
+          mapfile -t BIN_NAMES < <(jq -r '
+            if (.bin | type) == "object" then
+              .bin | keys[]
+            elif (.bin | type) == "string" then
+              .name
+            else
+              empty
+            end
+          ' "$PACKAGE_JSON")
+
+          if [ "${#BIN_NAMES[@]}" -eq 0 ]; then
+            echo "Packed package declares no CLI bin entries."
+            exit 0
+          fi
+
+          TEST_DIR="$RUNNER_TEMP/npm-package-consumer"
+          rm -rf "$TEST_DIR"
+          mkdir -p "$TEST_DIR"
+
+          (
+            cd "$TEST_DIR"
+            npm init --yes >/dev/null
+            npm install \
+              --ignore-scripts \
+              --no-audit \
+              --no-fund \
+              "$CANONICAL_ARTIFACT_PATH" >/dev/null
+
+            for BIN_NAME in "${BIN_NAMES[@]}"; do
+              BIN_PATH="$TEST_DIR/node_modules/.bin/$BIN_NAME"
+
+              if [ ! -x "$BIN_PATH" ]; then
+                echo "::error::Packed CLI entry is not executable: $BIN_NAME"
+                exit 1
+              fi
+
+              echo "Checking $BIN_NAME --help"
+              "$BIN_PATH" --help >/dev/null
+            done
+          )
+
+          {
+            echo "## Packaged CLI validation"
+            echo
+            echo "Installed the canonical `.tgz` into an isolated consumer project and verified each declared `bin` entry with `--help`."
+            echo
+            for BIN_NAME in "${BIN_NAMES[@]}"; do
+              printf -- '- `%s --help`\n' "$BIN_NAME"
+            done
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish package
         id: publish
         env:
