@@ -67,10 +67,30 @@ export function workspacePackages(root: string): WorkspacePackage[] {
 }
 
 export function packageInfo(root: string, selector: string): WorkspacePackage {
-  const packages = workspacePackages(root);
   const normalized = selector?.replace(/^\.\//, "");
+
+  if (normalized === "." || normalized === "") {
+    const file = resolve(root, "package.json");
+    const manifest = JSON.parse(readFileSync(file, "utf8")) as WorkspaceManifest;
+
+    if (
+      typeof manifest.name !== "string" ||
+      typeof manifest.version !== "string"
+    ) {
+      throw new Error("Root package.json must define name and version.");
+    }
+
+    return {
+      directory: ".",
+      file,
+      manifest: manifest as WorkspaceManifest & {
+        name: string;
+        version: string;
+      },
+    };
+  }
+
   if (
-    !normalized ||
     normalized === ".." ||
     normalized.startsWith("../") ||
     normalized.includes("/../") ||
@@ -80,12 +100,14 @@ export function packageInfo(root: string, selector: string): WorkspacePackage {
       `Package selector must identify a workspace package: ${selector}`,
     );
   }
-  const pkg = packages.find(
+
+  const pkg = workspacePackages(root).find(
     ({ directory, manifest }) =>
       normalized === directory ||
       normalized === directory.split("/").at(-1) ||
       normalized === manifest.name,
   );
+
   if (!pkg) throw new Error(`Package not found: ${selector}`);
   return pkg;
 }
