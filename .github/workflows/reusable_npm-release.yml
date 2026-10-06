@@ -550,6 +550,30 @@ jobs:
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo "| Publish after release | **$PUBLISH** |"
             echo
+
+            MANIFEST_PATH="package.json"
+            if [ "$PACKAGE_DIRECTORY" != "." ]; then
+              MANIFEST_PATH="$PACKAGE_DIRECTORY/package.json"
+            fi
+
+            DESCRIPTION="$(jq -r '.description // ""' "$MANIFEST_PATH")"
+            KEYWORDS="$(jq -r '(.keywords // []) | join(", ")' "$MANIFEST_PATH")"
+            HOMEPAGE="$(jq -r '.homepage // ""' "$MANIFEST_PATH")"
+            BUGS_URL="$(jq -r 'if (.bugs | type) == "object" then (.bugs.url // "") elif (.bugs | type) == "string" then .bugs else "" end' "$MANIFEST_PATH")"
+            NODE_ENGINE="$(jq -r '.engines.node // ""' "$MANIFEST_PATH")"
+            PACKAGE_FILES="$(jq -r '(.files // []) | join(", ")' "$MANIFEST_PATH")"
+
+            echo "## Package metadata"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Description | %s |\n' "${DESCRIPTION:-—}"
+            printf '| Keywords | %s |\n' "${KEYWORDS:-—}"
+            printf '| Homepage | %s |\n' "${HOMEPAGE:-—}"
+            printf '| Bugs | %s |\n' "${BUGS_URL:-—}"
+            printf '| Node.js | `%s` |\n' "${NODE_ENGINE:-—}"
+            printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
+            echo
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ steps.execution.outputs.dry-run }}" = "false" ] && [ "$CAN_RELEASE" != "true" ]; then
