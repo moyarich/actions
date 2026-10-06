@@ -811,7 +811,7 @@ jobs:
             else
               echo "### ✅ Release completed"
               echo
-              echo "Git tag: `$RELEASE_TAG`"
+              printf 'Git tag: `%s`\n' "$RELEASE_TAG"
               echo "GitHub Release: **draft**"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
