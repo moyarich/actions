@@ -60,7 +60,7 @@ jobs:
       version: ${{ needs.resolve.outputs.version }}
       release-tag: ${{ needs.resolve.outputs.release-tag }}
       release-name: ${{ needs.resolve.outputs.release-name }}
-      changelog-file: WORKFLOWS_CHANGELOG.md
+      changelog-file: CHANGELOG_WORKFLOWS.md
       target-ref: ${{ github.ref_name }}
       dry-run: ${{ inputs.dry-run }}
       create-tag: true
