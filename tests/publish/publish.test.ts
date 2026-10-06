@@ -12,6 +12,7 @@ vi.mock("node:child_process", async (importOriginal) => ({
 
 import {
   packageGitTagState,
+  packageRegistryState,
   parsePackResult,
   registryPublishArgs,
   serializePublishPlan,
@@ -127,6 +128,101 @@ test("serializePublishPlan preserves mixed registry readiness for dry-run report
     github: "missing",
     npm: "published",
   });
+});
+
+test("packageRegistryState isolates npmjs from inherited GitHub Packages scope config", () => {
+  const previousNodeToken = process.env.NODE_AUTH_TOKEN;
+  const previousNpmToken = process.env._NPM_TOKEN;
+
+  process.env.NODE_AUTH_TOKEN = "github-token";
+  delete process.env._NPM_TOKEN;
+  execFileSync.mockImplementation(() => {
+    const error = new Error("npm view failed") as Error & {
+      stderr?: string;
+    };
+    error.stderr = "npm error code E404\n404 Not Found";
+    throw error;
+  });
+
+  try {
+    assert.equal(
+      packageRegistryState(
+        {
+          directory: ".",
+          file: "/repo/package.json",
+          manifest: {
+            name: "@moyarich/workspace-tools",
+            version: "0.1.1",
+          },
+        },
+        "npm",
+      ),
+      "missing",
+    );
+
+    const [, args, options] = execFileSync.mock.calls[0];
+    assert.deepEqual(args, [
+      "view",
+      "@moyarich/workspace-tools@0.1.1",
+      "version",
+      "--registry",
+      "https://registry.npmjs.org",
+      "--json",
+    ]);
+    assert.equal(options.env.NODE_AUTH_TOKEN, undefined);
+    assert.match(
+      options.env.npm_config_userconfig,
+      /workspace-publish-registry-/,
+    );
+  } finally {
+    if (previousNodeToken === undefined) {
+      delete process.env.NODE_AUTH_TOKEN;
+    } else {
+      process.env.NODE_AUTH_TOKEN = previousNodeToken;
+    }
+
+    if (previousNpmToken === undefined) {
+      delete process.env._NPM_TOKEN;
+    } else {
+      process.env._NPM_TOKEN = previousNpmToken;
+    }
+  }
+});
+
+test("packageRegistryState uses the GitHub token only for GitHub Packages", () => {
+  const previousGithubToken = process.env._GITHUB_TOKEN;
+  process.env._GITHUB_TOKEN = "github-token";
+  execFileSync.mockReturnValueOnce(Buffer.from('"0.1.1"'));
+
+  try {
+    assert.equal(
+      packageRegistryState(
+        {
+          directory: ".",
+          file: "/repo/package.json",
+          manifest: {
+            name: "@moyarich/workspace-tools",
+            version: "0.1.1",
+          },
+        },
+        "github",
+      ),
+      "published",
+    );
+
+    const [, , options] = execFileSync.mock.calls[0];
+    assert.equal(options.env.NODE_AUTH_TOKEN, "github-token");
+    assert.match(
+      options.env.npm_config_userconfig,
+      /workspace-publish-registry-/,
+    );
+  } finally {
+    if (previousGithubToken === undefined) {
+      delete process.env._GITHUB_TOKEN;
+    } else {
+      process.env._GITHUB_TOKEN = previousGithubToken;
+    }
+  }
 });
 
 test("packageGitTagState reports a missing package-scoped tag without invoking real Git", () => {
