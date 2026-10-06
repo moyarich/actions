@@ -2,7 +2,7 @@
 import { EventEmitter } from "node:events";
 import childProcess, { execFileSync, spawnSync } from "node:child_process";
 import path, { resolve } from "node:path";
-import fs, { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import fs, { readFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
 class CommanderError extends Error {
@@ -3403,14 +3403,27 @@ function workspacePackages(root) {
   );
 }
 function packageInfo(root, selector) {
-  const packages = workspacePackages(root);
   const normalized = selector?.replace(/^\.\//, "");
-  if (!normalized || normalized === ".." || normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) {
+  if (normalized === "." || normalized === "") {
+    const file = resolve(root, "package.json");
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8")
+    );
+    if (typeof manifest.name !== "string" || typeof manifest.version !== "string") {
+      throw new Error("Root package.json must define name and version.");
+    }
+    return {
+      directory: ".",
+      file,
+      manifest
+    };
+  }
+  if (normalized === ".." || normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) {
     throw new Error(
       `Package selector must identify a workspace package: ${selector}`
     );
   }
-  const pkg = packages.find(
+  const pkg = workspacePackages(root).find(
     ({ directory, manifest }) => normalized === directory || normalized === directory.split("/").at(-1) || normalized === manifest.name
   );
   if (!pkg) throw new Error(`Package not found: ${selector}`);
