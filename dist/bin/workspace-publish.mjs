@@ -4174,7 +4174,10 @@ program.name("workspace-publish").description("Validate and publish workspace pa
 ).addOption(
   new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "both"]).default("github")
 ).addOption(
-  new Option("-t, --tag <tag>", "npm distribution tag (required to publish; previews suggest one)")
+  new Option(
+    "-t, --tag <tag>",
+    "npm distribution tag (required to publish; previews suggest one)"
+  )
 ).addOption(
   new Option("-a, --access <access>", "Package access level").choices(["public", "restricted"]).default("public")
 ).option("-d, --dry-run", "Run release checks without publishing").option("-l, --list", "Print the publish plan without publishing").option("-j, --json", "Print the operation result as JSON").option(
