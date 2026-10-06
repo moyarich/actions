@@ -606,14 +606,14 @@ jobs:
         if: ${{ always() }}
         env:
           CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
+          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
         shell: bash
         run: |
           set -euo pipefail
 
           CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
 
-          if [ "${RELEASE_DRAFT_VALID:-false}" != "true" ]; then
+          if [ "${GITHUB_RELEASE_VALID:-false}" != "true" ]; then
             CAN_PUBLISH="false"
           fi
 
@@ -623,13 +623,13 @@ jobs:
         if: ${{ always() }}
         env:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
-          RELEASE_DRAFT_EXISTS: ${{ steps.release-draft.outputs.exists }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
-          RELEASE_DRAFT_ID: ${{ steps.release-draft.outputs.id }}
-          RELEASE_DRAFT_URL: ${{ steps.release-draft.outputs.url }}
-          RELEASE_DRAFT_NAME: ${{ steps.release-draft.outputs.name }}
-          RELEASE_DRAFT_BODY: ${{ steps.release-draft.outputs.body }}
-          RELEASE_DRAFT_REASON: ${{ steps.release-draft.outputs.reason }}
+          GITHUB_RELEASE_EXISTS: ${{ steps.release-draft.outputs.exists }}
+          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
+          GITHUB_RELEASE_SUMMARY_ID: ${{ steps.release-draft.outputs.id }}
+          GITHUB_RELEASE_SUMMARY_URL: ${{ steps.release-draft.outputs.url }}
+          GITHUB_RELEASE_SUMMARY_NAME: ${{ steps.release-draft.outputs.name }}
+          GITHUB_RELEASE_BODY: ${{ steps.release-draft.outputs.body }}
+          GITHUB_RELEASE_REASON: ${{ steps.release-draft.outputs.reason }}
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
           ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
@@ -700,19 +700,20 @@ jobs:
               echo "| CLI readiness reason | unresolved |"
             fi
 
-            echo "| GitHub draft exists | **${RELEASE_DRAFT_EXISTS:-false}** |"
-            echo "| GitHub draft identity valid | **${RELEASE_DRAFT_VALID:-false}** |"
-            echo "| GitHub draft ID | \`${RELEASE_DRAFT_ID:-none}\` |"
-            echo "| GitHub draft name | \`${RELEASE_DRAFT_NAME:-none}\` |"
+            echo "| GitHub release exists | **${GITHUB_RELEASE_EXISTS:-false}** |"
+            echo "| GitHub release identity valid | **${GITHUB_RELEASE_VALID:-false}** |"
+            echo "| GitHub release ID | \`${GITHUB_RELEASE_SUMMARY_ID:-none}\` |"
+            echo "| GitHub release name | \`${GITHUB_RELEASE_SUMMARY_NAME:-none}\` |"
+            echo "| GitHub release state | \`${{ steps.release-draft.outputs.draft == 'true' && 'draft' || 'published' }}\` |"
 
-            if [ -n "$RELEASE_DRAFT_URL" ]; then
-              echo "| GitHub draft | [Open draft](${RELEASE_DRAFT_URL}) |"
+            if [ -n "$GITHUB_RELEASE_SUMMARY_URL" ]; then
+              echo "| GitHub release | [Open draft](${GITHUB_RELEASE_SUMMARY_URL}) |"
             else
-              echo "| GitHub draft | unavailable |"
+              echo "| GitHub release | unavailable |"
             fi
 
-            if [ -n "$RELEASE_DRAFT_REASON" ]; then
-              echo "| Draft readiness reason | $RELEASE_DRAFT_REASON |"
+            if [ -n "$GITHUB_RELEASE_REASON" ]; then
+              echo "| Release readiness reason | $GITHUB_RELEASE_REASON |"
             fi
 
             echo "| GitHub Release after workflow | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
@@ -770,14 +771,14 @@ jobs:
             fi
 
             echo
-            echo "### GitHub Release draft content"
+            echo "### GitHub Release content"
             echo
 
-            if [ -n "$RELEASE_DRAFT_BODY" ]; then
-              printf '%s\n' "$RELEASE_DRAFT_BODY"
-            elif [ "${RELEASE_DRAFT_EXISTS:-false}" = "true" ]; then
+            if [ -n "$GITHUB_RELEASE_BODY" ]; then
+              printf '%s\n' "$GITHUB_RELEASE_BODY"
+            elif [ "${GITHUB_RELEASE_EXISTS:-false}" = "true" ]; then
               echo "> The matching GitHub Release draft has an empty body."
             else
-              echo "> No matching GitHub Release draft content is available."
+              echo "> No matching GitHub Release content is available."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
