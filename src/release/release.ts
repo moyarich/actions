@@ -602,7 +602,9 @@ function releaseChangelog(
   version: string,
 ): { source: "existing" | "generated"; section: string; path: string } {
   const path = resolve(root, pkg.directory, "CHANGELOG.md");
-  const current = existsSync(path) ? readFileSync(path, "utf8") : "# Changelog\n";
+  const current = existsSync(path)
+    ? readFileSync(path, "utf8")
+    : "# Changelog\n";
   const existing = existingChangelogSection(current, version);
 
   if (existing) {
@@ -694,8 +696,7 @@ export function buildReleasePlan(
     currentVersion,
     nextVersion,
     registry,
-    latestPublished:
-      published.status === "published" ? published.version : "",
+    latestPublished: published.status === "published" ? published.version : "",
     alreadyPublished,
     identity,
     tag,
@@ -831,7 +832,9 @@ ${plan.changelog.section}`);
   }
 
   if (!plan.canRelease) {
-    throw new Error(plan.reason || "Resolved release target is not releasable.");
+    throw new Error(
+      plan.reason || "Resolved release target is not releasable.",
+    );
   }
 
   const operationRunOptions: ExecFileSyncOptions = options.json
