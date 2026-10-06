@@ -15,11 +15,21 @@ import {
   parsePackResult,
   registryPublishArgs,
   serializePublishPlan,
+  suggestedDistributionTag,
 } from "../../src/publish/publish.ts";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
+
+test("suggestedDistributionTag recommends latest without selecting it", () => {
+  assert.equal(suggestedDistributionTag("1.2.3"), "latest");
+});
+
+test("suggestedDistributionTag uses the prerelease identifier", () => {
+  assert.equal(suggestedDistributionTag("1.2.3-beta.4"), "beta");
+});
+
 
 test("serializePublishPlan returns stable machine-readable package metadata", () => {
   const plan = [
@@ -46,6 +56,7 @@ test("serializePublishPlan returns stable machine-readable package metadata", ()
     {
       registry: "github",
       tag: "latest",
+      suggestedTag: "latest",
       access: "public",
       packages: [
         {
@@ -60,6 +71,7 @@ test("serializePublishPlan returns stable machine-readable package metadata", ()
             tagPrefix: "packages/workspace-tools@",
             releaseName: "@moyarich/workspace-tools v0.1.2",
           },
+          suggestedTag: "latest",
           registries: {
             github: "missing",
           },
