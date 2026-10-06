@@ -8,7 +8,7 @@ permissions:
   packages: read
 jobs:
   packages:
-    uses: moyarich/workspace-tools/.github/workflows/reusable_package-ci.yml@v0.1.0
+    uses: moyarich/workspace-tools/.github/workflows/reusable_package-ci.yml@workflows-v0.1.0
     with:
       packages-directory: packages
       node-version: "24"
