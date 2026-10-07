@@ -202,48 +202,31 @@ jobs:
           ARTIFACT_EQUIVALENCE="not-required"
           MATCHED_REGISTRY=""
           EQUIVALENCE_RESULTS='[]'
-          PUBLISHED_COUNT=0
-          MATCH_COUNT=0
+          REGISTRY_ARGS=()
 
-          verify_published_copy() {
-            local registry="$1"
-            local state="$2"
+          if [ "$NPM_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://registry.npmjs.org")
+          fi
 
-            if [ "$state" != "published" ]; then
-              return 0
-            fi
+          if [ "$GITHUB_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://npm.pkg.github.com")
+          fi
 
-            PUBLISHED_COUNT=$((PUBLISHED_COUNT + 1))
-
-            local result equivalent
-            result="$(
+          if [ "${#REGISTRY_ARGS[@]}" -gt 0 ]; then
+            EQUIVALENCE="$(
               GH_TOKEN="$GH_TOKEN" node "$WORKSPACE_RELEASE_IDENTITY" restore-equivalence "$PACKAGE_SELECTOR" \
                 --commit "$RELEASE_COMMIT" \
-                --registry "$registry" \
+                "${REGISTRY_ARGS[@]}" \
                 --json
             )"
 
-            equivalent="$(jq -r '.equivalent' <<< "$result")"
-            EQUIVALENCE_RESULTS="$(
-              jq -c --argjson result "$result" '. + [$result]' <<< "$EQUIVALENCE_RESULTS"
-            )"
+            EQUIVALENCE_RESULTS="$(jq -c '.attempts' <<< "$EQUIVALENCE")"
+            MATCHED_REGISTRY="$(jq -r '.matchedRegistry // ""' <<< "$EQUIVALENCE")"
 
-            if [ "$equivalent" = "true" ]; then
-              MATCH_COUNT=$((MATCH_COUNT + 1))
-              if [ -z "$MATCHED_REGISTRY" ]; then
-                MATCHED_REGISTRY="$registry"
-              fi
-            fi
-          }
-
-          verify_published_copy "https://registry.npmjs.org" "$NPM_REGISTRY_STATE"
-          verify_published_copy "https://npm.pkg.github.com" "$GITHUB_REGISTRY_STATE"
-
-          if [ "$PUBLISHED_COUNT" -gt 0 ]; then
-            if [ "$MATCH_COUNT" -eq 0 ]; then
-              ARTIFACT_EQUIVALENCE="mismatch"
-            else
+            if [ "$(jq -r '.equivalent' <<< "$EQUIVALENCE")" = "true" ]; then
               ARTIFACT_EQUIVALENCE="matched"
+            else
+              ARTIFACT_EQUIVALENCE="mismatch"
             fi
           fi
 
