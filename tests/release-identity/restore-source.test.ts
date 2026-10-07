@@ -28,8 +28,7 @@ const gitRevParseResults: Record<string, string> = {
 };
 
 const ghApiResults: Record<string, string> = {
-  [`repos/${repository}/actions/runs/${runId}`]:
-    `${fullSha}\t.github/workflows/publish.yml`,
+  [`repos/${repository}/actions/runs/${runId}`]: `${fullSha}\t.github/workflows/publish.yml`,
   [`repos/${repository}/actions/artifacts/${artifactId}`]: runId,
 };
 
