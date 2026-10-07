@@ -28,8 +28,9 @@ const gitRevParseResults: Record<string, string> = {
 };
 
 const ghApiResults: Record<string, string> = {
-  [`repos/${repository}/actions/runs/${runId}`]: fullSha,
-  [`repos/${repository}/actions/artifacts/${artifactId}`]: fullSha,
+  [`repos/${repository}/actions/runs/${runId}`]:
+    `${fullSha}\t.github/workflows/publish.yml`,
+  [`repos/${repository}/actions/artifacts/${artifactId}`]: runId,
 };
 
 function fakeCommand(command: string, args: string[]): string {
@@ -157,6 +158,28 @@ describe("resolveRestoreSource", () => {
       expect(() =>
         resolve("github-url:https://github.com/example/other/commit/8b4539e"),
       ).toThrow(/must belong to the current repository/);
+    });
+
+    test.each([
+      ".github/workflows/reset-release.yml",
+      ".github/workflows/restore-release.yml",
+    ])("rejects recovery workflow run provenance: %s", (path) => {
+      const recoveryRun = "37633356468";
+      const command = (command: string, args: string[]): string => {
+        if (
+          command === "gh" &&
+          args[0] === "api" &&
+          args[1] === `repos/${repository}/actions/runs/${recoveryRun}`
+        ) {
+          return `1132140c202c2f4de84088048f5e874f1c0c58d5\t${path}`;
+        }
+
+        throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
+      };
+
+      expect(() =>
+        resolveRestoreSource(`run:${recoveryRun}`, repository, { command }),
+      ).toThrow(/not valid Restore provenance/);
     });
   });
 });
