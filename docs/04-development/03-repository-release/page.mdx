@@ -174,9 +174,9 @@ github-url:<supported-github-url>
 
 The `workspace-release-identity restore-source` CLI resolves that input to one exact full commit SHA before the workflow performs destructive recovery. The workflow then derives the historical package/version/tag identity from that commit.
 
-If the exact package version already exists in one or more supported registries, Restore treats those immutable registry packages as fallback evidence. It rebuilds and packs the candidate commit and compares the normalized package contents with each published copy. The candidate is accepted when it matches **any** published copy. If no published copy matches, or none can be verified, Restore stops before changing the tag or GitHub Release.
+If the exact package version already exists in one or more supported registries, Restore treats those immutable registry packages as fallback evidence. It packs the candidate commit exactly as committed, with lifecycle scripts disabled, and compares the normalized package contents with each published copy. The candidate is accepted when it matches **any** published copy. If no published copy matches, or none can be verified, Restore stops before changing the tag or GitHub Release.
 
-This proves artifact equivalence even when the original publishing commit is unknown. A matching candidate commit does not need to be the unique historical source commit; it must reproduce at least one immutable published package exactly.
+This proves artifact equivalence even when the original publishing commit is unknown. A matching candidate commit does not need to be the unique historical source commit; its publishable package contents must match at least one immutable published package exactly.
 
 A `github-url:` may identify a commit, release tag, workflow run, or workflow artifact in the current repository. Cross-repository URLs are rejected.
 
