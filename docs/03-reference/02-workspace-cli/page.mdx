@@ -37,6 +37,28 @@ workspace-release-identity <package> [--version=<version>] [--json|--pretty-json
 
 Returns the canonical package release identity. The Git tag is `<package-directory>@<version>`; the GitHub Release name is `<package-name> v<version>`.
 
+Resolve a Restore Release source to its exact historical commit:
+
+```sh
+workspace-release-identity restore-source <source> \
+  --repository <owner/name> \
+  [--json|--pretty-json]
+```
+
+`<source>` must use one of these typed forms:
+
+```text
+commit:<sha>
+tag:<tag>
+run:<run-id>
+artifact:<artifact-id>
+github-url:<supported-github-url>
+```
+
+Supported `github-url:` values are commit URLs, release-tag URLs, workflow-run URLs, and workflow-artifact URLs in the selected repository. Bare SHAs, tags, IDs, and URLs are rejected.
+
+The JSON result includes the original source, source kind, resolved kind, normalized value, and exact full commit SHA.
+
 ## workspace-release
 
 ```sh
