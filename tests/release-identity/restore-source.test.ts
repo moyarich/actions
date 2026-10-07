@@ -58,10 +58,22 @@ function resolve(source: string, repo = repository) {
 describe("resolveRestoreSource", () => {
   describe("typed sources", () => {
     test.each([
-      { kind: "commit", value: shortSha, note: "normalizes a short SHA to a full SHA" },
+      {
+        kind: "commit",
+        value: shortSha,
+        note: "normalizes a short SHA to a full SHA",
+      },
       { kind: "tag", value: tagName, note: "resolves a tag to its commit" },
-      { kind: "run", value: runId, note: "resolves a workflow run to its commit" },
-      { kind: "artifact", value: artifactId, note: "resolves a workflow artifact to its commit" },
+      {
+        kind: "run",
+        value: runId,
+        note: "resolves a workflow run to its commit",
+      },
+      {
+        kind: "artifact",
+        value: artifactId,
+        note: "resolves a workflow artifact to its commit",
+      },
     ])("$kind: $note", ({ kind, value }) => {
       const source = `${kind}:${value}`;
 
@@ -101,17 +113,20 @@ describe("resolveRestoreSource", () => {
         resolvedKind: "artifact",
         value: artifactId,
       },
-    ])("classifies a $name and delegates to the matching resolver", (testCase) => {
-      const source = `github-url:${testCase.url}`;
+    ])(
+      "classifies a $name and delegates to the matching resolver",
+      (testCase) => {
+        const source = `github-url:${testCase.url}`;
 
-      expect(resolve(source)).toEqual({
-        source,
-        kind: "github-url",
-        resolvedKind: testCase.resolvedKind,
-        value: testCase.value,
-        commit: fullSha,
-      });
-    });
+        expect(resolve(source)).toEqual({
+          source,
+          kind: "github-url",
+          resolvedKind: testCase.resolvedKind,
+          value: testCase.value,
+          commit: fullSha,
+        });
+      },
+    );
   });
 
   describe("invalid sources", () => {
@@ -127,10 +142,16 @@ describe("resolveRestoreSource", () => {
 
     test.each([
       { source: "run:not-a-run", error: /numeric workflow run ID/ },
-      { source: "artifact:not-an-artifact", error: /numeric workflow artifact ID/ },
-    ])("validates identifier before GitHub lookup: $source", ({ source, error }) => {
-      expect(() => resolve(source)).toThrow(error);
-    });
+      {
+        source: "artifact:not-an-artifact",
+        error: /numeric workflow artifact ID/,
+      },
+    ])(
+      "validates identifier before GitHub lookup: $source",
+      ({ source, error }) => {
+        expect(() => resolve(source)).toThrow(error);
+      },
+    );
 
     test("rejects github-url sources from another repository", () => {
       expect(() =>
