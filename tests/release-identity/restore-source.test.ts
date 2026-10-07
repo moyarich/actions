@@ -10,7 +10,10 @@ test("resolveRestoreSource resolves commit sources to a full SHA", () => {
     encoding: "utf8",
   }).trim();
 
-  const resolution = resolveRestoreSource(`commit:${head.slice(0, 8)}`, repository);
+  const resolution = resolveRestoreSource(
+    `commit:${head.slice(0, 8)}`,
+    repository,
+  );
 
   assert.equal(resolution.kind, "commit");
   assert.equal(resolution.resolvedKind, "commit");

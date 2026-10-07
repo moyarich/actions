@@ -1,17 +1,9 @@
 import { execFileSync } from "node:child_process";
 
 export type RestoreSourceKind =
-  | "commit"
-  | "tag"
-  | "run"
-  | "artifact"
-  | "github-url";
+  "commit" | "tag" | "run" | "artifact" | "github-url";
 
-export type ResolvedRestoreSourceKind =
-  | "commit"
-  | "tag"
-  | "run"
-  | "artifact";
+export type ResolvedRestoreSourceKind = "commit" | "tag" | "run" | "artifact";
 
 export interface RestoreSourceResolution {
   source: string;
@@ -160,41 +152,42 @@ function parseGithubUrl(
   throw new Error(`Unsupported GitHub URL for restore-source: ${value}`);
 }
 
-const restoreSourceDispatch: Record<
-  RestoreSourceKind,
-  RestoreSourceResolver
-> = {
-  commit: (value) => ({
-    resolvedKind: "commit",
-    value,
-    commit: resolveCommit(value),
-  }),
-  tag: (value) => ({
-    resolvedKind: "tag",
-    value,
-    commit: resolveTag(value),
-  }),
-  run: (value, { repository }) => ({
-    resolvedKind: "run",
-    value,
-    commit: resolveCommit(resolveRun(value, repository)),
-  }),
-  artifact: (value, { repository }) => ({
-    resolvedKind: "artifact",
-    value,
-    commit: resolveCommit(resolveArtifact(value, repository)),
-  }),
-  "github-url": (value, context) => {
-    const parsed = parseGithubUrl(value, context.repository);
-    const resolved = restoreSourceDispatch[parsed.kind](parsed.value, context);
+const restoreSourceDispatch: Record<RestoreSourceKind, RestoreSourceResolver> =
+  {
+    commit: (value) => ({
+      resolvedKind: "commit",
+      value,
+      commit: resolveCommit(value),
+    }),
+    tag: (value) => ({
+      resolvedKind: "tag",
+      value,
+      commit: resolveTag(value),
+    }),
+    run: (value, { repository }) => ({
+      resolvedKind: "run",
+      value,
+      commit: resolveCommit(resolveRun(value, repository)),
+    }),
+    artifact: (value, { repository }) => ({
+      resolvedKind: "artifact",
+      value,
+      commit: resolveCommit(resolveArtifact(value, repository)),
+    }),
+    "github-url": (value, context) => {
+      const parsed = parseGithubUrl(value, context.repository);
+      const resolved = restoreSourceDispatch[parsed.kind](
+        parsed.value,
+        context,
+      );
 
-    return {
-      resolvedKind: parsed.kind,
-      value: parsed.value,
-      commit: resolved.commit,
-    };
-  },
-};
+      return {
+        resolvedKind: parsed.kind,
+        value: parsed.value,
+        commit: resolved.commit,
+      };
+    },
+  };
 
 export function resolveRestoreSource(
   source: string,
