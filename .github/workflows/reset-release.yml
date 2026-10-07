@@ -22,7 +22,7 @@ on:
         default: version
         type: choice
         options:
-          - version
+          - package-version
           - exact
       dry-run:
         description: Preview the full reset/rebuild without mutating the release, tag, or repository
@@ -44,7 +44,7 @@ jobs:
       contents: read
     outputs:
       package-name: ${{ steps.package.outputs.name }}
-      package-version: ${{ steps.package.outputs.version }}
+      package-version: ${{ steps.package.outputs.package-version }}
       package-directory: ${{ steps.package.outputs.directory }}
       release-tag: ${{ steps.package.outputs.tag }}
       release-name: ${{ steps.package.outputs.release-name }}
@@ -96,7 +96,7 @@ jobs:
           fi
 
           PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
-          PACKAGE_VERSION="$(jq -r '.version // empty' "$MANIFEST")"
+          PACKAGE_VERSION="$(jq -r '.package-version // empty' "$MANIFEST")"
 
           if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
             echo "::error::Package name/version is missing from $MANIFEST."
@@ -224,7 +224,7 @@ jobs:
     with:
       target-branch: ${{ inputs.target-branch }}
       package: ${{ inputs.package }}
-      version-mode: package-json
+      version-mode: package-version
       version-bump: patch
       exact-version: ""
       dry-run: ${{ inputs.dry-run }}
