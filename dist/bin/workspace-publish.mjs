@@ -3917,7 +3917,27 @@ Validating ${pkg.manifest.name}@${pkg.manifest.version} (${pkg.directory})`
   return artifact;
 }
 function registryPublishArgs(registry, artifactPath, tag, access) {
-  return registry === "npm" ? ["stage", "publish", artifactPath, "--access", access, "--tag", tag] : ["publish", artifactPath, "--access", access, "--tag", tag];
+  const config = registryConfig(registry);
+  return registry === "npm" ? [
+    "stage",
+    "publish",
+    artifactPath,
+    "--access",
+    access,
+    "--tag",
+    tag,
+    "--registry",
+    config.url
+  ] : [
+    "publish",
+    artifactPath,
+    "--access",
+    access,
+    "--tag",
+    tag,
+    "--registry",
+    config.url
+  ];
 }
 function publishOne(root, pkg, artifact, registry, tag, access, { quiet = false } = {}) {
   const config = registryConfig(registry);

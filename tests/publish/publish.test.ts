@@ -345,6 +345,8 @@ test("registryPublishArgs promotes the same tarball to GitHub Packages", () => {
       "public",
       "--tag",
       "latest",
+      "--registry",
+      "https://npm.pkg.github.com",
     ],
   );
 });
@@ -365,6 +367,8 @@ test("registryPublishArgs promotes the same tarball through npm staged publishin
       "public",
       "--tag",
       "next",
+      "--registry",
+      "https://registry.npmjs.org",
     ],
   );
 });
