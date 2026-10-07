@@ -14,6 +14,7 @@ import {
   packageGitTagState,
   packageRegistryState,
   parsePackResult,
+  registryNpmEnvironment,
   registryPublishArgs,
   serializePublishPlan,
   suggestedDistributionTag,
@@ -366,6 +367,42 @@ test("registryPublishArgs promotes the same tarball through npm staged publishin
       "next",
     ],
   );
+});
+
+test("registry npm environment overrides inherited setup-node userconfig", () => {
+  const previousUpperUserconfig = process.env.NPM_CONFIG_USERCONFIG;
+  const previousLowerUserconfig = process.env.npm_config_userconfig;
+  const previousNodeToken = process.env.NODE_AUTH_TOKEN;
+
+  process.env.NPM_CONFIG_USERCONFIG = "/tmp/setup-node-npmrc";
+  process.env.npm_config_userconfig = "/tmp/setup-node-lower-npmrc";
+  process.env.NODE_AUTH_TOKEN = "inherited-token";
+
+  try {
+    const env = registryNpmEnvironment(
+      {
+        url: "https://registry.npmjs.org",
+        host: "registry.npmjs.org",
+        token: "npm-token",
+      },
+      "/tmp/workspace-publish/npmrc",
+    );
+
+    assert.equal(env.NPM_CONFIG_USERCONFIG, "/tmp/workspace-publish/npmrc");
+    assert.equal(env.npm_config_userconfig, "/tmp/workspace-publish/npmrc");
+    assert.equal(env.NODE_AUTH_TOKEN, "npm-token");
+  } finally {
+    if (previousUpperUserconfig === undefined)
+      delete process.env.NPM_CONFIG_USERCONFIG;
+    else process.env.NPM_CONFIG_USERCONFIG = previousUpperUserconfig;
+
+    if (previousLowerUserconfig === undefined)
+      delete process.env.npm_config_userconfig;
+    else process.env.npm_config_userconfig = previousLowerUserconfig;
+
+    if (previousNodeToken === undefined) delete process.env.NODE_AUTH_TOKEN;
+    else process.env.NODE_AUTH_TOKEN = previousNodeToken;
+  }
 });
 
 test("parsePackResult requires dist output when the package publishes dist", () => {

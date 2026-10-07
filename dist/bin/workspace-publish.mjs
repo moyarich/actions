@@ -3582,6 +3582,10 @@ function registryConfig(registry) {
       throw new Error("Registry must be github, npm, all, or both.");
   }
 }
+function registryNpmEnvironment(config, npmrc) {
+  const env = registryNpmEnvironment();
+  return env;
+}
 function destinations(registry) {
   return registry === "all" || registry === "both" ? ["github", "npm"] : [registry];
 }
@@ -3923,11 +3927,7 @@ function publishOne(root, pkg, artifact, registry, tag, access, { quiet = false 
       ""
     ].join("\n")
   );
-  const env = {
-    ...process.env,
-    NODE_AUTH_TOKEN: config.token,
-    npm_config_userconfig: npmrc
-  };
+  const env = registryNpmEnvironment();
   try {
     if (registry === "github") {
       execFileSync(
