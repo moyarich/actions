@@ -1,7 +1,7 @@
 name: Restore Release
 
 run-name: >-
-  Restore release · ${{ inputs.package }} · ${{ inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
+  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
@@ -16,8 +16,8 @@ on:
         required: true
         default: main
         type: string
-      release-commit:
-        description: Exact historical commit to restore
+      restore-source:
+        description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
         required: true
         type: string
       dry-run:
@@ -37,6 +37,7 @@ jobs:
     name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       packages: read
     outputs:
@@ -48,6 +49,9 @@ jobs:
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
       release-commit: ${{ steps.package.outputs.release-commit }}
+      restore-source: ${{ steps.package.outputs.restore-source }}
+      restore-source-kind: ${{ steps.package.outputs.restore-source-kind }}
+      resolved-source-kind: ${{ steps.package.outputs.resolved-source-kind }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -62,20 +66,53 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Build release identity CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --include=optional
+          npx vite build --config vite.cli.config.ts --mode workspace-release-identity
+          echo "WORKSPACE_RELEASE_IDENTITY=$GITHUB_WORKSPACE/dist/bin/workspace-release-identity.mjs" >> "$GITHUB_ENV"
+
       - name: Resolve historical package identity
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
-          RELEASE_COMMIT: ${{ inputs.release-commit }}
+          RESTORE_SOURCE: ${{ inputs.restore-source }}
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
-            echo "::error::Release commit does not exist: $RELEASE_COMMIT"
+          if [ -z "$RESTORE_SOURCE" ]; then
+            echo "::error::restore-source is required."
             exit 1
           fi
+
+          RESOLUTION="$(
+            node "$WORKSPACE_RELEASE_IDENTITY" restore-source "$RESTORE_SOURCE" \
+              --repository "$GH_REPO" \
+              --json
+          )"
+
+          echo "$RESOLUTION" | jq -e '
+            type == "object" and
+            (.source | type == "string" and length > 0) and
+            (.kind | type == "string" and length > 0) and
+            (.resolvedKind | type == "string" and length > 0) and
+            (.commit | type == "string" and length == 40)
+          ' >/dev/null
+
+          SOURCE_KIND="$(jq -r '.kind' <<< "$RESOLUTION")"
+          RESOLVED_SOURCE_KIND="$(jq -r '.resolvedKind' <<< "$RESOLUTION")"
+          SOURCE_VALUE="$(jq -r '.value' <<< "$RESOLUTION")"
+          RELEASE_COMMIT="$(jq -r '.commit' <<< "$RESOLUTION")"
 
           if [ "$PACKAGE_SELECTOR" = "." ]; then
             PACKAGE_DIRECTORY="."
@@ -193,6 +230,9 @@ jobs:
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
             echo "release-commit=$RELEASE_COMMIT"
+            echo "restore-source=$RESTORE_SOURCE"
+            echo "restore-source-kind=$SOURCE_KIND"
+            echo "resolved-source-kind=$RESOLVED_SOURCE_KIND"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
@@ -209,7 +249,11 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Restore commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
+            printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
+            printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
+            printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
+            printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
@@ -329,7 +373,10 @@ jobs:
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'Restored commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
+            printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
+            printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
+            printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
+            printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo

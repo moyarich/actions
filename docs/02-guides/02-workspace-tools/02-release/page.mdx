@@ -55,7 +55,7 @@ Release name:   @moyarich/workspace-tools v0.1.0
 
 Use `workspace-release-identity` when another tool or workflow needs the package identity.
 
-The package-specific release job handles versioning, changelog updates, commit creation, and the immutable package tag. GitHub Release creation is delegated to the generic `reusable_release.yml` workflow and remains a draft until package publication is complete.
+The package-specific release job handles versioning, changelog updates, commit creation, and the immutable package tag. GitHub Release creation is a separate release surface from registry publication. A release draft can remain open after npmjs.org publication, and an already-published GitHub Release does not prevent publishing the same canonical package version to a missing registry.
 
 ## Separate workflow releases
 
@@ -82,3 +82,33 @@ GitHub Release state:    draft
 ```
 
 The workflow and npm package release lines can advance independently.
+
+## Restore a historical release identity
+
+`Restore Release` uses one typed `restore-source` value and resolves it to the exact historical commit before changing tags or release state.
+
+Supported forms:
+
+```text
+commit:<sha>
+tag:<tag>
+run:<run-id>
+artifact:<artifact-id>
+github-url:<supported-github-url>
+```
+
+Examples:
+
+```text
+commit:8b4539e
+tag:@moyarich/workspace-tools@0.1.0
+run:37624987179
+artifact:11484185701
+github-url:https://github.com/moyarich/workspace-tools/releases/tag/%40moyarich%2Fworkspace-tools%400.1.0
+github-url:https://github.com/moyarich/workspace-tools/actions/runs/37624987179
+github-url:https://github.com/moyarich/workspace-tools/actions/runs/37624987179/artifacts/11484185701
+```
+
+The resolver records the original source, the resolved source kind, and the full 40-character commit SHA. Resolution happens before destructive recovery steps.
+
+A Restore source is only a way to find the canonical historical commit. Registry publication continues from that canonical tag/commit identity; GitHub Release assets are supplemental and an immutable release does not by itself block publishing a missing registry destination.

@@ -1,6 +1,6 @@
 ---
 title: Release identity
-description: Resolve the canonical package release identity.
+description: Resolve canonical package release identity and historical Restore Release sources.
 ---
 
 # Release identity
@@ -10,3 +10,33 @@ Resolve the canonical Git tag and GitHub Release name for the root package:
 ```sh
 npm exec -- workspace-release-identity . --pretty-json
 ```
+
+Resolve a typed Restore Release source:
+
+```sh
+npm exec -- workspace-release-identity restore-source \
+  'run:37624987179' \
+  --repository moyarich/workspace-tools \
+  --pretty-json
+```
+
+The accepted source types are:
+
+```text
+commit:<sha>
+tag:<tag>
+run:<run-id>
+artifact:<artifact-id>
+github-url:<supported-github-url>
+```
+
+A GitHub Release URL is also accepted through the explicit `github-url:` form:
+
+```sh
+npm exec -- workspace-release-identity restore-source \
+  'github-url:https://github.com/moyarich/workspace-tools/releases/tag/%40moyarich%2Fworkspace-tools%400.1.0' \
+  --repository moyarich/workspace-tools \
+  --pretty-json
+```
+
+The output includes the source kind, resolved kind, normalized source value, and exact full commit SHA.
