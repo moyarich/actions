@@ -56,7 +56,10 @@ if (restoreSourceMode) {
   program
     .addArgument(new Argument("<package>", "Workspace package selector"))
     .requiredOption("--commit <sha>", "Candidate historical commit")
-    .requiredOption("--registry <url>", "Registry containing the published package")
+    .requiredOption(
+      "--registry <url>",
+      "Registry containing the published package",
+    )
     .option("--json", "Print compact JSON")
     .option("--pretty-json", "Print formatted JSON")
     .action((selector, options) => {
@@ -79,7 +82,9 @@ if (restoreSourceMode) {
             `Equivalent: ${result.equivalent}`,
             `Published integrity: ${result.publishedIntegrity}`,
             `Candidate integrity: ${result.candidateIntegrity}`,
-            ...result.differences.map((difference) => `Difference: ${difference}`),
+            ...result.differences.map(
+              (difference) => `Difference: ${difference}`,
+            ),
             "",
           ].join("\n"),
         );

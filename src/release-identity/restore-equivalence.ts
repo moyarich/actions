@@ -37,7 +37,8 @@ function run(
     cwd: options.cwd,
     env: options.env,
     encoding: "utf8",
-    stdio: options.capture === false ? "inherit" : ["ignore", "pipe", "inherit"],
+    stdio:
+      options.capture === false ? "inherit" : ["ignore", "pipe", "inherit"],
   }).trim();
 }
 
@@ -104,9 +105,9 @@ function downloadPublishedPackage(
   const npmrc = join(npmrcDirectory, "npmrc");
   const token =
     registryUrl.hostname === "npm.pkg.github.com"
-      ? process.env.GH_TOKEN ??
+      ? (process.env.GH_TOKEN ??
         process.env.NODE_AUTH_TOKEN ??
-        process.env._GITHUB_TOKEN
+        process.env._GITHUB_TOKEN)
       : process.env.NODE_AUTH_TOKEN;
 
   const config = [`registry=${registry}`];
