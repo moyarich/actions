@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     outputs:
       package-name: ${{ steps.package.outputs.name }}
       package-version: ${{ steps.package.outputs.package-version }}
@@ -50,6 +51,9 @@ jobs:
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
+      configured-registry: ${{ steps.package.outputs.configured-registry }}
+      npm-registry-state: ${{ steps.package.outputs.npm-registry-state }}
+      github-registry-state: ${{ steps.package.outputs.github-registry-state }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -105,6 +109,7 @@ jobs:
 
           PACKAGE_NAME="$(jq -r '.name // empty' <<< "$MANIFEST_AT_COMMIT")"
           PACKAGE_VERSION="$(jq -r '.version // empty' <<< "$MANIFEST_AT_COMMIT")"
+          PACKAGE_REGISTRY="$(jq -r '.publishConfig.registry // "https://registry.npmjs.org"' <<< "$MANIFEST_AT_COMMIT")"
 
           if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
             echo "::error::Historical package name/version is missing from $MANIFEST."
@@ -121,6 +126,38 @@ jobs:
 
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
+
+          NPM_REGISTRY_STATE="unknown"
+          GITHUB_REGISTRY_STATE="unknown"
+
+          for REGISTRY in "https://registry.npmjs.org" "https://npm.pkg.github.com"; do
+            REGISTRY_HOST="$(node -e 'console.log(new URL(process.argv[1]).host)' "$REGISTRY")"
+            NPMRC="$RUNNER_TEMP/restore-release-${REGISTRY_HOST}.npmrc"
+            {
+              printf 'registry=%s\n' "$REGISTRY"
+              if [ "$REGISTRY_HOST" = "npm.pkg.github.com" ]; then
+                printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST" "$GH_TOKEN"
+              fi
+            } > "$NPMRC"
+
+            REGISTRY_OUTPUT="$(
+              NPM_CONFIG_USERCONFIG="$NPMRC" npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version --registry "$REGISTRY" 2>&1
+            )" && REGISTRY_STATUS=published || REGISTRY_STATUS=unknown
+
+            if [ "$REGISTRY_STATUS" != "published" ] &&
+               grep -Eq 'E404|404 Not Found|No match found|is not in this registry' <<< "$REGISTRY_OUTPUT"; then
+              REGISTRY_STATUS=missing
+            fi
+
+            case "$REGISTRY_HOST" in
+              registry.npmjs.org)
+                NPM_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+              npm.pkg.github.com)
+                GITHUB_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+            esac
+          done
 
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
@@ -159,6 +196,9 @@ jobs:
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
+            echo "configured-registry=$PACKAGE_REGISTRY"
+            echo "npm-registry-state=$NPM_REGISTRY_STATE"
+            echo "github-registry-state=$GITHUB_REGISTRY_STATE"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -171,7 +211,15 @@ jobs:
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
+            printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
+            echo
+            echo "## Registry publication state"
+            echo
+            echo "| Registry | State |"
+            echo "| --- | --- |"
+            printf '| npmjs.org | **%s** |\n' "$NPM_REGISTRY_STATE"
+            printf '| GitHub Packages | **%s** |\n' "$GITHUB_REGISTRY_STATE"
           } >> "$GITHUB_STEP_SUMMARY"
 
   delete-release:
@@ -282,7 +330,15 @@ jobs:
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
             printf 'Restored commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
+            printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
+            echo
+            echo "## Registry publication state"
+            echo
+            echo "| Registry | State |"
+            echo "| --- | --- |"
+            echo "| npmjs.org | **${{ needs.resolve.outputs.npm-registry-state || 'unknown' }}** |"
+            echo "| GitHub Packages | **${{ needs.resolve.outputs.github-registry-state || 'unknown' }}** |"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo "> Preview only. Re-run with `dry-run=false` to restore this historical release identity."
