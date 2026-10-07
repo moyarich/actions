@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { EventEmitter } from "node:events";
 import childProcess, { execFileSync } from "node:child_process";
-import path, { resolve } from "node:path";
-import fs, { readFileSync, existsSync, readdirSync } from "node:fs";
+import path, { resolve, join, relative } from "node:path";
+import fs, { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, statSync, rmSync } from "node:fs";
 import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
 class CommanderError extends Error {
   /**
    * Constructs the CommanderError class
@@ -3372,6 +3374,243 @@ function releaseIdentity(pkg, version = pkg.manifest.version) {
     releaseName: `${packageName} v${resolvedVersion}`
   };
 }
+function workspacePatterns(root) {
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, "package.json"), "utf8")
+  );
+  const workspaces = Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages;
+  if (!Array.isArray(workspaces)) return [];
+  return workspaces;
+}
+function workspacePackages(root) {
+  const directories = workspacePatterns(root).flatMap((pattern) => {
+    const normalized = pattern.replace(/^\.\//, "").replace(/\/$/, "");
+    if (!normalized.endsWith("/*")) {
+      return existsSync(resolve(root, normalized, "package.json")) ? [normalized] : [];
+    }
+    const parent = normalized.slice(0, -2);
+    const parentDir = resolve(root, parent);
+    if (!existsSync(parentDir)) return [];
+    return readdirSync(parentDir, { withFileTypes: true }).filter(
+      (entry) => entry.isDirectory() && existsSync(resolve(parentDir, entry.name, "package.json"))
+    ).map((entry) => `${parent}/${entry.name}`);
+  });
+  return [...new Set(directories)].map((directory) => {
+    const file = resolve(root, directory, "package.json");
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8")
+    );
+    return { directory, file, manifest };
+  }).filter(
+    (pkg) => typeof pkg.manifest.name === "string" && typeof pkg.manifest.version === "string"
+  );
+}
+function packageInfo(root, selector) {
+  const normalized = selector?.replace(/^\.\//, "");
+  if (normalized === "." || normalized === "") {
+    const file = resolve(root, "package.json");
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8")
+    );
+    if (typeof manifest.name !== "string" || typeof manifest.version !== "string") {
+      throw new Error("Root package.json must define name and version.");
+    }
+    return {
+      directory: ".",
+      file,
+      manifest
+    };
+  }
+  if (normalized === ".." || normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) {
+    throw new Error(
+      `Package selector must identify a workspace package: ${selector}`
+    );
+  }
+  const pkg = workspacePackages(root).find(
+    ({ directory, manifest }) => normalized === directory || normalized === directory.split("/").at(-1) || normalized === manifest.name
+  );
+  if (!pkg) throw new Error(`Package not found: ${selector}`);
+  return pkg;
+}
+function repositoryRoot() {
+  return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  }).trim();
+}
+function run(command, args, options = {}) {
+  return execFileSync(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    encoding: "utf8",
+    stdio: options.capture === false ? "inherit" : ["ignore", "pipe", "inherit"]
+  }).trim();
+}
+function packageSelectorPath(root, selector) {
+  const pkg = packageInfo(root, selector);
+  return {
+    directory: pkg.directory,
+    name: pkg.manifest.name,
+    version: pkg.manifest.version
+  };
+}
+function packPackage(root, selector, destination) {
+  const pkg = packageInfo(root, selector);
+  const buildArgs = pkg.directory === "." ? ["run", "build", "--if-present"] : ["run", "build", "--workspace", pkg.manifest.name, "--if-present"];
+  run("npm", buildArgs, { cwd: root, capture: false });
+  const packArgs = pkg.directory === "." ? ["pack", "--json", "--pack-destination", destination] : [
+    "pack",
+    "--workspace",
+    pkg.manifest.name,
+    "--json",
+    "--pack-destination",
+    destination
+  ];
+  const result = JSON.parse(run("npm", packArgs, { cwd: root }));
+  const filename = result[0]?.filename;
+  if (!filename) {
+    throw new Error("npm pack did not return a package filename.");
+  }
+  return resolve(destination, filename);
+}
+function downloadPublishedPackage(name, version, registry, destination) {
+  const result = JSON.parse(
+    run("npm", [
+      "pack",
+      `${name}@${version}`,
+      "--json",
+      "--registry",
+      registry,
+      "--pack-destination",
+      destination
+    ])
+  );
+  const filename = result[0]?.filename;
+  if (!filename) {
+    throw new Error(
+      `Unable to download published package ${name}@${version} from ${registry}.`
+    );
+  }
+  return resolve(destination, filename);
+}
+function extractPackage(tarball, destination) {
+  mkdirSync(destination, { recursive: true });
+  run("tar", ["-xzf", tarball, "-C", destination]);
+  return join(destination, "package");
+}
+function fileEntries(root) {
+  const entries = [];
+  function visit(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path2 = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(path2);
+      } else if (entry.isFile()) {
+        entries.push(relative(root, path2).replaceAll("\\", "/"));
+      } else {
+        throw new Error(
+          `Unsupported package entry type during Restore verification: ${relative(root, path2)}`
+        );
+      }
+    }
+  }
+  visit(root);
+  return entries.sort();
+}
+function digestFile(path2) {
+  return createHash("sha256").update(readFileSync(path2)).digest("hex");
+}
+function packageTreeDigest(root) {
+  const files = /* @__PURE__ */ new Map();
+  for (const path2 of fileEntries(root)) {
+    files.set(path2, digestFile(join(root, path2)));
+  }
+  const aggregate = [...files.entries()].map(([path2, digest]) => `${path2}\0${digest}
+`).join("");
+  return {
+    integrity: `sha256-${createHash("sha256").update(aggregate).digest("hex")}`,
+    files
+  };
+}
+function diffPackageTrees(published, candidate) {
+  const paths = [.../* @__PURE__ */ new Set([...published.keys(), ...candidate.keys()])].sort();
+  const differences = [];
+  for (const path2 of paths) {
+    if (!published.has(path2)) {
+      differences.push(`candidate-only:${path2}`);
+    } else if (!candidate.has(path2)) {
+      differences.push(`published-only:${path2}`);
+    } else if (published.get(path2) !== candidate.get(path2)) {
+      differences.push(`different:${path2}`);
+    }
+  }
+  return differences;
+}
+function verifyRestoreArtifactEquivalence(repositoryRoot2, selector, commit, registry) {
+  const temporaryRoot = mkdtempSync(
+    join(tmpdir(), "workspace-restore-equivalence-")
+  );
+  const candidateRoot = join(temporaryRoot, "candidate");
+  const candidatePack = join(temporaryRoot, "candidate-pack");
+  const publishedPack = join(temporaryRoot, "published-pack");
+  const candidateExtract = join(temporaryRoot, "candidate-extract");
+  const publishedExtract = join(temporaryRoot, "published-extract");
+  try {
+    run("git", ["worktree", "add", "--detach", candidateRoot, commit], {
+      cwd: repositoryRoot2
+    });
+    run("npm", ["ci", "--ignore-scripts"], {
+      cwd: candidateRoot,
+      capture: false
+    });
+    mkdirSync(candidatePack, { recursive: true });
+    mkdirSync(publishedPack, { recursive: true });
+    const identity = packageSelectorPath(candidateRoot, selector);
+    const candidateTarball = packPackage(
+      candidateRoot,
+      selector,
+      candidatePack
+    );
+    const publishedTarball = downloadPublishedPackage(
+      identity.name,
+      identity.version,
+      registry,
+      publishedPack
+    );
+    if (statSync(candidateTarball).size === 0 || statSync(publishedTarball).size === 0) {
+      throw new Error("Restore equivalence package tarball is empty.");
+    }
+    const candidateTree = packageTreeDigest(
+      extractPackage(candidateTarball, candidateExtract)
+    );
+    const publishedTree = packageTreeDigest(
+      extractPackage(publishedTarball, publishedExtract)
+    );
+    const differences = diffPackageTrees(
+      publishedTree.files,
+      candidateTree.files
+    );
+    return {
+      packageName: identity.name,
+      version: identity.version,
+      commit,
+      registry,
+      equivalent: differences.length === 0,
+      publishedIntegrity: publishedTree.integrity,
+      candidateIntegrity: candidateTree.integrity,
+      differences
+    };
+  } finally {
+    try {
+      run("git", ["worktree", "remove", "--force", candidateRoot], {
+        cwd: repositoryRoot2
+      });
+    } catch {
+      rmSync(candidateRoot, { recursive: true, force: true });
+    }
+    rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+}
 function defaultCommand(command, args) {
   return execFileSync(command, args, {
     encoding: "utf8",
@@ -3398,58 +3637,41 @@ function resolveTag(value, command) {
     throw new Error(`Tag does not exist: ${value}`);
   }
 }
-function resolveWorkflowRun(value, repository, command) {
+function resolveRun(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("run: requires a numeric workflow run ID.");
   }
-  let output;
   try {
-    output = command("gh", [
+    return command("gh", [
       "api",
       `repos/${repository}/actions/runs/${value}`,
       "--jq",
-      "[.head_sha, .path] | @tsv"
+      ".head_sha"
     ]);
   } catch {
     throw new Error(`Workflow run does not exist or is inaccessible: ${value}`);
   }
-  const [commit = "", path2 = ""] = output.split("	");
-  if (!commit || !path2) {
-    throw new Error(`Workflow run is missing source metadata: ${value}`);
-  }
-  if (/(^|\/)(reset-release|restore-release)\.ya?ml$/.test(path2)) {
-    throw new Error(
-      `Recovery workflow run ${value} is not valid Restore provenance. Use the original publish/release run, artifact, tag, commit, or GitHub URL instead.`
-    );
-  }
-  return { commit, path: path2 };
-}
-function resolveRun(value, repository, command) {
-  return resolveWorkflowRun(value, repository, command).commit;
 }
 function resolveArtifact(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("artifact: requires a numeric workflow artifact ID.");
   }
-  let runId;
   try {
-    runId = command("gh", [
+    const sha = command("gh", [
       "api",
       `repos/${repository}/actions/artifacts/${value}`,
       "--jq",
-      ".workflow_run.id // empty"
+      ".workflow_run.head_sha // empty"
     ]);
+    if (!sha) {
+      throw new Error();
+    }
+    return sha;
   } catch {
     throw new Error(
-      `Workflow artifact does not exist or is inaccessible: ${value}`
+      `Workflow artifact does not exist, is inaccessible, or has no workflow run commit: ${value}`
     );
   }
-  if (!/^\d+$/.test(runId)) {
-    throw new Error(
-      `Workflow artifact has no valid workflow run provenance: ${value}`
-    );
-  }
-  return resolveWorkflowRun(runId, repository, command).commit;
 }
 function parseGithubUrl(value, repository) {
   if (!value) throw new Error("github-url: requires a GitHub URL.");
@@ -3544,71 +3766,8 @@ function resolveRestoreSource(source, repository, dependencies = {}) {
     ...resolved
   };
 }
-function workspacePatterns(root) {
-  const manifest = JSON.parse(
-    readFileSync(resolve(root, "package.json"), "utf8")
-  );
-  const workspaces = Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages;
-  if (!Array.isArray(workspaces)) return [];
-  return workspaces;
-}
-function workspacePackages(root) {
-  const directories = workspacePatterns(root).flatMap((pattern) => {
-    const normalized = pattern.replace(/^\.\//, "").replace(/\/$/, "");
-    if (!normalized.endsWith("/*")) {
-      return existsSync(resolve(root, normalized, "package.json")) ? [normalized] : [];
-    }
-    const parent = normalized.slice(0, -2);
-    const parentDir = resolve(root, parent);
-    if (!existsSync(parentDir)) return [];
-    return readdirSync(parentDir, { withFileTypes: true }).filter(
-      (entry) => entry.isDirectory() && existsSync(resolve(parentDir, entry.name, "package.json"))
-    ).map((entry) => `${parent}/${entry.name}`);
-  });
-  return [...new Set(directories)].map((directory) => {
-    const file = resolve(root, directory, "package.json");
-    const manifest = JSON.parse(
-      readFileSync(file, "utf8")
-    );
-    return { directory, file, manifest };
-  }).filter(
-    (pkg) => typeof pkg.manifest.name === "string" && typeof pkg.manifest.version === "string"
-  );
-}
-function packageInfo(root, selector) {
-  const normalized = selector?.replace(/^\.\//, "");
-  if (normalized === "." || normalized === "") {
-    const file = resolve(root, "package.json");
-    const manifest = JSON.parse(
-      readFileSync(file, "utf8")
-    );
-    if (typeof manifest.name !== "string" || typeof manifest.version !== "string") {
-      throw new Error("Root package.json must define name and version.");
-    }
-    return {
-      directory: ".",
-      file,
-      manifest
-    };
-  }
-  if (normalized === ".." || normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) {
-    throw new Error(
-      `Package selector must identify a workspace package: ${selector}`
-    );
-  }
-  const pkg = workspacePackages(root).find(
-    ({ directory, manifest }) => normalized === directory || normalized === directory.split("/").at(-1) || normalized === manifest.name
-  );
-  if (!pkg) throw new Error(`Package not found: ${selector}`);
-  return pkg;
-}
-function repositoryRoot() {
-  return execFileSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  }).trim();
-}
 const restoreSourceMode = process.argv[2] === "restore-source";
+const restoreEquivalenceMode = process.argv[2] === "restore-equivalence";
 program.name("workspace-release-identity").description(
   "Resolve canonical workspace package release identity and historical restore sources."
 );
@@ -3635,6 +3794,38 @@ if (restoreSourceMode) {
           `Resolved kind: ${resolution.resolvedKind}`,
           `Value: ${resolution.value}`,
           `Commit: ${resolution.commit}`,
+          ""
+        ].join("\n")
+      );
+    }
+  });
+  await program.parseAsync([
+    process.argv[0],
+    process.argv[1],
+    ...process.argv.slice(3)
+  ]);
+} else if (restoreEquivalenceMode) {
+  program.addArgument(new Argument("<package>", "Workspace package selector")).requiredOption("--commit <sha>", "Candidate historical commit").requiredOption("--registry <url>", "Registry containing the published package").option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
+    const result = verifyRestoreArtifactEquivalence(
+      repositoryRoot(),
+      selector,
+      options.commit,
+      options.registry
+    );
+    if (options.json) process.stdout.write(JSON.stringify(result));
+    else if (options.prettyJson)
+      process.stdout.write(`${JSON.stringify(result, null, 2)}
+`);
+    else {
+      process.stdout.write(
+        [
+          `Package: ${result.packageName}@${result.version}`,
+          `Commit: ${result.commit}`,
+          `Registry: ${result.registry}`,
+          `Equivalent: ${result.equivalent}`,
+          `Published integrity: ${result.publishedIntegrity}`,
+          `Candidate integrity: ${result.candidateIntegrity}`,
+          ...result.differences.map((difference) => `Difference: ${difference}`),
           ""
         ].join("\n")
       );
