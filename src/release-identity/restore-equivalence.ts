@@ -7,6 +7,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
@@ -96,26 +97,60 @@ function downloadPublishedPackage(
   registry: string,
   destination: string,
 ): string {
-  const result = JSON.parse(
-    run("npm", [
-      "pack",
-      `${name}@${version}`,
-      "--json",
-      "--registry",
-      registry,
-      "--pack-destination",
-      destination,
-    ]),
-  ) as Array<{ filename?: string }>;
+  const registryUrl = new URL(registry);
+  const npmrcDirectory = mkdtempSync(
+    join(tmpdir(), "workspace-restore-registry-"),
+  );
+  const npmrc = join(npmrcDirectory, "npmrc");
+  const token =
+    registryUrl.hostname === "npm.pkg.github.com"
+      ? process.env.GH_TOKEN ??
+        process.env.NODE_AUTH_TOKEN ??
+        process.env._GITHUB_TOKEN
+      : process.env.NODE_AUTH_TOKEN;
 
-  const filename = result[0]?.filename;
-  if (!filename) {
-    throw new Error(
-      `Unable to download published package ${name}@${version} from ${registry}.`,
-    );
+  const config = [`registry=${registry}`];
+
+  if (token) {
+    config.push(`//${registryUrl.host}/:_authToken=${token}`);
   }
 
-  return resolve(destination, filename);
+  writeFileSync(npmrc, config.concat("").join("\n"));
+
+  try {
+    const result = JSON.parse(
+      run(
+        "npm",
+        [
+          "pack",
+          `${name}@${version}`,
+          "--json",
+          "--registry",
+          registry,
+          "--pack-destination",
+          destination,
+        ],
+        {
+          env: {
+            ...process.env,
+            NPM_CONFIG_USERCONFIG: npmrc,
+            npm_config_userconfig: npmrc,
+          },
+        },
+      ),
+    ) as Array<{ filename?: string }>;
+
+    const filename = result[0]?.filename;
+    if (!filename) {
+      throw new Error(
+        `Unable to download published package ${name}@${version} from ${registry}.`,
+      );
+    }
+
+    return resolve(destination, filename);
+  } finally {
+    rmSync(npmrcDirectory, { recursive: true, force: true });
+  }
 }
 
 function extractPackage(tarball: string, destination: string): string {
