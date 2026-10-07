@@ -18,10 +18,10 @@ Supported npm version increments are `major`, `minor`, `patch`, `premajor`, `pre
 To release the version already stored in the package manifest:
 
 ```sh
-workspace-release css-expand-collapse --mode=package-json
+workspace-release css-expand-collapse --mode=package-version
 ```
 
-`package-json` does not run `npm version` and does not create a release-only version change. It creates the package-scoped tag, such as `packages/css-expand-collapse@1.0.0`, at the current `HEAD`.
+`package-version` does not run `npm version` and does not create a release-only version change. It creates the package-scoped tag, such as `packages/css-expand-collapse@1.0.0`, at the current `HEAD`.
 
 The command requires a clean Git working tree. Bump and exact modes run `npm version` with npm Git tagging disabled, update package release files, create the release commit, and create the package-scoped Git tag.
 
