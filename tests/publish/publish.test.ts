@@ -388,14 +388,8 @@ test("registry npm environment overrides inherited setup-node userconfig", () =>
       "/tmp/workspace-publish/npmrc",
     );
 
-    assert.equal(
-      env.NPM_CONFIG_USERCONFIG,
-      "/tmp/workspace-publish/npmrc",
-    );
-    assert.equal(
-      env.npm_config_userconfig,
-      "/tmp/workspace-publish/npmrc",
-    );
+    assert.equal(env.NPM_CONFIG_USERCONFIG, "/tmp/workspace-publish/npmrc");
+    assert.equal(env.npm_config_userconfig, "/tmp/workspace-publish/npmrc");
     assert.equal(env.NODE_AUTH_TOKEN, "npm-token");
   } finally {
     if (previousUpperUserconfig === undefined)
