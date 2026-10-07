@@ -13,11 +13,14 @@ Use the commands directly in a repository, or compose them into your own local s
 
 Install the package in the repository where you want to use the tools:
 
+### Npm registry
+
 ```sh
 npm install --save-dev @moyarich/workspace-tools
 ```
+### Github registry
 
-> `@moyarich/workspace-tools` is published to GitHub Packages. Configure npm authentication for the `@moyarich` scope when installing from the registry.
+> `@moyarich/workspace-tools` is published as a GitHub Package. Configure npm authentication for the `@moyarich` scope when installing from the registry.
 
 Create or update `.npmrc`:
 
@@ -27,14 +30,6 @@ Create or update `.npmrc`:
 ```
 
 Set `GITHUB_TOKEN` to a GitHub token with permission to read packages before installing.
-
-## Usage
-
-Run commands through `npm exec` or `npx` :
-
-```sh
-npm exec -- discover-packages --workspaces --include-root-package
-```
 
 ---
 
@@ -50,11 +45,15 @@ npm exec -- discover-packages --workspaces --include-root-package
 | Publishing            | `workspace-publish`          | Validate package artifacts and publish to GitHub Packages, npm, or both.                               |
 | Issue dependencies    | `issue-dependency-tree`      | Render native GitHub issue dependency relationships as a tree or JSON.                                 |
 
-## Quick start
+---
 
-### Discover workspace packages
+## Usage
 
-Discover packages from npm workspace patterns and include the repository root:
+Run commands through `npm exec` or `npx` :
+
+### Discover packages
+
+Discover workspace packages from npm workspace patterns and include the repository root:
 
 ```sh
 npm exec -- discover-packages --workspaces --include-root-package
@@ -68,9 +67,9 @@ npm exec -- discover-packages --workspaces --include-root-package --json
 
 Package discovery can also filter to private packages, publishable packages, or packages that define test/build scripts.
 
-### Check workspace dependencies
+### Workspace dependency Check
 
-Check one package:
+Check workspace dependencies one package:
 
 ```sh
 npm exec -- workspace-dependency-check .
@@ -158,7 +157,7 @@ Or select roots interactively with `fzf`:
 npm exec -- issue-dependency-tree --interactive
 ```
 
-## Command help
+## Command --help
 
 Every CLI exposes its supported arguments and options through `--help`:
 
@@ -178,7 +177,7 @@ Copyable examples live in [`examples/`](./examples), including package discovery
 
 User documentation lives in [`docs/`](./docs). Development-only information belongs under [`docs/04-development/`](./docs/04-development).
 
-## Reusable GitHub workflows
+## Where this is used
 
 This package contains the CLI tooling. Public reusable GitHub workflows and standalone Actions are maintained separately in [`moyarich/reusable-workflows`](https://github.com/moyarich/reusable-workflows).
 
