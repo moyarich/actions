@@ -76,21 +76,21 @@ function packPackage(
 ): string {
   const pkg = packageInfo(root, selector);
 
-  const buildArgs =
-    pkg.directory === "."
-      ? ["run", "build", "--if-present"]
-      : ["run", "build", "--workspace", pkg.manifest.name, "--if-present"];
-
-  run("npm", buildArgs, { cwd: root, capture: false });
-
   const packArgs =
     pkg.directory === "."
-      ? ["pack", "--json", "--pack-destination", destination]
+      ? [
+          "pack",
+          "--json",
+          "--ignore-scripts",
+          "--pack-destination",
+          destination,
+        ]
       : [
           "pack",
           "--workspace",
           pkg.manifest.name,
           "--json",
+          "--ignore-scripts",
           "--pack-destination",
           destination,
         ];
@@ -260,11 +260,6 @@ export function verifyRestoreArtifactEquivalence(
   try {
     run("git", ["worktree", "add", "--detach", candidateRoot, commit], {
       cwd: repositoryRoot,
-    });
-
-    run("npm", ["ci", "--ignore-scripts"], {
-      cwd: candidateRoot,
-      capture: false,
     });
 
     mkdirSync(candidatePack, { recursive: true });
