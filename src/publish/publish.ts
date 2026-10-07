@@ -135,6 +135,15 @@ function registryConfig(registry: Registry): RegistryConfig {
   }
 }
 
+export function registryNpmEnvironment(
+  config: RegistryConfig,
+  npmrc: string,
+): NodeJS.ProcessEnv {
+  const env = registryNpmEnvironment(config, npmrc);
+
+  return env;
+}
+
 /**
  * Expand a registry selection into individual publishing destinations.
  *
@@ -738,12 +747,7 @@ function publishOne(
     ].join("\n"),
   );
 
-  const env = {
-    ...process.env,
-    NODE_AUTH_TOKEN: config.token,
-    NPM_CONFIG_USERCONFIG: npmrc,
-    npm_config_userconfig: npmrc,
-  };
+  const env = registryNpmEnvironment(config, npmrc);
 
   try {
     if (registry === "github") {
