@@ -24,6 +24,11 @@ on:
         options:
           - package-json
           - exact
+      release-commit:
+        description: Recovery only — exact commit to restore when the canonical tag is already missing
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Preview the full reset/rebuild without mutating the release, tag, or repository
         required: true
@@ -51,6 +56,8 @@ jobs:
       release-query: ${{ steps.package.outputs.release-query }}
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
+      release-commit: ${{ steps.package.outputs.release-commit }}
+      tag-existed: ${{ steps.package.outputs.tag-existed }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -66,6 +73,7 @@ jobs:
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
+          RECOVERY_COMMIT: ${{ inputs.release-commit }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -114,6 +122,48 @@ jobs:
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
 
+          TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+          TAG_EXISTED=false
+          if [ -n "$TAG_COMMIT" ]; then
+            TAG_EXISTED=true
+          fi
+
+          if [ -n "$TAG_COMMIT" ] && [ -n "$RECOVERY_COMMIT" ] && [ "$TAG_COMMIT" != "$RECOVERY_COMMIT" ]; then
+            echo "::error::Recovery commit does not match the existing canonical tag."
+            echo "::error::Tag commit:      $TAG_COMMIT"
+            echo "::error::Recovery commit: $RECOVERY_COMMIT"
+            exit 1
+          fi
+
+          RELEASE_COMMIT="${TAG_COMMIT:-$RECOVERY_COMMIT}"
+
+          if [ -z "$RELEASE_COMMIT" ]; then
+            echo "::error::Canonical tag $RELEASE_TAG is already missing, so Reset Release cannot safely infer the release commit."
+            echo "::error::Provide the exact original commit with the release-commit input to perform an explicit recovery."
+            exit 1
+          fi
+
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Release commit does not exist in repository history: $RELEASE_COMMIT"
+            exit 1
+          fi
+
+          MANIFEST_AT_COMMIT="$(git show "${RELEASE_COMMIT}:${MANIFEST}" 2>/dev/null || true)"
+          if [ -z "$MANIFEST_AT_COMMIT" ]; then
+            echo "::error::Package manifest $MANIFEST does not exist at release commit $RELEASE_COMMIT."
+            exit 1
+          fi
+
+          COMMIT_PACKAGE_NAME="$(jq -r '.name // empty' <<< "$MANIFEST_AT_COMMIT")"
+          COMMIT_PACKAGE_VERSION="$(jq -r '.version // empty' <<< "$MANIFEST_AT_COMMIT")"
+
+          if [ "$COMMIT_PACKAGE_NAME" != "$PACKAGE_NAME" ] || [ "$COMMIT_PACKAGE_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Release commit does not match the selected package identity."
+            echo "::error::Expected: $PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "::error::Commit:   $COMMIT_PACKAGE_NAME@$COMMIT_PACKAGE_VERSION"
+            exit 1
+          fi
+
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
               jq -c --arg tag "$RELEASE_TAG" '
@@ -155,6 +205,8 @@ jobs:
             echo "release-query=$RELEASE_QUERY"
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
+            echo "release-commit=$RELEASE_COMMIT"
+            echo "tag-existed=$TAG_EXISTED"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
@@ -171,6 +223,8 @@ jobs:
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Release lookup | `%s` (%s) |\n' "$RELEASE_QUERY" "${{ inputs.release-match }}"
             printf '| Release name | `%s` |\n' "$RELEASE_NAME"
+            printf '| Release commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Canonical tag existed | **%s** |\n' "$TAG_EXISTED"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
@@ -186,12 +240,91 @@ jobs:
       tag: ${{ needs.resolve.outputs.release-query }}
       dry-run: ${{ inputs.dry-run }}
 
-  create-draft:
-    name: "stage: Create release draft"
+  restore-tag:
+    name: "stage: Restore canonical tag"
     needs:
       - resolve
       - delete-release
     if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release commit
+        env:
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.release-commit }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Captured release commit is unavailable: $RELEASE_COMMIT"
+            exit 1
+          fi
+
+          printf 'Restoring `%s` to immutable release commit `%s`.\n' "$RELEASE_TAG" "$RELEASE_COMMIT"
+
+      - name: Restore canonical tag
+        if: ${{ inputs.dry-run == false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.release-commit }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
+
+          EXISTING_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+          if [ -n "$EXISTING_COMMIT" ]; then
+            if [ "$EXISTING_COMMIT" != "$RELEASE_COMMIT" ]; then
+              echo "::error::Canonical tag already exists at a different commit and will not be moved."
+              echo "::error::Expected: $RELEASE_COMMIT"
+              echo "::error::Actual:   $EXISTING_COMMIT"
+              exit 1
+            fi
+
+            echo "Canonical tag already exists at the captured release commit."
+            exit 0
+          fi
+
+          git tag "$RELEASE_TAG" "$RELEASE_COMMIT"
+          git push origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+      - name: Tag restoration summary
+        if: ${{ always() }}
+        env:
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.release-commit }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+        shell: bash
+        run: |
+          {
+            echo "## Canonical tag restoration"
+            echo
+            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Commit | `%s` |\n' "$RELEASE_COMMIT"
+            echo "| Dry run | **${{ inputs.dry-run }}** |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  create-draft:
+    name: "stage: Create release draft"
+    needs:
+      - resolve
+      - restore-tag
+    if: ${{ needs.resolve.result == 'success' && needs.restore-tag.result == 'success' }}
     permissions:
       contents: write
       pull-requests: read
@@ -211,33 +344,13 @@ jobs:
       seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
       dry-run: ${{ inputs.dry-run }}
 
-  release:
-    name: "stage: Perform release"
-    needs:
-      - resolve
-      - create-draft
-    if: ${{ needs.resolve.result == 'success' && needs.create-draft.result == 'success' }}
-    permissions:
-      contents: write
-      packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
-    with:
-      target-branch: ${{ inputs.target-branch }}
-      package: ${{ inputs.package }}
-      version-mode: package-json
-      version-bump: patch
-      exact-version: ""
-      dry-run: ${{ inputs.dry-run }}
-      node-version: "24"
-      workspace-tools-source: caller
-
   summary:
     name: "job: Reset summary"
     needs:
       - resolve
       - delete-release
+      - restore-tag
       - create-draft
-      - release
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -253,26 +366,27 @@ jobs:
             echo "| --- | --- |"
             echo "| Resolve package | **${{ needs.resolve.result }}** |"
             echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
+            echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
             echo "| Create release draft | **${{ needs.create-draft.result }}** |"
-            echo "| Perform release | **${{ needs.release.result }}** |"
             echo
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            printf 'Release commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             printf 'Release lookup: `%s` (%s)\n\n' "${{ needs.resolve.outputs.release-query }}" "${{ inputs.release-match }}"
             printf 'Backed up release ID: `%s`\n\n' "${{ needs.resolve.outputs.backup-release-id || 'none' }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to reset and rebuild the release."
+              echo "> Preview only. The canonical tag commit is preserved and no release metadata is mutated."
             else
-              echo "> Reset/rebuild completed. The release is ready for the manual Publish workflow."
+              echo "> Reset/rebuild completed. The canonical tag was restored to its original commit and the release draft was rebuilt."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.resolve.result }}" != "success" ] ||
              [ "${{ needs.delete-release.result }}" != "success" ] ||
-             [ "${{ needs.create-draft.result }}" != "success" ] ||
-             [ "${{ needs.release.result }}" != "success" ]; then
+             [ "${{ needs.restore-tag.result }}" != "success" ] ||
+             [ "${{ needs.create-draft.result }}" != "success" ]; then
             exit 1
           fi
