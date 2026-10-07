@@ -1,0 +1,293 @@
+name: Restore Release
+
+run-name: >-
+  Restore release · ${{ inputs.package }} · ${{ inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package selector
+        required: true
+        default: "."
+        type: string
+      target-branch:
+        description: Branch used to resolve the package path and changelog
+        required: true
+        default: main
+        type: string
+      release-commit:
+        description: Exact historical commit to restore
+        required: true
+        type: string
+      dry-run:
+        description: Preview recovery without mutating the release or tag
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: restore-release-${{ github.repository }}-${{ inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: "job: Resolve recovery target"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      package-name: ${{ steps.package.outputs.name }}
+      package-version: ${{ steps.package.outputs.package-version }}
+      package-directory: ${{ steps.package.outputs.directory }}
+      release-tag: ${{ steps.package.outputs.tag }}
+      release-name: ${{ steps.package.outputs.release-name }}
+      changelog-path: ${{ steps.package.outputs.changelog }}
+      tag-prefix: ${{ steps.package.outputs.tag-prefix }}
+      release-commit: ${{ steps.package.outputs.release-commit }}
+      backup-release-id: ${{ steps.package.outputs.backup-release-id }}
+      backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
+      backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve historical package identity
+        id: package
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package }}
+          RELEASE_COMMIT: ${{ inputs.release-commit }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Release commit does not exist: $RELEASE_COMMIT"
+            exit 1
+          fi
+
+          if [ "$PACKAGE_SELECTOR" = "." ]; then
+            PACKAGE_DIRECTORY="."
+            MANIFEST="package.json"
+          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+            PACKAGE_DIRECTORY="${PACKAGE_SELECTOR%/}"
+            MANIFEST="$PACKAGE_DIRECTORY/package.json"
+          else
+            MANIFEST="$(
+              find . -name package.json -not -path './node_modules/*' -print0 |
+                xargs -0 -r jq -r --arg selector "$PACKAGE_SELECTOR" '
+                  select(.name == $selector) | input_filename
+                ' |
+                head -n 1
+            )"
+
+            if [ -z "$MANIFEST" ]; then
+              echo "::error::Unable to resolve package selector: $PACKAGE_SELECTOR"
+              exit 1
+            fi
+
+            MANIFEST="${MANIFEST#./}"
+            PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
+          fi
+
+          MANIFEST_AT_COMMIT="$(git show "${RELEASE_COMMIT}:${MANIFEST}" 2>/dev/null || true)"
+          if [ -z "$MANIFEST_AT_COMMIT" ]; then
+            echo "::error::Package manifest $MANIFEST does not exist at $RELEASE_COMMIT."
+            exit 1
+          fi
+
+          PACKAGE_NAME="$(jq -r '.name // empty' <<< "$MANIFEST_AT_COMMIT")"
+          PACKAGE_VERSION="$(jq -r '.version // empty' <<< "$MANIFEST_AT_COMMIT")"
+
+          if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
+            echo "::error::Historical package name/version is missing from $MANIFEST."
+            exit 1
+          fi
+
+          if [ "$PACKAGE_DIRECTORY" = "." ]; then
+            CHANGELOG_PATH="CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_NAME@"
+          else
+            CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_DIRECTORY@"
+          fi
+
+          RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
+          RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
+
+          BACKUP_RELEASE="$(
+            gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
+              jq -c --arg tag "$RELEASE_TAG" '
+                [.[][] | select(.tag_name == $tag)]
+                | sort_by(.updated_at // .created_at)
+                | last // empty
+              '
+          )"
+
+          BACKUP_RELEASE_ID=""
+          BACKUP_BODY_BASE64=""
+          BACKUP_UPDATED_AT=""
+
+          if [ -n "$BACKUP_RELEASE" ]; then
+            BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
+            BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
+            BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
+          fi
+
+          {
+            echo "name=$PACKAGE_NAME"
+            echo "package-version=$PACKAGE_VERSION"
+            echo "directory=$PACKAGE_DIRECTORY"
+            echo "tag=$RELEASE_TAG"
+            echo "release-name=$RELEASE_NAME"
+            echo "changelog=$CHANGELOG_PATH"
+            echo "tag-prefix=$TAG_PREFIX"
+            echo "release-commit=$RELEASE_COMMIT"
+            echo "backup-release-id=$BACKUP_RELEASE_ID"
+            echo "backup-body-base64=$BACKUP_BODY_BASE64"
+            echo "backup-updated-at=$BACKUP_UPDATED_AT"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Restore release"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package | `%s` |\n' "$PACKAGE_NAME"
+            printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
+            printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Restore commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
+            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  delete-release:
+    name: "stage: Delete current release + tag"
+    needs: resolve
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
+    with:
+      tag: ${{ needs.resolve.outputs.release-tag }}
+      dry-run: ${{ inputs.dry-run }}
+
+  restore-tag:
+    name: "stage: Restore canonical tag"
+    needs:
+      - resolve
+      - delete-release
+    if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Restore canonical tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.release-commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Recovery commit is unavailable: $RELEASE_COMMIT"
+            exit 1
+          fi
+
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "Would restore $RELEASE_TAG to $RELEASE_COMMIT."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
+
+          git tag -f "$RELEASE_TAG" "$RELEASE_COMMIT"
+          git push --force origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+  create-draft:
+    name: "stage: Restore release draft"
+    needs:
+      - resolve
+      - restore-tag
+    if: ${{ needs.resolve.result == 'success' && needs.restore-tag.result == 'success' }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      version: ${{ needs.resolve.outputs.package-version }}
+      initial-version: "0.1.0"
+      release-tag: ${{ needs.resolve.outputs.release-tag }}
+      tag-prefix: ${{ needs.resolve.outputs.tag-prefix }}
+      package-name: ${{ needs.resolve.outputs.package-name }}
+      package-directory: ${{ needs.resolve.outputs.package-directory }}
+      release-name: ${{ needs.resolve.outputs.release-name }}
+      changelog-path: ${{ needs.resolve.outputs.changelog-path }}
+      template-path: .github/release-drafter-package-template.yml
+      seed-body-base64: ${{ needs.resolve.outputs.backup-body-base64 }}
+      seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
+      dry-run: ${{ inputs.dry-run }}
+
+  summary:
+    name: "job: Restore summary"
+    needs:
+      - resolve
+      - delete-release
+      - restore-tag
+      - create-draft
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Restore result
+        shell: bash
+        run: |
+          {
+            echo "# Release restore result"
+            echo
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| Resolve historical release | **${{ needs.resolve.result }}** |"
+            echo "| Delete current release + tag | **${{ needs.delete-release.result }}** |"
+            echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
+            echo "| Restore release draft | **${{ needs.create-draft.result }}** |"
+            echo
+            printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
+            printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
+            printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            printf 'Restored commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
+            echo "Dry run: **${{ inputs.dry-run }}**"
+            echo
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "> Preview only. Re-run with `dry-run=false` to restore this historical release identity."
+            else
+              echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ needs.resolve.result }}" != "success" ] ||
+             [ "${{ needs.delete-release.result }}" != "success" ] ||
+             [ "${{ needs.restore-tag.result }}" != "success" ] ||
+             [ "${{ needs.create-draft.result }}" != "success" ]; then
+            exit 1
+          fi
