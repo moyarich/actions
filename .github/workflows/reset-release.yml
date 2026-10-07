@@ -19,7 +19,7 @@ on:
       release-match:
         description: Find the release by package.json version or require the exact canonical tag
         required: true
-        default: version
+        default: package-version
         type: choice
         options:
           - package-version
@@ -134,21 +134,21 @@ jobs:
           fi
 
           case "${{ inputs.release-match }}" in
-            version)
+            package-version)
               RELEASE_QUERY="$PACKAGE_VERSION"
               ;;
             exact)
               RELEASE_QUERY="$RELEASE_TAG"
               ;;
             *)
-              echo "::error::release-match must be version or exact."
+              echo "::error::release-match must be package-version or exact."
               exit 1
               ;;
           esac
 
           {
             echo "name=$PACKAGE_NAME"
-            echo "version=$PACKAGE_VERSION"
+            echo "package-version=$PACKAGE_VERSION"
             echo "directory=$PACKAGE_DIRECTORY"
             echo "tag=$RELEASE_TAG"
             echo "release-name=$RELEASE_NAME"
