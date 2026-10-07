@@ -224,7 +224,7 @@ jobs:
     with:
       target-branch: ${{ inputs.target-branch }}
       package: ${{ inputs.package }}
-      version-mode: package-version
+      version-mode: package-json
       version-bump: patch
       exact-version: ""
       dry-run: ${{ inputs.dry-run }}
