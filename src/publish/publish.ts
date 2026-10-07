@@ -741,6 +741,7 @@ function publishOne(
   const env = {
     ...process.env,
     NODE_AUTH_TOKEN: config.token,
+    NPM_CONFIG_USERCONFIG: npmrc,
     npm_config_userconfig: npmrc,
   };
 
