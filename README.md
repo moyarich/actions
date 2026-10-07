@@ -16,6 +16,7 @@ Install the package in the repository where you want to use the tools:
 ```sh
 npm install --save-dev @moyarich/workspace-tools
 ```
+
 > `@moyarich/workspace-tools` is published to GitHub Packages. Configure npm authentication for the `@moyarich` scope when installing from the registry.
 
 Create or update `.npmrc`:
