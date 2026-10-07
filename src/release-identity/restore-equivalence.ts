@@ -69,6 +69,30 @@ function packageSelectorPath(
   };
 }
 
+export function restoreCandidatePackArgs(
+  directory: string,
+  packageName: string,
+  destination: string,
+): string[] {
+  return directory === "."
+    ? [
+        "pack",
+        "--json",
+        "--ignore-scripts",
+        "--pack-destination",
+        destination,
+      ]
+    : [
+        "pack",
+        "--workspace",
+        packageName,
+        "--json",
+        "--ignore-scripts",
+        "--pack-destination",
+        destination,
+      ];
+}
+
 function packPackage(
   root: string,
   selector: string,
@@ -76,24 +100,11 @@ function packPackage(
 ): string {
   const pkg = packageInfo(root, selector);
 
-  const packArgs =
-    pkg.directory === "."
-      ? [
-          "pack",
-          "--json",
-          "--ignore-scripts",
-          "--pack-destination",
-          destination,
-        ]
-      : [
-          "pack",
-          "--workspace",
-          pkg.manifest.name,
-          "--json",
-          "--ignore-scripts",
-          "--pack-destination",
-          destination,
-        ];
+  const packArgs = restoreCandidatePackArgs(
+    pkg.directory,
+    pkg.manifest.name,
+    destination,
+  );
 
   const result = JSON.parse(run("npm", packArgs, { cwd: root })) as Array<{
     filename?: string;
