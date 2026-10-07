@@ -36,7 +36,6 @@ npm exec -- workspace-release-identity restore-source \
 
 The resolver normalizes every supported form to the exact full Git commit SHA before Restore Release uses it.
 
-
 Verify a candidate commit against one or more already-published registry copies:
 
 ```sh
