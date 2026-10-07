@@ -34,15 +34,15 @@ Run any command through `npm exec`:
 npm exec -- <command> [arguments] [options]
 ```
 
-| Command | Use it to… | Example |
-| --- | --- | --- |
-| `discover-packages` | Find packages in a repository or workspace | `npm exec -- discover-packages --workspaces --include-root-package` |
-| `workspace-dependency-check` | Check dependency versions across a workspace | `npm exec -- workspace-dependency-check --all` |
-| `workspace-package-lock` | Review or regenerate the root `package-lock.json` | `npm exec -- workspace-package-lock --dry-run` |
-| `workspace-release` | Decide which version to release | `npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run` |
-| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity . --pretty-json` |
-| `workspace-publish` | Validate and publish a package | `npm exec -- workspace-publish . --dry-run` |
-| `issue-dependency-tree` | See which GitHub issues block other issues | `npm exec -- issue-dependency-tree` |
+| Command                      | Use it to…                                            | Example                                                                     |
+| ---------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| `discover-packages`          | Find packages in a repository or workspace            | `npm exec -- discover-packages --workspaces --include-root-package`         |
+| `workspace-dependency-check` | Check dependency versions across a workspace          | `npm exec -- workspace-dependency-check --all`                              |
+| `workspace-package-lock`     | Review or regenerate the root `package-lock.json`     | `npm exec -- workspace-package-lock --dry-run`                              |
+| `workspace-release`          | Decide which version to release                       | `npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run` |
+| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity . --pretty-json`                    |
+| `workspace-publish`          | Validate and publish a package                        | `npm exec -- workspace-publish . --dry-run`                                 |
+| `issue-dependency-tree`      | See which GitHub issues block other issues            | `npm exec -- issue-dependency-tree`                                         |
 
 Every command documents its full arguments and options through `--help`:
 
@@ -118,11 +118,11 @@ Example output:
 
 Three commands handle release work, each with one responsibility:
 
-| Command | Answers |
-| --- | --- |
-| `workspace-release` | What version are we releasing? |
-| `workspace-release-identity` | What should this release be called? |
-| `workspace-publish` | Is the package ready, and where should it be published? |
+| Command                      | Answers                                                 |
+| ---------------------------- | ------------------------------------------------------- |
+| `workspace-release`          | What version are we releasing?                          |
+| `workspace-release-identity` | What should this release be called?                     |
+| `workspace-publish`          | Is the package ready, and where should it be published? |
 
 A typical flow:
 
@@ -143,11 +143,11 @@ Remove `--dry-run` when you are ready to perform the operation.
 
 `workspace-release` determines or prepares the version being released, using one of three modes:
 
-| Mode | Purpose |
-| --- | --- |
+| Mode           | Purpose                                                           |
+| -------------- | ----------------------------------------------------------------- |
 | `package-json` | Use the version already declared in the package's `package.json`. |
-| `bump` | Resolve a semantic increment: `patch`, `minor`, or `major`. |
-| `exact` | Release an explicitly supplied version. |
+| `bump`         | Resolve a semantic increment: `patch`, `minor`, or `major`.       |
+| `exact`        | Release an explicitly supplied version.                           |
 
 ```sh
 # Use the package.json version
