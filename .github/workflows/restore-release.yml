@@ -388,7 +388,7 @@ jobs:
             echo "| GitHub Packages | **${{ needs.resolve.outputs.github-registry-state || 'unknown' }}** |"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to restore this historical release identity."
+              echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
               echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
             fi
