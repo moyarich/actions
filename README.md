@@ -1,8 +1,8 @@
 # @moyarich/workspace-tools
 
-Command-line tools for working with Node.js and npm workspaces: discover packages, validate dependency versions, maintain the root lockfile, prepare releases, publish packages, and inspect GitHub issue dependencies.
+Command-line tools for Node.js and npm workspaces: discover packages, validate dependency versions, maintain the root lockfile, prepare releases, publish packages, and inspect GitHub issue dependencies.
 
-Use the commands directly in a repository, or compose them into your own local scripts and CI workflows.
+Run the commands directly in a repository with `npm exec`, or compose them into scripts and CI workflows.
 
 ## Requirements
 
@@ -11,176 +11,190 @@ Use the commands directly in a repository, or compose them into your own local s
 
 ## Install
 
-Install the package in the repository where you want to use the tools:
-
-### Npm registry
-
 ```sh
 npm install --save-dev @moyarich/workspace-tools
 ```
 
-### Github registry
+### GitHub Packages
 
-> `@moyarich/workspace-tools` is published as a GitHub Package. Configure npm authentication for the `@moyarich` scope when installing from the registry.
-
-Create or update `.npmrc`:
+The package is also published to GitHub Packages. To install from there, configure npm authentication for the `@moyarich` scope in `.npmrc`:
 
 ```ini
-@moyarich:registry=https://npm.pkg.github.com
+@moyarich:registry=https://npm.pkg.github.com/
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
 Set `GITHUB_TOKEN` to a GitHub token with permission to read packages before installing.
 
----
-
-## What it provides
-
-| Capability            | Command                      | Use it to                                                                                              |
-| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Package discovery     | `discover-packages`          | Discover root and workspace packages and expose normalized package metadata.                           |
-| Dependency validation | `workspace-dependency-check` | Find outdated external dependencies and mismatched internal workspace versions.                        |
-| Lockfile maintenance  | `workspace-package-lock`     | Review, recreate, or commit the root `package-lock.json`.                                              |
-| Release preparation   | `workspace-release`          | Preview or prepare a package release using an exact version, semantic bump, or `package.json` version. |
-| Release identity      | `workspace-release-identity` | Resolve the canonical package Git tag and GitHub Release name.                                         |
-| Publishing            | `workspace-publish`          | Validate package artifacts and publish to GitHub Packages, npm, or both.                               |
-| Issue dependencies    | `issue-dependency-tree`      | Render native GitHub issue dependency relationships as a tree or JSON.                                 |
-
----
-
 ## Usage
 
-Run commands through `npm exec` or `npx` :
+Run any command through `npm exec`:
+
+```sh
+npm exec -- <command> [arguments] [options]
+```
+
+| Command | Use it to… | Example |
+| --- | --- | --- |
+| `discover-packages` | Find packages in a repository or workspace | `npm exec -- discover-packages --workspaces --include-root-package` |
+| `workspace-dependency-check` | Check dependency versions across a workspace | `npm exec -- workspace-dependency-check --all` |
+| `workspace-package-lock` | Review or regenerate the root `package-lock.json` | `npm exec -- workspace-package-lock --dry-run` |
+| `workspace-release` | Decide which version to release | `npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run` |
+| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity . --pretty-json` |
+| `workspace-publish` | Validate and publish a package | `npm exec -- workspace-publish . --dry-run` |
+| `issue-dependency-tree` | See which GitHub issues block other issues | `npm exec -- issue-dependency-tree` |
+
+Every command documents its full arguments and options through `--help`:
+
+```sh
+npm exec -- workspace-release --help
+```
+
+## Commands
 
 ### Discover packages
 
-Discover workspace packages from npm workspace patterns and include the repository root:
+`discover-packages` finds the root and workspace packages in a repository and normalizes their metadata. It understands npm workspace patterns.
 
 ```sh
+# List all workspace packages, including the root
 npm exec -- discover-packages --workspaces --include-root-package
-```
 
-Use JSON when another tool or workflow needs to consume the result:
-
-```sh
+# Output JSON for scripts and CI jobs
 npm exec -- discover-packages --workspaces --include-root-package --json
 ```
 
-Package discovery can also filter to private packages, publishable packages, or packages that define test/build scripts.
+It can also filter packages by characteristics such as private, publishable, or having test or build scripts.
 
-### Workspace dependency Check
+### Check workspace dependencies
 
-Check workspace dependencies one package:
+`workspace-dependency-check` finds outdated external dependencies and internal workspace dependencies whose declared versions don't match the workspace package version.
 
 ```sh
+# Check one package
 npm exec -- workspace-dependency-check .
-```
 
-Check every workspace package:
-
-```sh
+# Check every workspace package
 npm exec -- workspace-dependency-check --all
 ```
 
-The command checks both registry versions and internal workspace dependency consistency.
+### Maintain the root lockfile
 
-### Review the root package lock
-
-Preview the lockfile operation without keeping changes:
+`workspace-package-lock` works on the root `package-lock.json`. Depending on the options, it can inspect the lockfile, recreate it, keep the result, commit the change, and push the commit.
 
 ```sh
+# Preview what would happen
 npm exec -- workspace-package-lock --dry-run
+
+# Apply the operation
+npm exec -- workspace-package-lock
 ```
 
-Run without `--dry-run` to recreate the root lockfile when needed. The command can also commit and push the resulting `package-lock.json`.
+### Inspect GitHub issue dependencies
 
-### Preview a release
-
-Use the version already declared in `package.json`:
+`issue-dependency-tree` renders native GitHub issue dependencies as a tree or as data for other tooling.
 
 ```sh
+# Current repository
+npm exec -- issue-dependency-tree
+
+# Start from specific issues
+npm exec -- issue-dependency-tree --root 12 --root 18
+
+# Pick issues interactively (requires fzf)
+npm exec -- issue-dependency-tree --interactive
+```
+
+Example output:
+
+```text
+#12 Release package
+├── #8 Finish publishing support
+│   └── #4 Add registry configuration
+└── #10 Complete release documentation
+```
+
+## Releasing packages
+
+Three commands handle release work, each with one responsibility:
+
+| Command | Answers |
+| --- | --- |
+| `workspace-release` | What version are we releasing? |
+| `workspace-release-identity` | What should this release be called? |
+| `workspace-publish` | Is the package ready, and where should it be published? |
+
+A typical flow:
+
+```sh
+# 1. Resolve or prepare the package version
 npm exec -- workspace-release . --mode=package-json --dry-run
+
+# 2. Resolve the canonical tag and GitHub Release name
+npm exec -- workspace-release-identity . --pretty-json
+
+# 3. Validate the package artifact before publishing
+npm exec -- workspace-publish . --dry-run
 ```
 
-Preview a semantic version bump:
+Remove `--dry-run` when you are ready to perform the operation.
+
+### Prepare a release
+
+`workspace-release` determines or prepares the version being released, using one of three modes:
+
+| Mode | Purpose |
+| --- | --- |
+| `package-json` | Use the version already declared in the package's `package.json`. |
+| `bump` | Resolve a semantic increment: `patch`, `minor`, or `major`. |
+| `exact` | Release an explicitly supplied version. |
 
 ```sh
+# Use the package.json version
+npm exec -- workspace-release . --mode=package-json --dry-run
+
+# Preview a patch release
 npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run
 ```
 
-`workspace-release` supports:
-
-- `package-json` — use the package's current `package.json` version.
-- `bump` — resolve a semantic version bump such as `patch`, `minor`, or `major`.
-- `exact` — use an explicit version.
-
 ### Resolve release identity
 
-See the package name, version, canonical Git tag, and GitHub Release name:
+`workspace-release-identity` resolves the canonical package name, version, Git tag, and GitHub Release name, so release automation has one authoritative source for naming. Run it once the package and version are known.
 
 ```sh
 npm exec -- workspace-release-identity . --pretty-json
 ```
 
-For example, a package release can resolve to a tag such as:
+For example, `@moyarich/workspace-tools` version `0.1.0` resolves to the tag:
 
 ```text
 @moyarich/workspace-tools@0.1.0
 ```
 
-### Preview publishing
+### Publish a package
 
-Validate registry readiness and build the canonical package artifact without publishing:
+`workspace-publish` validates publishing readiness and publishes the canonical package artifact. A dry run builds the artifact without sending it to a registry.
 
 ```sh
 npm exec -- workspace-publish . --dry-run
 ```
 
-Publishing supports GitHub Packages, npm, or both, npm distribution tags, package access controls, saved tarball artifacts, and optionally including publishable workspace dependencies.
+Supported options include:
 
-### Inspect GitHub issue dependencies
-
-Render the dependency tree for the current repository:
-
-```sh
-npm exec -- issue-dependency-tree
-```
-
-Render specific issue roots:
-
-```sh
-npm exec -- issue-dependency-tree --root 12 --root 18
-```
-
-Or select roots interactively with `fzf`:
-
-```sh
-npm exec -- issue-dependency-tree --interactive
-```
-
-## Command --help
-
-Every CLI exposes its supported arguments and options through `--help`:
-
-```sh
-npm exec -- discover-packages --help
-npm exec -- workspace-dependency-check --help
-npm exec -- workspace-package-lock --help
-npm exec -- workspace-release --help
-npm exec -- workspace-release-identity --help
-npm exec -- workspace-publish --help
-npm exec -- issue-dependency-tree --help
-```
+- GitHub Packages, npm, or both registries
+- npm distribution tags and package access controls
+- saved tarball artifacts
+- optional inclusion of publishable workspace dependencies
 
 ## Examples and documentation
 
-Copyable examples live in [`examples/`](./examples), including package discovery, dependency checks, lockfile maintenance, releases, publishing, release identity, and issue dependency trees.
+- [`examples/`](./examples): copyable examples for every command.
+- [`docs/`](./docs): user documentation.
+- [`docs/04-development/`](./docs/04-development): development and repository-maintenance documentation.
 
-User documentation lives in [`docs/`](./docs). Development-only information belongs under [`docs/04-development/`](./docs/04-development).
+## Related repositories
 
-## Where this is used
-
-This package contains the CLI tooling. Public reusable GitHub workflows and standalone Actions are maintained separately in [`moyarich/reusable-workflows`](https://github.com/moyarich/reusable-workflows).
+- [`moyarich/reusable-workflows`](https://github.com/moyarich/reusable-workflows): reusable GitHub workflows and standalone GitHub Actions that build on these commands for CI.
 
 ## License
 
