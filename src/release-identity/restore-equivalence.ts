@@ -24,6 +24,19 @@ export interface RestoreEquivalenceResult {
   differences: string[];
 }
 
+export interface RestoreEquivalenceAttempt {
+  registry: string;
+  equivalent: boolean;
+  result?: RestoreEquivalenceResult;
+  error?: string;
+}
+
+export interface RestoreEquivalenceSummary {
+  equivalent: boolean;
+  matchedRegistry: string | null;
+  attempts: RestoreEquivalenceAttempt[];
+}
+
 function run(
   command: string,
   args: string[],
@@ -307,4 +320,57 @@ export function verifyRestoreArtifactEquivalence(
 
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
+}
+
+
+export function summarizeRestoreArtifactEquivalence(
+  attempts: RestoreEquivalenceAttempt[],
+): RestoreEquivalenceSummary {
+  const match = attempts.find((attempt) => attempt.equivalent);
+
+  return {
+    equivalent: Boolean(match),
+    matchedRegistry: match?.registry ?? null,
+    attempts,
+  };
+}
+
+export function verifyRestoreArtifactEquivalenceAny(
+  repositoryRoot: string,
+  selector: string,
+  commit: string,
+  registries: string[],
+): RestoreEquivalenceSummary {
+  if (registries.length === 0) {
+    return {
+      equivalent: true,
+      matchedRegistry: null,
+      attempts: [],
+    };
+  }
+
+  const attempts = registries.map((registry): RestoreEquivalenceAttempt => {
+    try {
+      const result = verifyRestoreArtifactEquivalence(
+        repositoryRoot,
+        selector,
+        commit,
+        registry,
+      );
+
+      return {
+        registry,
+        equivalent: result.equivalent,
+        result,
+      };
+    } catch (error) {
+      return {
+        registry,
+        equivalent: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  return summarizeRestoreArtifactEquivalence(attempts);
 }
