@@ -1,7 +1,7 @@
 name: Restore Release
 
 run-name: >-
-  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source || inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
+  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
@@ -18,11 +18,6 @@ on:
         type: string
       restore-source:
         description: Historical source — commit/tag, run:<id>, artifact:<id>, or GitHub Actions run/artifact URL
-        required: false
-        default: ""
-        type: string
-      release-commit:
-        description: Legacy exact historical commit; used only when restore-source is empty
         required: false
         default: ""
         type: string
@@ -75,7 +70,7 @@ jobs:
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
-          RESTORE_SOURCE: ${{ inputs.restore-source || inputs.release-commit }}
+          RESTORE_SOURCE: ${{ inputs.restore-source }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         shell: bash
@@ -83,7 +78,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "$RESTORE_SOURCE" ]; then
-            echo "::error::Provide restore-source (preferred) or release-commit (legacy)."
+            echo "::error::restore-source is required."
             exit 1
           fi
 
