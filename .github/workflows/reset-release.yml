@@ -19,10 +19,10 @@ on:
       release-match:
         description: Find the release by package.json version or require the exact canonical tag
         required: true
-        default: package-version
+        default: package-json
         type: choice
         options:
-          - package-version
+          - package-json
           - exact
       dry-run:
         description: Preview the full reset/rebuild without mutating the release, tag, or repository
@@ -134,14 +134,14 @@ jobs:
           fi
 
           case "${{ inputs.release-match }}" in
-            package-version)
+            package-json)
               RELEASE_QUERY="$PACKAGE_VERSION"
               ;;
             exact)
               RELEASE_QUERY="$RELEASE_TAG"
               ;;
             *)
-              echo "::error::release-match must be package-version or exact."
+              echo "::error::release-match must be package-json or exact."
               exit 1
               ;;
           esac
