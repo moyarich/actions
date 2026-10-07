@@ -65,6 +65,8 @@ jobs:
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
+      draft-seed-sha: ${{ steps.package.outputs.draft-seed-sha }}
+      suggested-seed-sha: ${{ steps.package.outputs.suggested-seed-sha }}
       configured-registry: ${{ steps.package.outputs.configured-registry }}
       npm-registry-state: ${{ steps.package.outputs.npm-registry-state }}
       github-registry-state: ${{ steps.package.outputs.github-registry-state }}
@@ -343,11 +345,18 @@ jobs:
           BACKUP_RELEASE_ID=""
           BACKUP_BODY_BASE64=""
           BACKUP_UPDATED_AT=""
+          DRAFT_SEED_SHA=""
+          SUGGESTED_SEED_SHA="$RELEASE_COMMIT"
 
           if [ -n "$BACKUP_RELEASE" ]; then
             BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
             BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
-            BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
+            BACKUP_BODY="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE")"
+            BACKUP_BODY_BASE64="$(printf '%s' "$BACKUP_BODY" | base64 -w 0)"
+            DRAFT_SEED_SHA="$(
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p' <<< "$BACKUP_BODY" |
+                head -n 1
+            )"
 
             if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
               echo "::error::Restore Release will not rewrite a published/finalized release."
@@ -373,6 +382,8 @@ jobs:
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
+            echo "draft-seed-sha=$DRAFT_SEED_SHA"
+            echo "suggested-seed-sha=$SUGGESTED_SEED_SHA"
             echo "configured-registry=$PACKAGE_REGISTRY"
             echo "npm-registry-state=$NPM_REGISTRY_STATE"
             echo "github-registry-state=$GITHUB_REGISTRY_STATE"
@@ -398,6 +409,8 @@ jobs:
             printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
             printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
+            printf '| Existing draft seed SHA | `%s` |\n' "${DRAFT_SEED_SHA:-none}"
+            printf '| Suggested manual seed SHA | `%s` |\n' "$SUGGESTED_SEED_SHA"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
             echo
@@ -538,6 +551,15 @@ jobs:
             printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
             printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
             printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
+            echo "## Draft seed marker"
+            echo
+            printf 'Existing seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.draft-seed-sha || 'none' }}"
+            printf 'Suggested manual seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.suggested-seed-sha }}"
+            if [ -n "${{ needs.resolve.outputs.draft-seed-sha }}" ] &&
+               [ "${{ needs.resolve.outputs.draft-seed-sha }}" != "${{ needs.resolve.outputs.suggested-seed-sha }}" ]; then
+              echo "> Restore preserves the existing release-draft-sync seed marker. If you want the draft baseline to align with the restored release source, manually change seed-sha to the suggested value."
+              echo
+            fi
             printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
