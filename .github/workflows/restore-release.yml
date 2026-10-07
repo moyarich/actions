@@ -139,6 +139,12 @@ jobs:
             BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
             BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
             BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
+
+            if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
+              echo "::error::Restore Release will not rewrite a published/finalized release."
+              echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
+              exit 1
+            fi
           fi
 
           {
