@@ -66,6 +66,7 @@ jobs:
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
