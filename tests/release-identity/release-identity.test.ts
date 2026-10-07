@@ -1,25 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { releaseIdentity } from "../../src/release-identity/release-identity.ts";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makePackage(directory: string, name: string, version = "0.1.0") {
-  return { directory, manifest: { name, version } };
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("releaseIdentity", () => {
   describe("nested packages", () => {
     test("creates directory-scoped tags and human-readable release names", () => {
-      const pkg = makePackage(
-        "packages/moyarich-auto-glow-md",
-        "@moyarich/auto-glow-md",
-      );
+      const pkg = {
+        directory: "packages/moyarich-auto-glow-md",
+        manifest: { name: "@moyarich/auto-glow-md", version: "0.1.0" },
+      };
 
       expect(releaseIdentity(pkg, "0.1.0")).toEqual({
         packageName: "@moyarich/auto-glow-md",
@@ -32,10 +20,10 @@ describe("releaseIdentity", () => {
     });
 
     test("normalizes a leading ./ and trailing / in the directory", () => {
-      const pkg = makePackage(
-        "./packages/workspace-tools/",
-        "@moyarich/workspace-tools",
-      );
+      const pkg = {
+        directory: "./packages/workspace-tools/",
+        manifest: { name: "@moyarich/workspace-tools", version: "0.1.0" },
+      };
 
       expect(releaseIdentity(pkg, "0.1.0")).toMatchObject({
         tagName: "packages/workspace-tools@0.1.0",
@@ -46,7 +34,10 @@ describe("releaseIdentity", () => {
 
   describe("root package", () => {
     test("uses the package name as the tag scope", () => {
-      const pkg = makePackage(".", "@moyarich/workspace-tools");
+      const pkg = {
+        directory: ".",
+        manifest: { name: "@moyarich/workspace-tools", version: "0.1.0" },
+      };
 
       expect(releaseIdentity(pkg, "0.1.0")).toEqual({
         packageName: "@moyarich/workspace-tools",
@@ -60,10 +51,10 @@ describe("releaseIdentity", () => {
   });
 
   describe("version handling", () => {
-    const pkg = makePackage(
-      "./packages/workspace-tools/",
-      "@moyarich/workspace-tools",
-    );
+    const pkg = {
+      directory: "./packages/workspace-tools/",
+      manifest: { name: "@moyarich/workspace-tools", version: "0.1.0" },
+    };
 
     test("supports prerelease versions", () => {
       expect(releaseIdentity(pkg, "2.0.0-beta.1").tagName).toBe(
