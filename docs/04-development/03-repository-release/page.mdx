@@ -133,3 +133,47 @@ The reconciliation helper appends only entries whose PR marker is not already pr
 The draft also records a seed SHA. Release Drafter uses that baseline so pull requests already represented by the initial seed are not replayed on later runs.
 
 For older drafts created before seed metadata existed, the workflow derives a migration baseline from the draft's last update time and then adds the persistent metadata without discarding the existing body.
+
+
+## Release lifecycle
+
+The package release lifecycle has four states:
+
+```text
+draft
+  ↓
+resettable canonical tag + source
+  ↓
+canonical package artifact + build provenance attestation
+  ↓
+registry publish + release-asset verification
+  ↓
+published/finalized GitHub Release
+```
+
+While the GitHub Release is a draft, `Reset Release` may intentionally move the canonical package tag to the current target-branch commit. This is how the same package version can be rebuilt from newer source before finalization.
+
+After a reset, publish never trusts an older draft `.tgz` as canonical. It rebuilds the npm package from the commit referenced by the canonical tag, creates a GitHub artifact attestation for that exact tarball, publishes that tarball to the selected registry, replaces the draft release assets, downloads the attached tarball again, verifies its SHA-256 and attestation, and only then publishes the GitHub Release draft.
+
+`Restore Release` is a separate recovery operation. It accepts an explicit historical commit and restores the canonical tag and draft to the package identity recorded at that commit.
+
+Both Reset Release and Restore Release refuse to rewrite a GitHub Release that is already published. Finalized releases require a new package version.
+
+For repositories with GitHub immutable releases enabled, publishing the prepared draft locks its tag and assets and GitHub creates the release attestation for the finalized release. Repository-level immutable release enforcement is a GitHub repository setting; the package workflow prepares and verifies the release so publication is safe to make immutable.
+
+## Missing-tag recovery
+
+A missing tag during the draft phase is recoverable without pretending that the package is a new release.
+
+For Reset Release, the current target-branch commit becomes the new canonical release commit:
+
+```text
+package.json version
+  → canonical release tag
+  → current target-branch commit
+  → rebuilt and attested .tgz
+```
+
+This repairs the failure mode where an earlier reset deleted the tag and then incorrectly invoked the normal npm release path, which rejected the version because it was already present in the package registry.
+
+Use Restore Release instead when the goal is to recover an earlier historical source state rather than consume the current target branch.
