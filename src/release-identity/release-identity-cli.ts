@@ -1,6 +1,6 @@
 import { Argument, Option, program } from "commander";
 import { releaseIdentity } from "../release-identity/release-identity.ts";
-import { verifyRestoreArtifactEquivalence } from "../release-identity/restore-equivalence.ts";
+import { verifyRestoreArtifactEquivalenceAny } from "../release-identity/restore-equivalence.ts";
 import { resolveRestoreSource } from "../release-identity/restore-source.ts";
 import { packageInfo, repositoryRoot } from "../workspace/workspace.ts";
 
@@ -56,14 +56,22 @@ if (restoreSourceMode) {
   program
     .addArgument(new Argument("<package>", "Workspace package selector"))
     .requiredOption("--commit <sha>", "Candidate historical commit")
-    .requiredOption(
-      "--registry <url>",
-      "Registry containing the published package",
+    .addOption(
+      new Option(
+        "--registry <url>",
+        "Published registry to compare; repeat for multiple registries",
+      )
+        .argParser((value, previous: string[] = []) => [...previous, value])
+        .default([]),
     )
     .option("--json", "Print compact JSON")
     .option("--pretty-json", "Print formatted JSON")
     .action((selector, options) => {
-      const result = verifyRestoreArtifactEquivalence(
+      if (!Array.isArray(options.registry) || options.registry.length === 0) {
+        throw new Error("At least one --registry <url> is required.");
+      }
+
+      const result = verifyRestoreArtifactEquivalenceAny(
         repositoryRoot(),
         selector,
         options.commit,
@@ -76,15 +84,22 @@ if (restoreSourceMode) {
       else {
         process.stdout.write(
           [
-            `Package: ${result.packageName}@${result.version}`,
-            `Commit: ${result.commit}`,
-            `Registry: ${result.registry}`,
             `Equivalent: ${result.equivalent}`,
-            `Published integrity: ${result.publishedIntegrity}`,
-            `Candidate integrity: ${result.candidateIntegrity}`,
-            ...result.differences.map(
-              (difference) => `Difference: ${difference}`,
-            ),
+            `Matched registry: ${result.matchedRegistry ?? "none"}`,
+            ...result.attempts.flatMap((attempt) => [
+              `Registry: ${attempt.registry}`,
+              `  Equivalent: ${attempt.equivalent}`,
+              ...(attempt.error ? [`  Error: ${attempt.error}`] : []),
+              ...(attempt.result
+                ? [
+                    `  Published integrity: ${attempt.result.publishedIntegrity}`,
+                    `  Candidate integrity: ${attempt.result.candidateIntegrity}`,
+                    ...attempt.result.differences.map(
+                      (difference) => `  Difference: ${difference}`,
+                    ),
+                  ]
+                : []),
+            ]),
             "",
           ].join("\n"),
         );
