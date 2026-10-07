@@ -36,7 +36,7 @@ const VALID_BUMPS = new Set([
  *
  * @type {ReadonlySet<string>}
  */
-const RELEASE_MODES = new Set(["bump", "exact", "package-version"]);
+const RELEASE_MODES = new Set(["bump", "exact", "package-json"]);
 
 /**
  * Semantic Versioning pattern.
@@ -77,7 +77,7 @@ const style = {
 };
 
 /**
- * @typedef {"bump" | "exact" | "package-version"} ReleaseMode
+ * @typedef {"bump" | "exact" | "package-json"} ReleaseMode
  */
 
 /**
@@ -100,7 +100,7 @@ const style = {
  */
 
 interface ReleaseOptions {
-  mode?: "bump" | "exact" | "package-version";
+  mode?: "bump" | "exact" | "package-json";
   version?: string;
   dryRun?: boolean;
   json?: boolean;
@@ -202,7 +202,7 @@ export function parseReleaseArgument(
   }
 
   if (!argument.includes("=")) {
-    if (options.mode === "package-version") {
+    if (options.mode === "package-json") {
       return {
         selector: argument.trim(),
         versionSpec: null,
@@ -225,7 +225,7 @@ export function parseReleaseArgument(
   }
 
   if (
-    options.mode !== "package-version" &&
+    options.mode !== "package-json" &&
     !VALID_BUMPS.has(versionSpec) &&
     !SEMVER.test(versionSpec)
   ) {
@@ -653,12 +653,12 @@ export function buildReleasePlan(
   root: string,
   pkg: ReturnType<typeof packageInfo>,
   selector: string,
-  mode: "bump" | "exact" | "package-version",
+  mode: "bump" | "exact" | "package-json",
   versionSpec: string | null,
 ) {
   const currentVersion = pkg.manifest.version;
   const nextVersion =
-    mode === "package-version"
+    mode === "package-json"
       ? currentVersion
       : resolveNextVersion(currentVersion, versionSpec!);
   const registry = registryFor(pkg);
@@ -678,7 +678,7 @@ export function buildReleasePlan(
         : `Git tag ${identity.tagName} already exists at ${tag.commit} and will not be moved.`
       : null;
   const versionCommand =
-    mode === "package-version"
+    mode === "package-json"
       ? null
       : {
           command: "npm",
@@ -708,7 +708,7 @@ export function buildReleasePlan(
     changelog,
     versionCommand,
     files:
-      mode === "package-version"
+      mode === "package-json"
         ? []
         : [pkg.file, resolve(root, "package-lock.json"), changelog.path],
   };
@@ -746,7 +746,7 @@ export function release(argument: string, options: ReleaseOptions = {}) {
   }
 
   const versionSpec =
-    mode === "package-version" ? null : options.version || argumentVersionSpec;
+    mode === "package-json" ? null : options.version || argumentVersionSpec;
 
   if (mode === "bump" && (!versionSpec || !VALID_BUMPS.has(versionSpec))) {
     throw new Error(`Invalid release bump: ${versionSpec}`);
@@ -1108,7 +1108,7 @@ function resolveCliReleaseArgument(
     return undefined;
   }
 
-  if (options.mode === "package-version") {
+  if (options.mode === "package-json") {
     return selector;
   }
 
