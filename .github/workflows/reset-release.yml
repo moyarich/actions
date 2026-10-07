@@ -128,6 +128,8 @@ jobs:
           PREVIOUS_TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
 
           PUBLISHED_REGISTRIES=()
+          NPM_REGISTRY_STATE="missing"
+          GITHUB_REGISTRY_STATE="missing"
 
           for REGISTRY in "${PUBLISH_REGISTRIES[@]}"; do
             REGISTRY_HOST="$(node -e 'console.log(new URL(process.argv[1]).host)' "$REGISTRY")"
@@ -143,6 +145,15 @@ jobs:
               NPM_CONFIG_USERCONFIG="$NPMRC" npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version --registry "$REGISTRY" 2>&1
             )" && REGISTRY_STATUS=published || REGISTRY_STATUS=missing
 
+            case "$REGISTRY_HOST" in
+              registry.npmjs.org)
+                NPM_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+              npm.pkg.github.com)
+                GITHUB_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+            esac
+
             if [ "$REGISTRY_STATUS" = "published" ]; then
               PUBLISHED_REGISTRIES+=("$REGISTRY")
               continue
@@ -154,6 +165,16 @@ jobs:
               exit 1
             fi
           done
+
+          {
+            echo "# Registry publication state"
+            echo
+            echo "| Registry | State | Reset action |"
+            echo "| --- | --- | --- |"
+            printf '| npmjs.org | **%s** | %s |\n' "$NPM_REGISTRY_STATE" "$([ "$NPM_REGISTRY_STATE" = "published" ] && echo "block" || echo "eligible")"
+            printf '| GitHub Packages | **%s** | %s |\n' "$GITHUB_REGISTRY_STATE" "$([ "$GITHUB_REGISTRY_STATE" = "published" ] && echo "block" || echo "eligible")"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${#PUBLISHED_REGISTRIES[@]}" -gt 0 ]; then
             echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published to one or more supported registries:"
@@ -226,8 +247,7 @@ jobs:
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
-            echo "| Registries checked | `npmjs.org`, `npm.pkg.github.com` |"
-            echo "| Registry version state | **not published in any supported registry** |"
+            echo "| Registry guard | **passed: version is unpublished in all supported registries** |"
             printf '| Previous tag commit | `%s` |\n' "${PREVIOUS_TAG_COMMIT:-missing}"
             printf '| New tag commit | `%s` |\n' "$RESET_COMMIT"
             printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
