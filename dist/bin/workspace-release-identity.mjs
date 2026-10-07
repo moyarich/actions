@@ -305,11 +305,11 @@ class Help {
    * @returns {number}
    */
   longestSubcommandTermLength(cmd, helper) {
-    return helper.visibleCommands(cmd).reduce((max, command2) => {
+    return helper.visibleCommands(cmd).reduce((max, command) => {
       return Math.max(
         max,
         this.displayWidth(
-          helper.styleSubcommandTerm(helper.subcommandTerm(command2))
+          helper.styleSubcommandTerm(helper.subcommandTerm(command))
         )
       );
     }, 0);
@@ -1204,8 +1204,8 @@ class Command extends EventEmitter {
    */
   _getCommandAndAncestors() {
     const result = [];
-    for (let command2 = this; command2; command2 = command2.parent) {
-      result.push(command2);
+    for (let command = this; command; command = command.parent) {
+      result.push(command);
     }
     return result;
   }
@@ -1645,22 +1645,22 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @param {Command} command
    * @private
    */
-  _registerCommand(command2) {
+  _registerCommand(command) {
     const knownBy = (cmd) => {
       return [cmd.name()].concat(cmd.aliases());
     };
-    const alreadyUsed = knownBy(command2).find(
+    const alreadyUsed = knownBy(command).find(
       (name) => this._findCommand(name)
     );
     if (alreadyUsed) {
       const existingCmd = knownBy(this._findCommand(alreadyUsed)).join("|");
-      const newCmd = knownBy(command2).join("|");
+      const newCmd = knownBy(command).join("|");
       throw new Error(
         `cannot add command '${newCmd}' as already have command '${existingCmd}'`
       );
     }
-    this._initCommandGroup(command2);
-    this.commands.push(command2);
+    this._initCommandGroup(command);
+    this.commands.push(command);
   }
   /**
    * Add an option.
@@ -2834,12 +2834,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
     let suggestion = "";
     if (flag.startsWith("--") && this._showSuggestionAfterError) {
       let candidateFlags = [];
-      let command2 = this;
+      let command = this;
       do {
-        const moreFlags = command2.createHelp().visibleOptions(command2).filter((option) => option.long).map((option) => option.long);
+        const moreFlags = command.createHelp().visibleOptions(command).filter((option) => option.long).map((option) => option.long);
         candidateFlags = candidateFlags.concat(moreFlags);
-        command2 = command2.parent;
-      } while (command2 && !command2._enablePositionalOptions);
+        command = command.parent;
+      } while (command && !command._enablePositionalOptions);
       suggestion = suggestSimilar(flag, candidateFlags);
     }
     const message = `error: unknown option '${flag}'${suggestion}`;
@@ -2871,9 +2871,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
     let suggestion = "";
     if (this._showSuggestionAfterError) {
       const candidateNames = [];
-      this.createHelp().visibleCommands(this).forEach((command2) => {
-        candidateNames.push(command2.name());
-        if (command2.alias()) candidateNames.push(command2.alias());
+      this.createHelp().visibleCommands(this).forEach((command) => {
+        candidateNames.push(command.name());
+        if (command.alias()) candidateNames.push(command.alias());
       });
       suggestion = suggestSimilar(unknownName, candidateNames);
     }
@@ -2944,11 +2944,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
    */
   alias(alias) {
     if (alias === void 0) return this._aliases[0];
-    let command2 = this;
+    let command = this;
     if (this.commands.length !== 0 && this.commands[this.commands.length - 1]._executableHandler) {
-      command2 = this.commands[this.commands.length - 1];
+      command = this.commands[this.commands.length - 1];
     }
-    if (alias === command2._name)
+    if (alias === command._name)
       throw new Error("Command alias can't be the same as its name");
     const matchingCommand = this.parent?._findCommand(alias);
     if (matchingCommand) {
@@ -2957,7 +2957,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         `cannot add alias '${alias}' to command '${this.name()}' as already have command '${existingCmd}'`
       );
     }
-    command2._aliases.push(alias);
+    command._aliases.push(alias);
     return this;
   }
   /**
@@ -3169,7 +3169,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       write: outputContext.write,
       command: this
     };
-    this._getCommandAndAncestors().reverse().forEach((command2) => command2.emit("beforeAllHelp", eventContext));
+    this._getCommandAndAncestors().reverse().forEach((command) => command.emit("beforeAllHelp", eventContext));
     this.emit("beforeHelp", eventContext);
     let helpInformation = this.helpInformation({ error: outputContext.error });
     if (deprecatedCallback) {
@@ -3184,7 +3184,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     }
     this.emit("afterHelp", eventContext);
     this._getCommandAndAncestors().forEach(
-      (command2) => command2.emit("afterAllHelp", eventContext)
+      (command) => command.emit("afterAllHelp", eventContext)
     );
   }
   /**
@@ -3372,13 +3372,13 @@ function releaseIdentity(pkg, version = pkg.manifest.version) {
     releaseName: `${packageName} v${resolvedVersion}`
   };
 }
-function command(command2, args) {
-  return execFileSync(command2, args, {
+function defaultCommand(command, args) {
+  return execFileSync(command, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
   }).trim();
 }
-function resolveCommit(value) {
+function resolveCommit(value, command) {
   if (!value) throw new Error("commit: requires a SHA.");
   try {
     return command("git", ["rev-parse", "--verify", `${value}^{commit}`]);
@@ -3386,7 +3386,7 @@ function resolveCommit(value) {
     throw new Error(`Commit does not exist: ${value}`);
   }
 }
-function resolveTag(value) {
+function resolveTag(value, command) {
   if (!value) throw new Error("tag: requires a tag name.");
   try {
     return command("git", [
@@ -3398,7 +3398,7 @@ function resolveTag(value) {
     throw new Error(`Tag does not exist: ${value}`);
   }
 }
-function resolveRun(value, repository) {
+function resolveRun(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("run: requires a numeric workflow run ID.");
   }
@@ -3413,7 +3413,7 @@ function resolveRun(value, repository) {
     throw new Error(`Workflow run does not exist or is inaccessible: ${value}`);
   }
 }
-function resolveArtifact(value, repository) {
+function resolveArtifact(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("artifact: requires a numeric workflow artifact ID.");
   }
@@ -3466,25 +3466,28 @@ function parseGithubUrl(value, repository) {
   throw new Error(`Unsupported GitHub URL for restore-source: ${value}`);
 }
 const restoreSourceDispatch = {
-  commit: (value) => ({
+  commit: (value, { command }) => ({
     resolvedKind: "commit",
     value,
-    commit: resolveCommit(value)
+    commit: resolveCommit(value, command)
   }),
-  tag: (value) => ({
+  tag: (value, { command }) => ({
     resolvedKind: "tag",
     value,
-    commit: resolveTag(value)
+    commit: resolveTag(value, command)
   }),
-  run: (value, { repository }) => ({
+  run: (value, { repository, command }) => ({
     resolvedKind: "run",
     value,
-    commit: resolveCommit(resolveRun(value, repository))
+    commit: resolveCommit(resolveRun(value, repository, command), command)
   }),
-  artifact: (value, { repository }) => ({
+  artifact: (value, { repository, command }) => ({
     resolvedKind: "artifact",
     value,
-    commit: resolveCommit(resolveArtifact(value, repository))
+    commit: resolveCommit(
+      resolveArtifact(value, repository, command),
+      command
+    )
   }),
   "github-url": (value, context) => {
     const parsed = parseGithubUrl(value, context.repository);
@@ -3499,7 +3502,7 @@ const restoreSourceDispatch = {
     };
   }
 };
-function resolveRestoreSource(source, repository) {
+function resolveRestoreSource(source, repository, dependencies = {}) {
   const separator = source.indexOf(":");
   if (separator < 1) {
     throw new Error(
@@ -3514,7 +3517,10 @@ function resolveRestoreSource(source, repository) {
       `Unsupported restore-source kind: ${kind}. Use commit, tag, run, artifact, or github-url.`
     );
   }
-  const resolved = resolver(value, { repository });
+  const resolved = resolver(value, {
+    repository,
+    command: dependencies.command ?? defaultCommand
+  });
   return {
     source,
     kind,
