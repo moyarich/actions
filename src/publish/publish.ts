@@ -710,9 +710,30 @@ export function registryPublishArgs(
   tag: string,
   access: PackageAccess,
 ): string[] {
+  const config = registryConfig(registry);
+
   return registry === "npm"
-    ? ["stage", "publish", artifactPath, "--access", access, "--tag", tag]
-    : ["publish", artifactPath, "--access", access, "--tag", tag];
+    ? [
+        "stage",
+        "publish",
+        artifactPath,
+        "--access",
+        access,
+        "--tag",
+        tag,
+        "--registry",
+        config.url,
+      ]
+    : [
+        "publish",
+        artifactPath,
+        "--access",
+        access,
+        "--tag",
+        tag,
+        "--registry",
+        config.url,
+      ];
 }
 
 /**
