@@ -20,6 +20,14 @@ on:
         description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
         required: true
         type: string
+      release-match:
+        description: Find the release by package.json version or require the exact canonical tag
+        required: true
+        default: package-json
+        type: choice
+        options:
+          - package-json
+          - exact
       dry-run:
         description: Preview recovery without mutating the release or tag
         required: true
@@ -46,6 +54,8 @@ jobs:
       package-directory: ${{ steps.package.outputs.directory }}
       release-tag: ${{ steps.package.outputs.tag }}
       release-name: ${{ steps.package.outputs.release-name }}
+      release-query: ${{ steps.package.outputs.release-query }}
+      matched-release-tag: ${{ steps.package.outputs.matched-release-tag }}
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
       release-commit: ${{ steps.package.outputs.release-commit }}
@@ -247,14 +257,88 @@ jobs:
             exit 1
           fi
 
-          BACKUP_RELEASE="$(
-            gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
-              jq -c --arg tag "$RELEASE_TAG" '
-                [.[][] | select(.tag_name == $tag)]
-                | sort_by(.updated_at // .created_at)
-                | last // empty
-              '
+          case "${{ inputs.release-match }}" in
+            package-json)
+              RELEASE_QUERY="$PACKAGE_VERSION"
+              ;;
+            exact)
+              RELEASE_QUERY="$RELEASE_TAG"
+              ;;
+            *)
+              echo "::error::release-match must be package-json or exact."
+              exit 1
+              ;;
+          esac
+
+          TAGS="$(
+            gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name'
           )"
+          RELEASE_TAGS="$(
+            gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq '.[].tag_name'
+          )"
+          CANDIDATES="$(
+            {
+              printf '%s\n' "$TAGS"
+              printf '%s\n' "$RELEASE_TAGS"
+            } | sed '/^$/d' | sort -u
+          )"
+
+          if [ "${{ inputs.release-match }}" = "exact" ]; then
+            MATCHED_RELEASE_TAG="$(
+              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_TAG" || true
+            )"
+
+            if [ -z "$MATCHED_RELEASE_TAG" ]; then
+              echo "::error::Exact canonical release tag not found: $RELEASE_TAG"
+              exit 1
+            fi
+          else
+            EXACT="$(
+              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
+            )"
+
+            if [ -n "$EXACT" ]; then
+              MATCHED_RELEASE_TAG="$EXACT"
+            else
+              MATCHES="$(
+                printf '%s\n' "$CANDIDATES" |
+                  awk -v query="$RELEASE_QUERY" '
+                    BEGIN { q = tolower(query) }
+                    index(tolower($0), q) > 0
+                  '
+              )"
+              MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+              if [ "$MATCH_COUNT" -eq 1 ]; then
+                MATCHED_RELEASE_TAG="$MATCHES"
+              elif [ "$MATCH_COUNT" -eq 0 ]; then
+                MATCHED_RELEASE_TAG=""
+              else
+                {
+                  echo "## Ambiguous restore release search"
+                  echo
+                  printf 'Search: `%s`\n\n' "$RELEASE_QUERY"
+                  echo "Matching release tags:"
+                  printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
+                } >> "$GITHUB_STEP_SUMMARY"
+
+                echo "::error::Release search matched $MATCH_COUNT tags. Use release-match=exact or a more specific canonical tag."
+                exit 1
+              fi
+            fi
+          fi
+
+          BACKUP_RELEASE=""
+          if [ -n "$MATCHED_RELEASE_TAG" ]; then
+            BACKUP_RELEASE="$(
+              gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
+                jq -c --arg tag "$MATCHED_RELEASE_TAG" '
+                  [.[][] | select(.tag_name == $tag)]
+                  | sort_by(.updated_at // .created_at)
+                  | last // empty
+                '
+            )"
+          fi
 
           BACKUP_RELEASE_ID=""
           BACKUP_BODY_BASE64=""
@@ -278,6 +362,8 @@ jobs:
             echo "directory=$PACKAGE_DIRECTORY"
             echo "tag=$RELEASE_TAG"
             echo "release-name=$RELEASE_NAME"
+            echo "release-query=$RELEASE_QUERY"
+            echo "matched-release-tag=$MATCHED_RELEASE_TAG"
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
             echo "release-commit=$RELEASE_COMMIT"
@@ -302,7 +388,10 @@ jobs:
             echo "| --- | --- |"
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
-            printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Canonical release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Release match mode | `%s` |\n' "${{ inputs.release-match }}"
+            printf '| Release query | `%s` |\n' "$RELEASE_QUERY"
+            printf '| Matched existing tag | `%s` |\n' "${MATCHED_RELEASE_TAG:-none}"
             printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
             printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
             printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
@@ -342,7 +431,7 @@ jobs:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
     with:
-      tag: ${{ needs.resolve.outputs.release-tag }}
+      tag: ${{ needs.resolve.outputs.release-query }}
       dry-run: ${{ inputs.dry-run }}
 
   restore-tag:
@@ -441,7 +530,10 @@ jobs:
             echo
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
-            printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            printf 'Canonical tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
+            printf 'Release match: `%s`\n\n' "${{ inputs.release-match }}"
+            printf 'Release query: `%s`\n\n' "${{ needs.resolve.outputs.release-query }}"
+            printf 'Matched existing tag: `%s`\n\n' "${{ needs.resolve.outputs.matched-release-tag || 'none' }}"
             printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
             printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
             printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
