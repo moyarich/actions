@@ -128,7 +128,7 @@ A typical flow:
 
 ```sh
 # 1. Resolve or prepare the package version
-npm exec -- workspace-release . --mode=package-version --dry-run
+npm exec -- workspace-release . --mode=package-json --dry-run
 
 # 2. Resolve the canonical tag and GitHub Release name
 npm exec -- workspace-release-identity . --pretty-json
@@ -145,13 +145,13 @@ Remove `--dry-run` when you are ready to perform the operation.
 
 | Mode              | Purpose                                                           |
 | ----------------- | ----------------------------------------------------------------- |
-| `package-version` | Use the version already declared in the package's `package.json`. |
+| `package-json` | Use the version already declared in the package's `package.json`. |
 | `bump`            | Resolve a semantic increment: `patch`, `minor`, or `major`.       |
 | `exact`           | Release an explicitly supplied version.                           |
 
 ```sh
 # Use the package.json version
-npm exec -- workspace-release . --mode=package-version --dry-run
+npm exec -- workspace-release . --mode=package-json --dry-run
 
 # Preview a patch release
 npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run
