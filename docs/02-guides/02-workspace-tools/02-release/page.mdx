@@ -120,9 +120,9 @@ When the selected package version is already published, Restore verifies the can
 ```text
 candidate source
   → exact commit
-  → build + npm pack
-  → normalized package contents
+  → npm pack --ignore-scripts
+  → packaged source as committed
   == any published registry copy
 ```
 
-If at least one published copy matches, the candidate is artifact-equivalent and may be used for recovery. Mismatches or verification errors from other registries are reported but do not block a verified match. If no published copy matches, Restore fails before changing the canonical tag or GitHub Release.
+If at least one published copy matches, the candidate is artifact-equivalent and may be used for recovery. Restore deliberately does not rebuild historical generated files with the current Node/npm/build-toolchain versions because that can create false mismatches. Mismatches or verification errors from other registries are reported but do not block a verified match. If no published copy matches, Restore fails before changing the canonical tag or GitHub Release.
