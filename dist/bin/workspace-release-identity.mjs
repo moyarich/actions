@@ -3454,18 +3454,24 @@ function packageSelectorPath(root, selector) {
     version: pkg.manifest.version
   };
 }
-function packPackage(root, selector, destination) {
-  const pkg = packageInfo(root, selector);
-  const buildArgs = pkg.directory === "." ? ["run", "build", "--if-present"] : ["run", "build", "--workspace", pkg.manifest.name, "--if-present"];
-  run("npm", buildArgs, { cwd: root, capture: false });
-  const packArgs = pkg.directory === "." ? ["pack", "--json", "--pack-destination", destination] : [
+function restoreCandidatePackArgs(directory, packageName, destination) {
+  return directory === "." ? ["pack", "--json", "--ignore-scripts", "--pack-destination", destination] : [
     "pack",
     "--workspace",
-    pkg.manifest.name,
+    packageName,
     "--json",
+    "--ignore-scripts",
     "--pack-destination",
     destination
   ];
+}
+function packPackage(root, selector, destination) {
+  const pkg = packageInfo(root, selector);
+  const packArgs = restoreCandidatePackArgs(
+    pkg.directory,
+    pkg.manifest.name,
+    destination
+  );
   const result = JSON.parse(run("npm", packArgs, { cwd: root }));
   const filename = result[0]?.filename;
   if (!filename) {
@@ -3583,10 +3589,6 @@ function verifyRestoreArtifactEquivalence(repositoryRoot2, selector, commit, reg
   try {
     run("git", ["worktree", "add", "--detach", candidateRoot, commit], {
       cwd: repositoryRoot2
-    });
-    run("npm", ["ci", "--ignore-scripts"], {
-      cwd: candidateRoot,
-      capture: false
     });
     mkdirSync(candidatePack, { recursive: true });
     mkdirSync(publishedPack, { recursive: true });

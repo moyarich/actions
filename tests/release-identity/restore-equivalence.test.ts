@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  restoreCandidatePackArgs,
   summarizeRestoreArtifactEquivalence,
   type RestoreEquivalenceAttempt,
 } from "../../src/release-identity/restore-equivalence.ts";
@@ -74,5 +75,37 @@ describe("summarizeRestoreArtifactEquivalence", () => {
       matchedRegistry: null,
       attempts,
     });
+  });
+});
+
+describe("restoreCandidatePackArgs", () => {
+  test("packs the root package as committed without running lifecycle scripts", () => {
+    expect(
+      restoreCandidatePackArgs(".", "@moyarich/workspace-tools", "/tmp/out"),
+    ).toEqual([
+      "pack",
+      "--json",
+      "--ignore-scripts",
+      "--pack-destination",
+      "/tmp/out",
+    ]);
+  });
+
+  test("packs workspace packages as committed without running lifecycle scripts", () => {
+    expect(
+      restoreCandidatePackArgs(
+        "packages/example",
+        "@moyarich/example",
+        "/tmp/out",
+      ),
+    ).toEqual([
+      "pack",
+      "--workspace",
+      "@moyarich/example",
+      "--json",
+      "--ignore-scripts",
+      "--pack-destination",
+      "/tmp/out",
+    ]);
   });
 });
