@@ -136,29 +136,47 @@ For older drafts created before seed metadata existed, the workflow derives a mi
 
 ## Release lifecycle
 
-The package release lifecycle has four states:
+The canonical package identity and the GitHub Release are related, but registry publication and GitHub Release state are separate concerns:
 
 ```text
-draft
-  ↓
-resettable canonical tag + source
-  ↓
-canonical package artifact + build provenance attestation
-  ↓
-registry publish + release-asset verification
-  ↓
-published/finalized GitHub Release
+canonical Git tag
+      ↓
+source commit
+      ↓
+canonical package artifact
+      ↓
+selected registry destinations
+
+matching GitHub Release
+      ↓
+release notes + optional package assets
+      ↓
+draft or published state
 ```
 
-While the GitHub Release is a draft **and the package version has not yet been published to its configured registry**, `Reset Release` may intentionally move the canonical package tag to the current target-branch commit. This is how the same package version can be rebuilt from newer source before registry publication and finalization. Once a registry accepts a package version, Reset refuses to move that version's source identity.
+`Reset Release` may move the canonical package tag only while that exact package version is still absent from every supported registry. Once any supported registry accepts the version, Reset refuses to move the source identity.
 
-After a reset, publish never trusts an older draft `.tgz` as canonical. It rebuilds the npm package from the commit referenced by the canonical tag, creates a GitHub artifact attestation for that exact tarball, publishes that tarball to the selected registry, replaces the draft release assets, downloads the attached tarball again, verifies its SHA-256 and attestation, and only then publishes the GitHub Release draft.
+Registry publishing always derives the canonical package artifact from the commit referenced by the canonical tag. GitHub Release assets are supplemental release artifacts; they do not become the authority for package bytes.
 
-`Restore Release` is a separate recovery operation. It accepts an explicit historical commit and restores the canonical tag and draft to the package identity recorded at that commit.
+When a matching GitHub Release is mutable, the release-oriented publish workflow can add or replace package assets. When the release is immutable, asset mutation is skipped and a missing registry destination may still be published from the canonical tag/commit.
 
-Both Reset Release and Restore Release refuse to rewrite a GitHub Release that is already published. Finalized releases require a new package version.
+Publishing to npmjs.org does not itself publish or close a GitHub Release draft. Publishing to GitHub Packages may publish a matching draft; if the GitHub Release is already published, registry publication can continue without changing release state.
 
-For repositories with GitHub immutable releases enabled, publishing the prepared draft locks its tag and assets and GitHub creates the release attestation for the finalized release. Repository-level immutable release enforcement is a GitHub repository setting; the package workflow prepares and verifies the release so publication is safe to make immutable.
+`Restore Release` is a separate recovery operation. It accepts one typed `restore-source` value:
+
+```text
+commit:<sha>
+tag:<tag>
+run:<run-id>
+artifact:<artifact-id>
+github-url:<supported-github-url>
+```
+
+The `workspace-release-identity restore-source` CLI resolves that input to one exact full commit SHA before the workflow performs destructive recovery. The workflow then derives the historical package/version/tag identity from that commit and restores the canonical tag/release state accordingly.
+
+A `github-url:` may identify a commit, release tag, workflow run, or workflow artifact in the current repository. Cross-repository URLs are rejected.
+
+For repositories with GitHub immutable releases enabled, an immutable release cannot have its notes or assets rewritten. That immutability does not change the canonical tag/commit authority for a package version and does not by itself prevent publication to a registry where that version is still missing.
 
 ## Missing-tag recovery
 
@@ -173,4 +191,4 @@ package.json version
   → rebuilt and attested .tgz
 ```
 
-If the package version is already present in a registry, the registry artifact is immutable and Reset must not point the same version at newer source. In that partial-publication state, use Restore Release to recreate the missing tag at the commit that produced the published artifact, finish publication/finalization from that source, and release newer source under a new version.
+If the package version is already present in a registry, the registry artifact is immutable and Reset must not point the same version at newer source. In that partial-publication state, use Restore Release with a typed historical source such as a workflow run, artifact, tag, commit, or supported GitHub URL. Restore resolves that source to the original full commit SHA, recreates the canonical tag/release identity from that commit, and allows any still-missing registry destination to be published from the restored source. Newer source must use a new package version.
