@@ -16,13 +16,6 @@ Install the package in the repository where you want to use the tools:
 ```sh
 npm install --save-dev @moyarich/workspace-tools
 ```
-
-Then run commands through `npm exec`:
-
-```sh
-npm exec -- discover-packages --workspaces --include-root-package
-```
-
 > `@moyarich/workspace-tools` is published to GitHub Packages. Configure npm authentication for the `@moyarich` scope when installing from the registry.
 
 Create or update `.npmrc`:
@@ -33,6 +26,16 @@ Create or update `.npmrc`:
 ```
 
 Set `GITHUB_TOKEN` to a GitHub token with permission to read packages before installing.
+
+## Usage
+
+Run commands through `npm exec` or `npx` :
+
+```sh
+npm exec -- discover-packages --workspaces --include-root-package
+```
+
+---
 
 ## What it provides
 
