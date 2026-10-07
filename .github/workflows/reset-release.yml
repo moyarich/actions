@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     outputs:
       package-name: ${{ steps.package.outputs.name }}
       package-version: ${{ steps.package.outputs.package-version }}
@@ -99,6 +100,7 @@ jobs:
 
           PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
           PACKAGE_VERSION="$(jq -r '.version // empty' "$MANIFEST")"
+          PACKAGE_REGISTRY="$(jq -r '.publishConfig.registry // "https://registry.npmjs.org"' "$MANIFEST")"
 
           if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
             echo "::error::Package name/version is missing from $MANIFEST."
@@ -117,6 +119,32 @@ jobs:
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
           RESET_COMMIT="$(git rev-parse HEAD)"
           PREVIOUS_TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+
+          REGISTRY_HOST="$(node -e 'console.log(new URL(process.argv[1]).host)' "$PACKAGE_REGISTRY")"
+          NPMRC="$RUNNER_TEMP/reset-release.npmrc"
+          {
+            printf 'registry=%s\n' "$PACKAGE_REGISTRY"
+            if [ "$REGISTRY_HOST" = "npm.pkg.github.com" ]; then
+              printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST" "$GH_TOKEN"
+            fi
+          } > "$NPMRC"
+
+          REGISTRY_OUTPUT="$(
+            NPM_CONFIG_USERCONFIG="$NPMRC" npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version --registry "$PACKAGE_REGISTRY" 2>&1
+          )" && REGISTRY_STATUS=published || REGISTRY_STATUS=missing
+
+          if [ "$REGISTRY_STATUS" = "published" ]; then
+            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published to $PACKAGE_REGISTRY."
+            echo "::error::Reset cannot move its canonical tag to different source after registry publication."
+            echo "::error::Use Restore Release to repair the tag for this version, then release newer source under a new version."
+            exit 1
+          fi
+
+          if ! grep -Eq 'E404|404 Not Found|No match found|is not in this registry' <<< "$REGISTRY_OUTPUT"; then
+            echo "::error::Unable to establish registry state for $PACKAGE_NAME@$PACKAGE_VERSION."
+            printf '%s\n' "$REGISTRY_OUTPUT"
+            exit 1
+          fi
 
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
@@ -180,6 +208,8 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Package registry | `%s` |\n' "$PACKAGE_REGISTRY"
+            echo "| Registry version state | **not published** |"
             printf '| Previous tag commit | `%s` |\n' "${PREVIOUS_TAG_COMMIT:-missing}"
             printf '| New tag commit | `%s` |\n' "$RESET_COMMIT"
             printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
