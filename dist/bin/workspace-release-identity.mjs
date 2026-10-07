@@ -2,7 +2,7 @@
 import { EventEmitter } from "node:events";
 import childProcess, { execFileSync } from "node:child_process";
 import path, { resolve, join, relative } from "node:path";
-import fs, { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, statSync, rmSync } from "node:fs";
+import fs, { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, statSync, rmSync, writeFileSync } from "node:fs";
 import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
 import { createHash } from "node:crypto";
@@ -3474,24 +3474,49 @@ function packPackage(root, selector, destination) {
   return resolve(destination, filename);
 }
 function downloadPublishedPackage(name, version, registry, destination) {
-  const result = JSON.parse(
-    run("npm", [
-      "pack",
-      `${name}@${version}`,
-      "--json",
-      "--registry",
-      registry,
-      "--pack-destination",
-      destination
-    ])
+  const registryUrl = new URL(registry);
+  const npmrcDirectory = mkdtempSync(
+    join(tmpdir(), "workspace-restore-registry-")
   );
-  const filename = result[0]?.filename;
-  if (!filename) {
-    throw new Error(
-      `Unable to download published package ${name}@${version} from ${registry}.`
-    );
+  const npmrc = join(npmrcDirectory, "npmrc");
+  const token = registryUrl.hostname === "npm.pkg.github.com" ? process.env.GH_TOKEN ?? process.env.NODE_AUTH_TOKEN ?? process.env._GITHUB_TOKEN : process.env.NODE_AUTH_TOKEN;
+  const config = [`registry=${registry}`];
+  if (token) {
+    config.push(`//${registryUrl.host}/:_authToken=${token}`);
   }
-  return resolve(destination, filename);
+  writeFileSync(npmrc, config.concat("").join("\n"));
+  try {
+    const result = JSON.parse(
+      run(
+        "npm",
+        [
+          "pack",
+          `${name}@${version}`,
+          "--json",
+          "--registry",
+          registry,
+          "--pack-destination",
+          destination
+        ],
+        {
+          env: {
+            ...process.env,
+            NPM_CONFIG_USERCONFIG: npmrc,
+            npm_config_userconfig: npmrc
+          }
+        }
+      )
+    );
+    const filename = result[0]?.filename;
+    if (!filename) {
+      throw new Error(
+        `Unable to download published package ${name}@${version} from ${registry}.`
+      );
+    }
+    return resolve(destination, filename);
+  } finally {
+    rmSync(npmrcDirectory, { recursive: true, force: true });
+  }
 }
 function extractPackage(tarball, destination) {
   mkdirSync(destination, { recursive: true });
@@ -3610,6 +3635,45 @@ function verifyRestoreArtifactEquivalence(repositoryRoot2, selector, commit, reg
     }
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
+}
+function summarizeRestoreArtifactEquivalence(attempts) {
+  const match = attempts.find((attempt) => attempt.equivalent);
+  return {
+    equivalent: Boolean(match),
+    matchedRegistry: match?.registry ?? null,
+    attempts
+  };
+}
+function verifyRestoreArtifactEquivalenceAny(repositoryRoot2, selector, commit, registries) {
+  if (registries.length === 0) {
+    return {
+      equivalent: true,
+      matchedRegistry: null,
+      attempts: []
+    };
+  }
+  const attempts = registries.map((registry) => {
+    try {
+      const result = verifyRestoreArtifactEquivalence(
+        repositoryRoot2,
+        selector,
+        commit,
+        registry
+      );
+      return {
+        registry,
+        equivalent: result.equivalent,
+        result
+      };
+    } catch (error) {
+      return {
+        registry,
+        equivalent: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  });
+  return summarizeRestoreArtifactEquivalence(attempts);
 }
 function defaultCommand(command, args) {
   return execFileSync(command, args, {
@@ -3805,8 +3869,16 @@ if (restoreSourceMode) {
     ...process.argv.slice(3)
   ]);
 } else if (restoreEquivalenceMode) {
-  program.addArgument(new Argument("<package>", "Workspace package selector")).requiredOption("--commit <sha>", "Candidate historical commit").requiredOption("--registry <url>", "Registry containing the published package").option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
-    const result = verifyRestoreArtifactEquivalence(
+  program.addArgument(new Argument("<package>", "Workspace package selector")).requiredOption("--commit <sha>", "Candidate historical commit").addOption(
+    new Option(
+      "--registry <url>",
+      "Published registry to compare; repeat for multiple registries"
+    ).argParser((value, previous = []) => [...previous, value]).default([])
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
+    if (!Array.isArray(options.registry) || options.registry.length === 0) {
+      throw new Error("At least one --registry <url> is required.");
+    }
+    const result = verifyRestoreArtifactEquivalenceAny(
       repositoryRoot(),
       selector,
       options.commit,
@@ -3819,13 +3891,20 @@ if (restoreSourceMode) {
     else {
       process.stdout.write(
         [
-          `Package: ${result.packageName}@${result.version}`,
-          `Commit: ${result.commit}`,
-          `Registry: ${result.registry}`,
           `Equivalent: ${result.equivalent}`,
-          `Published integrity: ${result.publishedIntegrity}`,
-          `Candidate integrity: ${result.candidateIntegrity}`,
-          ...result.differences.map((difference) => `Difference: ${difference}`),
+          `Matched registry: ${result.matchedRegistry ?? "none"}`,
+          ...result.attempts.flatMap((attempt) => [
+            `Registry: ${attempt.registry}`,
+            `  Equivalent: ${attempt.equivalent}`,
+            ...attempt.error ? [`  Error: ${attempt.error}`] : [],
+            ...attempt.result ? [
+              `  Published integrity: ${attempt.result.publishedIntegrity}`,
+              `  Candidate integrity: ${attempt.result.candidateIntegrity}`,
+              ...attempt.result.differences.map(
+                (difference) => `  Difference: ${difference}`
+              )
+            ] : []
+          ]),
           ""
         ].join("\n")
       );
