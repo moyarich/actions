@@ -305,11 +305,11 @@ class Help {
    * @returns {number}
    */
   longestSubcommandTermLength(cmd, helper) {
-    return helper.visibleCommands(cmd).reduce((max, command) => {
+    return helper.visibleCommands(cmd).reduce((max, command2) => {
       return Math.max(
         max,
         this.displayWidth(
-          helper.styleSubcommandTerm(helper.subcommandTerm(command))
+          helper.styleSubcommandTerm(helper.subcommandTerm(command2))
         )
       );
     }, 0);
@@ -1204,8 +1204,8 @@ class Command extends EventEmitter {
    */
   _getCommandAndAncestors() {
     const result = [];
-    for (let command = this; command; command = command.parent) {
-      result.push(command);
+    for (let command2 = this; command2; command2 = command2.parent) {
+      result.push(command2);
     }
     return result;
   }
@@ -1645,22 +1645,22 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @param {Command} command
    * @private
    */
-  _registerCommand(command) {
+  _registerCommand(command2) {
     const knownBy = (cmd) => {
       return [cmd.name()].concat(cmd.aliases());
     };
-    const alreadyUsed = knownBy(command).find(
+    const alreadyUsed = knownBy(command2).find(
       (name) => this._findCommand(name)
     );
     if (alreadyUsed) {
       const existingCmd = knownBy(this._findCommand(alreadyUsed)).join("|");
-      const newCmd = knownBy(command).join("|");
+      const newCmd = knownBy(command2).join("|");
       throw new Error(
         `cannot add command '${newCmd}' as already have command '${existingCmd}'`
       );
     }
-    this._initCommandGroup(command);
-    this.commands.push(command);
+    this._initCommandGroup(command2);
+    this.commands.push(command2);
   }
   /**
    * Add an option.
@@ -2834,12 +2834,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
     let suggestion = "";
     if (flag.startsWith("--") && this._showSuggestionAfterError) {
       let candidateFlags = [];
-      let command = this;
+      let command2 = this;
       do {
-        const moreFlags = command.createHelp().visibleOptions(command).filter((option) => option.long).map((option) => option.long);
+        const moreFlags = command2.createHelp().visibleOptions(command2).filter((option) => option.long).map((option) => option.long);
         candidateFlags = candidateFlags.concat(moreFlags);
-        command = command.parent;
-      } while (command && !command._enablePositionalOptions);
+        command2 = command2.parent;
+      } while (command2 && !command2._enablePositionalOptions);
       suggestion = suggestSimilar(flag, candidateFlags);
     }
     const message = `error: unknown option '${flag}'${suggestion}`;
@@ -2871,9 +2871,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
     let suggestion = "";
     if (this._showSuggestionAfterError) {
       const candidateNames = [];
-      this.createHelp().visibleCommands(this).forEach((command) => {
-        candidateNames.push(command.name());
-        if (command.alias()) candidateNames.push(command.alias());
+      this.createHelp().visibleCommands(this).forEach((command2) => {
+        candidateNames.push(command2.name());
+        if (command2.alias()) candidateNames.push(command2.alias());
       });
       suggestion = suggestSimilar(unknownName, candidateNames);
     }
@@ -2944,11 +2944,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
    */
   alias(alias) {
     if (alias === void 0) return this._aliases[0];
-    let command = this;
+    let command2 = this;
     if (this.commands.length !== 0 && this.commands[this.commands.length - 1]._executableHandler) {
-      command = this.commands[this.commands.length - 1];
+      command2 = this.commands[this.commands.length - 1];
     }
-    if (alias === command._name)
+    if (alias === command2._name)
       throw new Error("Command alias can't be the same as its name");
     const matchingCommand = this.parent?._findCommand(alias);
     if (matchingCommand) {
@@ -2957,7 +2957,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         `cannot add alias '${alias}' to command '${this.name()}' as already have command '${existingCmd}'`
       );
     }
-    command._aliases.push(alias);
+    command2._aliases.push(alias);
     return this;
   }
   /**
@@ -3169,7 +3169,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       write: outputContext.write,
       command: this
     };
-    this._getCommandAndAncestors().reverse().forEach((command) => command.emit("beforeAllHelp", eventContext));
+    this._getCommandAndAncestors().reverse().forEach((command2) => command2.emit("beforeAllHelp", eventContext));
     this.emit("beforeHelp", eventContext);
     let helpInformation = this.helpInformation({ error: outputContext.error });
     if (deprecatedCallback) {
@@ -3184,7 +3184,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     }
     this.emit("afterHelp", eventContext);
     this._getCommandAndAncestors().forEach(
-      (command) => command.emit("afterAllHelp", eventContext)
+      (command2) => command2.emit("afterAllHelp", eventContext)
     );
   }
   /**
@@ -3372,6 +3372,155 @@ function releaseIdentity(pkg, version = pkg.manifest.version) {
     releaseName: `${packageName} v${resolvedVersion}`
   };
 }
+function command(command2, args) {
+  return execFileSync(command2, args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  }).trim();
+}
+function resolveCommit(value) {
+  if (!value) throw new Error("commit: requires a SHA.");
+  try {
+    return command("git", ["rev-parse", "--verify", `${value}^{commit}`]);
+  } catch {
+    throw new Error(`Commit does not exist: ${value}`);
+  }
+}
+function resolveTag(value) {
+  if (!value) throw new Error("tag: requires a tag name.");
+  try {
+    return command("git", [
+      "rev-parse",
+      "--verify",
+      `refs/tags/${value}^{commit}`
+    ]);
+  } catch {
+    throw new Error(`Tag does not exist: ${value}`);
+  }
+}
+function resolveRun(value, repository) {
+  if (!/^\d+$/.test(value)) {
+    throw new Error("run: requires a numeric workflow run ID.");
+  }
+  try {
+    return command("gh", [
+      "api",
+      `repos/${repository}/actions/runs/${value}`,
+      "--jq",
+      ".head_sha"
+    ]);
+  } catch {
+    throw new Error(`Workflow run does not exist or is inaccessible: ${value}`);
+  }
+}
+function resolveArtifact(value, repository) {
+  if (!/^\d+$/.test(value)) {
+    throw new Error("artifact: requires a numeric workflow artifact ID.");
+  }
+  try {
+    const sha = command("gh", [
+      "api",
+      `repos/${repository}/actions/artifacts/${value}`,
+      "--jq",
+      ".workflow_run.head_sha // empty"
+    ]);
+    if (!sha) {
+      throw new Error();
+    }
+    return sha;
+  } catch {
+    throw new Error(
+      `Workflow artifact does not exist, is inaccessible, or has no workflow run commit: ${value}`
+    );
+  }
+}
+function parseGithubUrl(value, repository) {
+  if (!value) throw new Error("github-url: requires a GitHub URL.");
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Invalid GitHub URL: ${value}`);
+  }
+  if (url.protocol !== "https:" || url.hostname !== "github.com") {
+    throw new Error("github-url: must use https://github.com.");
+  }
+  const [owner, repo, ...parts] = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (`${owner}/${repo}` !== repository) {
+    throw new Error(
+      `github-url: must belong to the current repository: ${repository}`
+    );
+  }
+  if (parts[0] === "commit" && parts[1]) {
+    return { kind: "commit", value: parts[1] };
+  }
+  if (parts[0] === "releases" && parts[1] === "tag" && parts[2]) {
+    return { kind: "tag", value: parts.slice(2).join("/") };
+  }
+  if (parts[0] === "actions" && parts[1] === "runs" && /^\d+$/.test(parts[2] ?? "") && parts[3] === "artifacts" && /^\d+$/.test(parts[4] ?? "")) {
+    return { kind: "artifact", value: parts[4] };
+  }
+  if (parts[0] === "actions" && parts[1] === "runs" && /^\d+$/.test(parts[2] ?? "")) {
+    return { kind: "run", value: parts[2] };
+  }
+  throw new Error(`Unsupported GitHub URL for restore-source: ${value}`);
+}
+const restoreSourceDispatch = {
+  commit: (value) => ({
+    resolvedKind: "commit",
+    value,
+    commit: resolveCommit(value)
+  }),
+  tag: (value) => ({
+    resolvedKind: "tag",
+    value,
+    commit: resolveTag(value)
+  }),
+  run: (value, { repository }) => ({
+    resolvedKind: "run",
+    value,
+    commit: resolveCommit(resolveRun(value, repository))
+  }),
+  artifact: (value, { repository }) => ({
+    resolvedKind: "artifact",
+    value,
+    commit: resolveCommit(resolveArtifact(value, repository))
+  }),
+  "github-url": (value, context) => {
+    const parsed = parseGithubUrl(value, context.repository);
+    const resolved = restoreSourceDispatch[parsed.kind](
+      parsed.value,
+      context
+    );
+    return {
+      resolvedKind: parsed.kind,
+      value: parsed.value,
+      commit: resolved.commit
+    };
+  }
+};
+function resolveRestoreSource(source, repository) {
+  const separator = source.indexOf(":");
+  if (separator < 1) {
+    throw new Error(
+      "restore-source must use commit:<sha>, tag:<tag>, run:<run-id>, artifact:<artifact-id>, or github-url:<supported-github-url>."
+    );
+  }
+  const kind = source.slice(0, separator);
+  const value = source.slice(separator + 1);
+  const resolver = restoreSourceDispatch[kind];
+  if (!resolver) {
+    throw new Error(
+      `Unsupported restore-source kind: ${kind}. Use commit, tag, run, artifact, or github-url.`
+    );
+  }
+  const resolved = resolver(value, { repository });
+  return {
+    source,
+    kind,
+    ...resolved
+  };
+}
 function workspacePatterns(root) {
   const manifest = JSON.parse(
     readFileSync(resolve(root, "package.json"), "utf8")
@@ -3436,34 +3585,71 @@ function repositoryRoot() {
     stdio: ["ignore", "pipe", "pipe"]
   }).trim();
 }
+const restoreSourceMode = process.argv[2] === "restore-source";
 program.name("workspace-release-identity").description(
-  "Resolve the canonical Git tag and GitHub Release name for a workspace package."
-).addArgument(new Argument("<package>", "Workspace package selector")).addOption(
-  new Option(
-    "--version <version>",
-    "Version or release-template token to use"
-  )
-).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
-  const pkg = packageInfo(repositoryRoot(), selector);
-  const identity = releaseIdentity(
-    pkg,
-    options.version ?? pkg.manifest.version
-  );
-  if (options.json) process.stdout.write(JSON.stringify(identity));
-  else if (options.prettyJson)
-    process.stdout.write(`${JSON.stringify(identity, null, 2)}
+  "Resolve canonical workspace package release identity and historical restore sources."
+);
+if (restoreSourceMode) {
+  program.addArgument(
+    new Argument(
+      "<source>",
+      "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>"
+    )
+  ).requiredOption(
+    "--repository <owner/name>",
+    "GitHub repository used for run, artifact, and github-url resolution"
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((source, options) => {
+    const resolution = resolveRestoreSource(source, options.repository);
+    if (options.json) process.stdout.write(JSON.stringify(resolution));
+    else if (options.prettyJson)
+      process.stdout.write(`${JSON.stringify(resolution, null, 2)}
 `);
-  else {
-    process.stdout.write(
-      [
-        `Package: ${identity.packageName}`,
-        `Directory: ${identity.packageDirectory}`,
-        `Version: ${identity.version}`,
-        `Tag: ${identity.tagName}`,
-        `Release: ${identity.releaseName}`,
-        ""
-      ].join("\n")
+    else {
+      process.stdout.write(
+        [
+          `Source: ${resolution.source}`,
+          `Kind: ${resolution.kind}`,
+          `Resolved kind: ${resolution.resolvedKind}`,
+          `Value: ${resolution.value}`,
+          `Commit: ${resolution.commit}`,
+          ""
+        ].join("\n")
+      );
+    }
+  });
+  await program.parseAsync([
+    process.argv[0],
+    process.argv[1],
+    ...process.argv.slice(3)
+  ]);
+} else {
+  program.addArgument(new Argument("<package>", "Workspace package selector")).addOption(
+    new Option(
+      "--version <version>",
+      "Version or release-template token to use"
+    )
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
+    const pkg = packageInfo(repositoryRoot(), selector);
+    const identity = releaseIdentity(
+      pkg,
+      options.version ?? pkg.manifest.version
     );
-  }
-});
-await program.parseAsync();
+    if (options.json) process.stdout.write(JSON.stringify(identity));
+    else if (options.prettyJson)
+      process.stdout.write(`${JSON.stringify(identity, null, 2)}
+`);
+    else {
+      process.stdout.write(
+        [
+          `Package: ${identity.packageName}`,
+          `Directory: ${identity.packageDirectory}`,
+          `Version: ${identity.version}`,
+          `Tag: ${identity.tagName}`,
+          `Release: ${identity.releaseName}`,
+          ""
+        ].join("\n")
+      );
+    }
+  });
+  await program.parseAsync();
+}
