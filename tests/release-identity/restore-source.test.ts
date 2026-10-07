@@ -1,25 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { resolveRestoreSource } from "../../src/release-identity/restore-source.ts";
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 const repository = "moyarich/workspace-tools";
 const fullSha = "8b4539e214afc9d87dfbad3e52243e4426c26179";
 const shortSha = "8b4539e";
 const tagName = "@moyarich/workspace-tools@0.1.1";
 const runId = "37624987179";
 const artifactId = "11484185701";
-
 const repoUrl = `https://github.com/${repository}`;
-
-// ---------------------------------------------------------------------------
-// Fake command runner
-//
-// Maps the identifying argument of each supported git/gh call to its result.
-// Anything not listed here throws, so tests fail loudly on unexpected calls.
-// ---------------------------------------------------------------------------
 
 const gitRevParseResults: Record<string, string> = {
   [`${shortSha}^{commit}`]: fullSha,
@@ -47,13 +35,9 @@ function fakeCommand(command: string, args: string[]): string {
   return result;
 }
 
-function resolve(source: string, repo = repository) {
+function resolveSource(source: string, repo = repository) {
   return resolveRestoreSource(source, repo, { command: fakeCommand });
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("resolveRestoreSource", () => {
   describe("typed sources", () => {
@@ -77,7 +61,7 @@ describe("resolveRestoreSource", () => {
     ])("$kind: $note", ({ kind, value }) => {
       const source = `${kind}:${value}`;
 
-      expect(resolve(source)).toEqual({
+      expect(resolveSource(source)).toEqual({
         source,
         kind,
         resolvedKind: kind,
@@ -118,7 +102,7 @@ describe("resolveRestoreSource", () => {
       (testCase) => {
         const source = `github-url:${testCase.url}`;
 
-        expect(resolve(source)).toEqual({
+        expect(resolveSource(source)).toEqual({
           source,
           kind: "github-url",
           resolvedKind: testCase.resolvedKind,
@@ -131,11 +115,11 @@ describe("resolveRestoreSource", () => {
 
   describe("invalid sources", () => {
     test("rejects untyped sources", () => {
-      expect(() => resolve(shortSha)).toThrow(/restore-source must use/);
+      expect(() => resolveSource(shortSha)).toThrow(/restore-source must use/);
     });
 
     test("rejects unsupported source kinds", () => {
-      expect(() => resolve("release:v1.0.0")).toThrow(
+      expect(() => resolveSource("release:v1.0.0")).toThrow(
         /Unsupported restore-source kind/,
       );
     });
@@ -149,13 +133,15 @@ describe("resolveRestoreSource", () => {
     ])(
       "validates identifier before GitHub lookup: $source",
       ({ source, error }) => {
-        expect(() => resolve(source)).toThrow(error);
+        expect(() => resolveSource(source)).toThrow(error);
       },
     );
 
     test("rejects github-url sources from another repository", () => {
       expect(() =>
-        resolve("github-url:https://github.com/example/other/commit/8b4539e"),
+        resolveSource(
+          "github-url:https://github.com/example/other/commit/8b4539e",
+        ),
       ).toThrow(/must belong to the current repository/);
     });
   });

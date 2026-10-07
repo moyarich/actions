@@ -112,3 +112,17 @@ github-url:https://github.com/moyarich/workspace-tools/actions/runs/37624987179/
 The resolver records the original source, the resolved source kind, and the full 40-character commit SHA. Resolution happens before destructive recovery steps.
 
 A Restore source is only a way to find the canonical historical commit. Registry publication continues from that canonical tag/commit identity; GitHub Release assets are supplemental and an immutable release does not by itself block publishing a missing registry destination.
+
+### Published-artifact equivalence
+
+When the selected package version is already published, Restore verifies the candidate source before moving release state.
+
+```text
+candidate source
+  → exact commit
+  → build + npm pack
+  → normalized package contents
+  == any published registry copy
+```
+
+If at least one published copy matches, the candidate is artifact-equivalent and may be used for recovery. Mismatches or verification errors from other registries are reported but do not block a verified match. If no published copy matches, Restore fails before changing the canonical tag or GitHub Release.

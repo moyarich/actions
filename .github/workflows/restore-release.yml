@@ -58,6 +58,9 @@ jobs:
       configured-registry: ${{ steps.package.outputs.configured-registry }}
       npm-registry-state: ${{ steps.package.outputs.npm-registry-state }}
       github-registry-state: ${{ steps.package.outputs.github-registry-state }}
+      artifact-equivalence: ${{ steps.package.outputs.artifact-equivalence }}
+      matched-registry: ${{ steps.package.outputs.matched-registry }}
+      equivalence-results: ${{ steps.package.outputs.equivalence-results }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -196,6 +199,54 @@ jobs:
             esac
           done
 
+          ARTIFACT_EQUIVALENCE="not-required"
+          MATCHED_REGISTRY=""
+          EQUIVALENCE_RESULTS='[]'
+          REGISTRY_ARGS=()
+
+          if [ "$NPM_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://registry.npmjs.org")
+          fi
+
+          if [ "$GITHUB_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://npm.pkg.github.com")
+          fi
+
+          if [ "${#REGISTRY_ARGS[@]}" -gt 0 ]; then
+            EQUIVALENCE="$(
+              GH_TOKEN="$GH_TOKEN" node "$WORKSPACE_RELEASE_IDENTITY" restore-equivalence "$PACKAGE_SELECTOR" \
+                --commit "$RELEASE_COMMIT" \
+                "${REGISTRY_ARGS[@]}" \
+                --json
+            )"
+
+            EQUIVALENCE_RESULTS="$(jq -c '.attempts' <<< "$EQUIVALENCE")"
+            MATCHED_REGISTRY="$(jq -r '.matchedRegistry // ""' <<< "$EQUIVALENCE")"
+
+            if [ "$(jq -r '.equivalent' <<< "$EQUIVALENCE")" = "true" ]; then
+              ARTIFACT_EQUIVALENCE="matched"
+            else
+              ARTIFACT_EQUIVALENCE="mismatch"
+            fi
+          fi
+
+          if [ "$ARTIFACT_EQUIVALENCE" = "mismatch" ]; then
+            {
+              echo
+              echo "## Artifact equivalence"
+              echo
+              echo "The candidate commit does not reproduce any published registry copy."
+              echo
+              echo
+              echo '~~~json'
+              jq '.' <<< "$EQUIVALENCE_RESULTS"
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            echo "::error::Restore source does not match any published copy of $PACKAGE_NAME@$PACKAGE_VERSION."
+            exit 1
+          fi
+
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
               jq -c --arg tag "$RELEASE_TAG" '
@@ -239,6 +290,9 @@ jobs:
             echo "configured-registry=$PACKAGE_REGISTRY"
             echo "npm-registry-state=$NPM_REGISTRY_STATE"
             echo "github-registry-state=$GITHUB_REGISTRY_STATE"
+            echo "artifact-equivalence=$ARTIFACT_EQUIVALENCE"
+            echo "matched-registry=$MATCHED_REGISTRY"
+            echo "equivalence-results=$EQUIVALENCE_RESULTS"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -264,6 +318,21 @@ jobs:
             echo "| --- | --- |"
             printf '| npmjs.org | **%s** |\n' "$NPM_REGISTRY_STATE"
             printf '| GitHub Packages | **%s** |\n' "$GITHUB_REGISTRY_STATE"
+            echo
+            echo "## Artifact equivalence"
+            echo
+            printf 'Status: **%s**\n\n' "$ARTIFACT_EQUIVALENCE"
+            if [ "$ARTIFACT_EQUIVALENCE" = "matched" ]; then
+              printf 'Matched published copy: `%s`\n\n' "$MATCHED_REGISTRY"
+            elif [ "$ARTIFACT_EQUIVALENCE" = "not-required" ]; then
+              echo "No supported registry contains this exact version, so published-artifact equivalence is not required."
+              echo
+            fi
+            if [ "$EQUIVALENCE_RESULTS" != "[]" ]; then
+              echo '~~~json'
+              jq '.' <<< "$EQUIVALENCE_RESULTS"
+              echo '~~~'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   delete-release:
@@ -387,8 +456,16 @@ jobs:
             echo "| npmjs.org | **${{ needs.resolve.outputs.npm-registry-state || 'unknown' }}** |"
             echo "| GitHub Packages | **${{ needs.resolve.outputs.github-registry-state || 'unknown' }}** |"
             echo
+            echo "## Artifact equivalence"
+            echo
+            echo "Status: **${{ needs.resolve.outputs.artifact-equivalence || 'unknown' }}**"
+            echo
+            if [ -n "${{ needs.resolve.outputs.matched-registry }}" ]; then
+              printf 'Matched published copy: `%s`\n\n' "${{ needs.resolve.outputs.matched-registry }}"
+            fi
+            echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to restore this historical release identity."
+              echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
               echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
             fi
