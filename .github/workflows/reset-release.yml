@@ -51,6 +51,9 @@ jobs:
       release-query: ${{ steps.package.outputs.release-query }}
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
+      backup-release-id: ${{ steps.package.outputs.backup-release-id }}
+      backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
+      backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -110,6 +113,25 @@ jobs:
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
 
+          BACKUP_RELEASE="$(
+            gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
+              jq -c --arg tag "$RELEASE_TAG" '
+                [.[][] | select(.tag_name == $tag)]
+                | sort_by(.updated_at // .created_at)
+                | last // empty
+              '
+          )"
+
+          BACKUP_RELEASE_ID=""
+          BACKUP_BODY_BASE64=""
+          BACKUP_UPDATED_AT=""
+
+          if [ -n "$BACKUP_RELEASE" ]; then
+            BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
+            BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
+            BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
+          fi
+
           case "${{ inputs.release-match }}" in
             version)
               RELEASE_QUERY="$PACKAGE_VERSION"
@@ -132,6 +154,9 @@ jobs:
             echo "release-query=$RELEASE_QUERY"
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
+            echo "backup-release-id=$BACKUP_RELEASE_ID"
+            echo "backup-body-base64=$BACKUP_BODY_BASE64"
+            echo "backup-updated-at=$BACKUP_UPDATED_AT"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -145,6 +170,7 @@ jobs:
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Release lookup | `%s` (%s) |\n' "$RELEASE_QUERY" "${{ inputs.release-match }}"
             printf '| Release name | `%s` |\n' "$RELEASE_NAME"
+            printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -180,6 +206,8 @@ jobs:
       release-name: ${{ needs.resolve.outputs.release-name }}
       changelog-path: ${{ needs.resolve.outputs.changelog-path }}
       template-path: .github/release-drafter-package-template.yml
+      seed-body-base64: ${{ needs.resolve.outputs.backup-body-base64 }}
+      seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
       dry-run: ${{ inputs.dry-run }}
 
   release:
@@ -231,6 +259,7 @@ jobs:
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
             printf 'Release lookup: `%s` (%s)\n\n' "${{ needs.resolve.outputs.release-query }}" "${{ inputs.release-match }}"
+            printf 'Backed up release ID: `%s`\n\n' "${{ needs.resolve.outputs.backup-release-id || 'none' }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
