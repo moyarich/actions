@@ -1,9 +1,11 @@
 import { Argument, Option, program } from "commander";
 import { releaseIdentity } from "../release-identity/release-identity.ts";
+import { verifyRestoreArtifactEquivalence } from "../release-identity/restore-equivalence.ts";
 import { resolveRestoreSource } from "../release-identity/restore-source.ts";
 import { packageInfo, repositoryRoot } from "../workspace/workspace.ts";
 
 const restoreSourceMode = process.argv[2] === "restore-source";
+const restoreEquivalenceMode = process.argv[2] === "restore-equivalence";
 
 program
   .name("workspace-release-identity")
@@ -39,6 +41,45 @@ if (restoreSourceMode) {
             `Resolved kind: ${resolution.resolvedKind}`,
             `Value: ${resolution.value}`,
             `Commit: ${resolution.commit}`,
+            "",
+          ].join("\n"),
+        );
+      }
+    });
+
+  await program.parseAsync([
+    process.argv[0]!,
+    process.argv[1]!,
+    ...process.argv.slice(3),
+  ]);
+} else if (restoreEquivalenceMode) {
+  program
+    .addArgument(new Argument("<package>", "Workspace package selector"))
+    .requiredOption("--commit <sha>", "Candidate historical commit")
+    .requiredOption("--registry <url>", "Registry containing the published package")
+    .option("--json", "Print compact JSON")
+    .option("--pretty-json", "Print formatted JSON")
+    .action((selector, options) => {
+      const result = verifyRestoreArtifactEquivalence(
+        repositoryRoot(),
+        selector,
+        options.commit,
+        options.registry,
+      );
+
+      if (options.json) process.stdout.write(JSON.stringify(result));
+      else if (options.prettyJson)
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      else {
+        process.stdout.write(
+          [
+            `Package: ${result.packageName}@${result.version}`,
+            `Commit: ${result.commit}`,
+            `Registry: ${result.registry}`,
+            `Equivalent: ${result.equivalent}`,
+            `Published integrity: ${result.publishedIntegrity}`,
+            `Candidate integrity: ${result.candidateIntegrity}`,
+            ...result.differences.map((difference) => `Difference: ${difference}`),
             "",
           ].join("\n"),
         );
