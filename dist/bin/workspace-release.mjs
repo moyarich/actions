@@ -3540,7 +3540,7 @@ const VALID_BUMPS = /* @__PURE__ */ new Set([
   "prepatch",
   "prerelease"
 ]);
-const RELEASE_MODES = /* @__PURE__ */ new Set(["bump", "exact", "package-json"]);
+const RELEASE_MODES = /* @__PURE__ */ new Set(["bump", "exact", "package-version"]);
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const COLOR = Boolean(process.stdout.isTTY && !process.env.NO_COLOR);
 function ansi(code, value) {
@@ -3601,7 +3601,7 @@ function parseReleaseArgument(argument, options = {}) {
     throw new Error("A package selector is required.");
   }
   if (!argument.includes("=")) {
-    if (options.mode === "package-json") {
+    if (options.mode === "package-version") {
       return {
         selector: argument.trim(),
         versionSpec: null
@@ -3617,7 +3617,7 @@ function parseReleaseArgument(argument, options = {}) {
   if (!selector) {
     throw new Error("A package selector is required.");
   }
-  if (options.mode !== "package-json" && !VALID_BUMPS.has(versionSpec) && !SEMVER.test(versionSpec)) {
+  if (options.mode !== "package-version" && !VALID_BUMPS.has(versionSpec) && !SEMVER.test(versionSpec)) {
     throw new Error(`Invalid version: ${versionSpec}`);
   }
   return {
@@ -3841,7 +3841,7 @@ ${body}`.trimEnd() + "\n"
 }
 function buildReleasePlan(root, pkg, selector, mode, versionSpec) {
   const currentVersion = pkg.manifest.version;
-  const nextVersion = mode === "package-json" ? currentVersion : resolveNextVersion(currentVersion, versionSpec);
+  const nextVersion = mode === "package-version" ? currentVersion : resolveNextVersion(currentVersion, versionSpec);
   const registry = registryFor(pkg);
   const published = registryVersion(root, pkg);
   const proposed = registryVersion(root, pkg, nextVersion);
@@ -3852,7 +3852,7 @@ function buildReleasePlan(root, pkg, selector, mode, versionSpec) {
   const alreadyPublished = proposed.status === "published";
   const canRelease = !alreadyPublished && !tag.exists;
   const reason = alreadyPublished ? `${pkg.manifest.name}@${nextVersion} is already published.` : tag.exists ? tag.atHead ? `Git tag ${identity.tagName} already exists at HEAD.` : `Git tag ${identity.tagName} already exists at ${tag.commit} and will not be moved.` : null;
-  const versionCommand = mode === "package-json" ? null : {
+  const versionCommand = mode === "package-version" ? null : {
     command: "npm",
     args: npmVersionArgs(pkg, versionSpec),
     cwd: root
@@ -3878,7 +3878,7 @@ function buildReleasePlan(root, pkg, selector, mode, versionSpec) {
     previousRelease,
     changelog,
     versionCommand,
-    files: mode === "package-json" ? [] : [pkg.file, resolve(root, "package-lock.json"), changelog.path]
+    files: mode === "package-version" ? [] : [pkg.file, resolve(root, "package-lock.json"), changelog.path]
   };
 }
 function release(argument, options = {}) {
@@ -3890,7 +3890,7 @@ function release(argument, options = {}) {
   if (!RELEASE_MODES.has(mode)) {
     throw new Error(`Invalid release mode: ${mode}`);
   }
-  const versionSpec = mode === "package-json" ? null : options.version || argumentVersionSpec;
+  const versionSpec = mode === "package-version" ? null : options.version || argumentVersionSpec;
   if (mode === "bump" && (!versionSpec || !VALID_BUMPS.has(versionSpec))) {
     throw new Error(`Invalid release bump: ${versionSpec}`);
   }
@@ -4122,7 +4122,7 @@ function resolveCliReleaseArgument(argument, options) {
   if (!selector) {
     return void 0;
   }
-  if (options.mode === "package-json") {
+  if (options.mode === "package-version") {
     return selector;
   }
   if (options.mode === "exact") {
@@ -4157,7 +4157,7 @@ program.name("workspace-release").description("Preview or create a workspace pac
   new Option("--mode <mode>", "Version mode").choices([
     "bump",
     "exact",
-    "package-json"
+    "package-version"
   ])
 ).option("--version <version>", "Override the version or bump").option("-d, --dry-run", "Preview without changing repository files").option("-j, --json", "Print the operation result as JSON").option("--no-fzf", "Disable automatic fzf selection").action(async (release2, options) => {
   await releaseWorkspacePackage(release2, options);
