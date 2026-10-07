@@ -139,7 +139,9 @@ describe("resolveRestoreSource", () => {
 
     test("rejects github-url sources from another repository", () => {
       expect(() =>
-        resolveSource("github-url:https://github.com/example/other/commit/8b4539e"),
+        resolveSource(
+          "github-url:https://github.com/example/other/commit/8b4539e",
+        ),
       ).toThrow(/must belong to the current repository/);
     });
   });

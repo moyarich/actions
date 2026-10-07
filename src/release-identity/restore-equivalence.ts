@@ -322,7 +322,6 @@ export function verifyRestoreArtifactEquivalence(
   }
 }
 
-
 export function summarizeRestoreArtifactEquivalence(
   attempts: RestoreEquivalenceAttempt[],
 ): RestoreEquivalenceSummary {
