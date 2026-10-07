@@ -78,10 +78,11 @@ describe("summarizeRestoreArtifactEquivalence", () => {
   });
 });
 
-
 describe("restoreCandidatePackArgs", () => {
   test("packs the root package as committed without running lifecycle scripts", () => {
-    expect(restoreCandidatePackArgs(".", "@moyarich/workspace-tools", "/tmp/out")).toEqual([
+    expect(
+      restoreCandidatePackArgs(".", "@moyarich/workspace-tools", "/tmp/out"),
+    ).toEqual([
       "pack",
       "--json",
       "--ignore-scripts",

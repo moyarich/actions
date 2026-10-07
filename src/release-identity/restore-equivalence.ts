@@ -75,13 +75,7 @@ export function restoreCandidatePackArgs(
   destination: string,
 ): string[] {
   return directory === "."
-    ? [
-        "pack",
-        "--json",
-        "--ignore-scripts",
-        "--pack-destination",
-        destination,
-      ]
+    ? ["pack", "--json", "--ignore-scripts", "--pack-destination", destination]
     : [
         "pack",
         "--workspace",
