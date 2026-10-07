@@ -14,7 +14,7 @@ program
     new Option("--mode <mode>", "Version mode").choices([
       "bump",
       "exact",
-      "package-json",
+      "package-version",
     ]),
   )
   .option("--version <version>", "Override the version or bump")
