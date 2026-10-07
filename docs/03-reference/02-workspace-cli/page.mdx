@@ -41,10 +41,10 @@ Returns the canonical package release identity. The Git tag is `<package-directo
 
 ```sh
 workspace-release <package>=<version|major|minor|patch|premajor|preminor|prepatch|prerelease>
-workspace-release <package> --mode=package-version
+workspace-release <package> --mode=package-json
 ```
 
-Release modes are `bump`, `exact`, and `package-version`. `package-version` reads the current manifest version and tags `HEAD` without invoking `npm version`.
+Release modes are `bump`, `exact`, and `package-json`. `package-json` reads the current manifest version and tags `HEAD` without invoking `npm version`.
 
 `--dry-run` reports registry and exact Git-tag conflicts without modifying repository state. Interactive package/version selection uses `fzf` unless disabled with `--no-fzf`.
 
