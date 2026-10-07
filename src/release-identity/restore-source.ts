@@ -13,8 +13,15 @@ export interface RestoreSourceResolution {
   commit: string;
 }
 
+type RestoreCommand = (command: string, args: string[]) => string;
+
 interface RestoreResolverContext {
   repository: string;
+  command: RestoreCommand;
+}
+
+export interface RestoreSourceDependencies {
+  command?: RestoreCommand;
 }
 
 type RestoreSourceResolver = (
@@ -22,14 +29,14 @@ type RestoreSourceResolver = (
   context: RestoreResolverContext,
 ) => Omit<RestoreSourceResolution, "source" | "kind">;
 
-function command(command: string, args: string[]): string {
+function defaultCommand(command: string, args: string[]): string {
   return execFileSync(command, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }
 
-function resolveCommit(value: string): string {
+function resolveCommit(value: string, command: RestoreCommand): string {
   if (!value) throw new Error("commit: requires a SHA.");
 
   try {
@@ -39,7 +46,7 @@ function resolveCommit(value: string): string {
   }
 }
 
-function resolveTag(value: string): string {
+function resolveTag(value: string, command: RestoreCommand): string {
   if (!value) throw new Error("tag: requires a tag name.");
 
   try {
@@ -53,7 +60,11 @@ function resolveTag(value: string): string {
   }
 }
 
-function resolveRun(value: string, repository: string): string {
+function resolveRun(
+  value: string,
+  repository: string,
+  command: RestoreCommand,
+): string {
   if (!/^\d+$/.test(value)) {
     throw new Error("run: requires a numeric workflow run ID.");
   }
@@ -70,7 +81,11 @@ function resolveRun(value: string, repository: string): string {
   }
 }
 
-function resolveArtifact(value: string, repository: string): string {
+function resolveArtifact(
+  value: string,
+  repository: string,
+  command: RestoreCommand,
+): string {
   if (!/^\d+$/.test(value)) {
     throw new Error("artifact: requires a numeric workflow artifact ID.");
   }
@@ -154,25 +169,28 @@ function parseGithubUrl(
 
 const restoreSourceDispatch: Record<RestoreSourceKind, RestoreSourceResolver> =
   {
-    commit: (value) => ({
+    commit: (value, { command }) => ({
       resolvedKind: "commit",
       value,
-      commit: resolveCommit(value),
+      commit: resolveCommit(value, command),
     }),
-    tag: (value) => ({
+    tag: (value, { command }) => ({
       resolvedKind: "tag",
       value,
-      commit: resolveTag(value),
+      commit: resolveTag(value, command),
     }),
-    run: (value, { repository }) => ({
+    run: (value, { repository, command }) => ({
       resolvedKind: "run",
       value,
-      commit: resolveCommit(resolveRun(value, repository)),
+      commit: resolveCommit(resolveRun(value, repository, command), command),
     }),
-    artifact: (value, { repository }) => ({
+    artifact: (value, { repository, command }) => ({
       resolvedKind: "artifact",
       value,
-      commit: resolveCommit(resolveArtifact(value, repository)),
+      commit: resolveCommit(
+        resolveArtifact(value, repository, command),
+        command,
+      ),
     }),
     "github-url": (value, context) => {
       const parsed = parseGithubUrl(value, context.repository);
@@ -192,6 +210,7 @@ const restoreSourceDispatch: Record<RestoreSourceKind, RestoreSourceResolver> =
 export function resolveRestoreSource(
   source: string,
   repository: string,
+  dependencies: RestoreSourceDependencies = {},
 ): RestoreSourceResolution {
   const separator = source.indexOf(":");
   if (separator < 1) {
@@ -210,7 +229,11 @@ export function resolveRestoreSource(
     );
   }
 
-  const resolved = resolver(value, { repository });
+  const resolved = resolver(value, {
+    repository,
+    command: dependencies.command ?? defaultCommand,
+  });
+
   return {
     source,
     kind,
