@@ -48,37 +48,46 @@ test("resolveRestoreSource dispatches commit sources and normalizes to a full SH
 test("resolveRestoreSource dispatches tag sources", () => {
   const source = "tag:@moyarich/workspace-tools@0.1.1";
 
-  assert.deepEqual(resolveRestoreSource(source, repository, { command: fakeCommand }), {
-    source,
-    kind: "tag",
-    resolvedKind: "tag",
-    value: "@moyarich/workspace-tools@0.1.1",
-    commit: fullSha,
-  });
+  assert.deepEqual(
+    resolveRestoreSource(source, repository, { command: fakeCommand }),
+    {
+      source,
+      kind: "tag",
+      resolvedKind: "tag",
+      value: "@moyarich/workspace-tools@0.1.1",
+      commit: fullSha,
+    },
+  );
 });
 
 test("resolveRestoreSource dispatches workflow run sources", () => {
   const source = "run:37624987179";
 
-  assert.deepEqual(resolveRestoreSource(source, repository, { command: fakeCommand }), {
-    source,
-    kind: "run",
-    resolvedKind: "run",
-    value: "37624987179",
-    commit: fullSha,
-  });
+  assert.deepEqual(
+    resolveRestoreSource(source, repository, { command: fakeCommand }),
+    {
+      source,
+      kind: "run",
+      resolvedKind: "run",
+      value: "37624987179",
+      commit: fullSha,
+    },
+  );
 });
 
 test("resolveRestoreSource dispatches workflow artifact sources", () => {
   const source = "artifact:11484185701";
 
-  assert.deepEqual(resolveRestoreSource(source, repository, { command: fakeCommand }), {
-    source,
-    kind: "artifact",
-    resolvedKind: "artifact",
-    value: "11484185701",
-    commit: fullSha,
-  });
+  assert.deepEqual(
+    resolveRestoreSource(source, repository, { command: fakeCommand }),
+    {
+      source,
+      kind: "artifact",
+      resolvedKind: "artifact",
+      value: "11484185701",
+      commit: fullSha,
+    },
+  );
 });
 
 test("resolveRestoreSource classifies supported GitHub URLs and delegates through dispatch", () => {
@@ -89,20 +98,17 @@ test("resolveRestoreSource classifies supported GitHub URLs and delegates throug
       value: "8b4539e",
     },
     {
-      source:
-        `github-url:https://github.com/${repository}/releases/tag/%40moyarich%2Fworkspace-tools%400.1.1`,
+      source: `github-url:https://github.com/${repository}/releases/tag/%40moyarich%2Fworkspace-tools%400.1.1`,
       resolvedKind: "tag",
       value: "@moyarich/workspace-tools@0.1.1",
     },
     {
-      source:
-        `github-url:https://github.com/${repository}/actions/runs/37624987179`,
+      source: `github-url:https://github.com/${repository}/actions/runs/37624987179`,
       resolvedKind: "run",
       value: "37624987179",
     },
     {
-      source:
-        `github-url:https://github.com/${repository}/actions/runs/37624987179/artifacts/11484185701`,
+      source: `github-url:https://github.com/${repository}/actions/runs/37624987179/artifacts/11484185701`,
       resolvedKind: "artifact",
       value: "11484185701",
     },
