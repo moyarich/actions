@@ -35,3 +35,15 @@ npm exec -- workspace-release-identity restore-source \
 ```
 
 The resolver normalizes every supported form to the exact full Git commit SHA before Restore Release uses it.
+
+
+Verify a candidate commit against one or more already-published registry copies:
+
+```sh
+npm exec -- workspace-release-identity restore-equivalence . \
+  --commit 8b4539e214afc9d87dfbad3e52243e4426c26179 \
+  --registry https://npm.pkg.github.com \
+  --pretty-json
+```
+
+Repeat `--registry` when the exact version exists in more than one registry. The candidate is accepted when **any** published copy matches.
