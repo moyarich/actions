@@ -3398,41 +3398,58 @@ function resolveTag(value, command) {
     throw new Error(`Tag does not exist: ${value}`);
   }
 }
-function resolveRun(value, repository, command) {
+function resolveWorkflowRun(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("run: requires a numeric workflow run ID.");
   }
+  let output;
   try {
-    return command("gh", [
+    output = command("gh", [
       "api",
       `repos/${repository}/actions/runs/${value}`,
       "--jq",
-      ".head_sha"
+      "[.head_sha, .path] | @tsv"
     ]);
   } catch {
     throw new Error(`Workflow run does not exist or is inaccessible: ${value}`);
   }
+  const [commit = "", path2 = ""] = output.split("	");
+  if (!commit || !path2) {
+    throw new Error(`Workflow run is missing source metadata: ${value}`);
+  }
+  if (/(^|\/)(reset-release|restore-release)\.ya?ml$/.test(path2)) {
+    throw new Error(
+      `Recovery workflow run ${value} is not valid Restore provenance. Use the original publish/release run, artifact, tag, commit, or GitHub URL instead.`
+    );
+  }
+  return { commit, path: path2 };
+}
+function resolveRun(value, repository, command) {
+  return resolveWorkflowRun(value, repository, command).commit;
 }
 function resolveArtifact(value, repository, command) {
   if (!/^\d+$/.test(value)) {
     throw new Error("artifact: requires a numeric workflow artifact ID.");
   }
+  let runId;
   try {
-    const sha = command("gh", [
+    runId = command("gh", [
       "api",
       `repos/${repository}/actions/artifacts/${value}`,
       "--jq",
-      ".workflow_run.head_sha // empty"
+      ".workflow_run.id // empty"
     ]);
-    if (!sha) {
-      throw new Error();
-    }
-    return sha;
   } catch {
     throw new Error(
-      `Workflow artifact does not exist, is inaccessible, or has no workflow run commit: ${value}`
+      `Workflow artifact does not exist or is inaccessible: ${value}`
     );
   }
+  if (!/^\d+$/.test(runId)) {
+    throw new Error(
+      `Workflow artifact has no valid workflow run provenance: ${value}`
+    );
+  }
+  return resolveWorkflowRun(runId, repository, command).commit;
 }
 function parseGithubUrl(value, repository) {
   if (!value) throw new Error("github-url: requires a GitHub URL.");
