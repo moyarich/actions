@@ -3682,6 +3682,7 @@ function packageRegistryState(pkg, registry) {
   ];
   const env = {
     ...process.env,
+    NPM_CONFIG_USERCONFIG: npmrc,
     npm_config_userconfig: npmrc
   };
   if (config.token) {
