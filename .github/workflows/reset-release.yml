@@ -135,6 +135,12 @@ jobs:
             BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
             BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
             BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
+
+            if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
+              echo "::error::Reset Release is only allowed while the GitHub Release is a draft."
+              echo "::error::$RELEASE_TAG is already published/finalized. Create a new version instead."
+              exit 1
+            fi
           fi
 
           case "${{ inputs.release-match }}" in
