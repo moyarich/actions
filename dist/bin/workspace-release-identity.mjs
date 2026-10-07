@@ -3443,7 +3443,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd,
     env: options.env,
     encoding: "utf8",
-    stdio: options.capture === false ? "inherit" : ["ignore", "pipe", "inherit"]
+    stdio: options.capture === false ? ["ignore", "ignore", "inherit"] : ["ignore", "pipe", "inherit"]
   }).trim();
 }
 function packageSelectorPath(root, selector) {

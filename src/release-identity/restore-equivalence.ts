@@ -51,7 +51,9 @@ function run(
     env: options.env,
     encoding: "utf8",
     stdio:
-      options.capture === false ? "inherit" : ["ignore", "pipe", "inherit"],
+      options.capture === false
+        ? ["ignore", "ignore", "inherit"]
+        : ["ignore", "pipe", "inherit"],
   }).trim();
 }
 
