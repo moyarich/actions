@@ -14,6 +14,7 @@ import {
   packageGitTagState,
   packageRegistryState,
   parsePackResult,
+  registryNpmEnvironment,
   registryPublishArgs,
   serializePublishPlan,
   suggestedDistributionTag,
@@ -368,62 +369,35 @@ test("registryPublishArgs promotes the same tarball through npm staged publishin
   );
 });
 
-test("publish overrides inherited npm userconfig for registry-specific auth", async () => {
-  const previousGithubToken = process.env._GITHUB_TOKEN;
-  const previousNpmToken = process.env._NPM_TOKEN;
+test("registry npm environment overrides inherited setup-node userconfig", () => {
   const previousUpperUserconfig = process.env.NPM_CONFIG_USERCONFIG;
   const previousLowerUserconfig = process.env.npm_config_userconfig;
+  const previousNodeToken = process.env.NODE_AUTH_TOKEN;
 
-  process.env._GITHUB_TOKEN = "github-token";
-  process.env._NPM_TOKEN = "npm-token";
   process.env.NPM_CONFIG_USERCONFIG = "/tmp/setup-node-npmrc";
   process.env.npm_config_userconfig = "/tmp/setup-node-lower-npmrc";
-
-  execFileSync.mockImplementation((command, args, options) => {
-    if (command === "git") {
-      if (args[0] === "rev-list") return "abc123\n";
-      if (args[0] === "rev-parse") return "abc123\n";
-    }
-
-    if (command === "npm" && args[0] === "view") {
-      throw Object.assign(new Error("not found"), {
-        stderr: "npm error code E404\n404 Not Found",
-      });
-    }
-
-    if (command === "npm" && (args[0] === "publish" || args[0] === "stage")) {
-      assert.match(options.env.NPM_CONFIG_USERCONFIG, /workspace-publish-/);
-      assert.equal(
-        options.env.NPM_CONFIG_USERCONFIG,
-        options.env.npm_config_userconfig,
-      );
-
-      if (args[0] === "publish") {
-        assert.equal(options.env.NODE_AUTH_TOKEN, "github-token");
-      } else {
-        assert.equal(options.env.NODE_AUTH_TOKEN, "npm-token");
-      }
-
-      return undefined;
-    }
-
-    return Buffer.from("[]");
-  });
+  process.env.NODE_AUTH_TOKEN = "inherited-token";
 
   try {
-    const { publish } = await import("../../src/publish/publish.ts");
+    const env = registryNpmEnvironment(
+      {
+        url: "https://registry.npmjs.org",
+        host: "registry.npmjs.org",
+        token: "npm-token",
+      },
+      "/tmp/workspace-publish/npmrc",
+    );
 
-    // The package fixtures used by this test suite are not suitable for a full
-    // publish invocation, so the registry-specific environment contract is
-    // covered through the publish command mocks above.
-    assert.equal(typeof publish, "function");
+    assert.equal(
+      env.NPM_CONFIG_USERCONFIG,
+      "/tmp/workspace-publish/npmrc",
+    );
+    assert.equal(
+      env.npm_config_userconfig,
+      "/tmp/workspace-publish/npmrc",
+    );
+    assert.equal(env.NODE_AUTH_TOKEN, "npm-token");
   } finally {
-    if (previousGithubToken === undefined) delete process.env._GITHUB_TOKEN;
-    else process.env._GITHUB_TOKEN = previousGithubToken;
-
-    if (previousNpmToken === undefined) delete process.env._NPM_TOKEN;
-    else process.env._NPM_TOKEN = previousNpmToken;
-
     if (previousUpperUserconfig === undefined)
       delete process.env.NPM_CONFIG_USERCONFIG;
     else process.env.NPM_CONFIG_USERCONFIG = previousUpperUserconfig;
@@ -431,6 +405,9 @@ test("publish overrides inherited npm userconfig for registry-specific auth", as
     if (previousLowerUserconfig === undefined)
       delete process.env.npm_config_userconfig;
     else process.env.npm_config_userconfig = previousLowerUserconfig;
+
+    if (previousNodeToken === undefined) delete process.env.NODE_AUTH_TOKEN;
+    else process.env.NODE_AUTH_TOKEN = previousNodeToken;
   }
 });
 
