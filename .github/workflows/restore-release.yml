@@ -1,7 +1,7 @@
 name: Restore Release
 
 run-name: >-
-  Restore release · ${{ inputs.package }} · ${{ inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
+  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source || inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
@@ -16,9 +16,15 @@ on:
         required: true
         default: main
         type: string
+      restore-source:
+        description: Historical source — commit/tag, run:<id>, artifact:<id>, or GitHub Actions run/artifact URL
+        required: false
+        default: ""
+        type: string
       release-commit:
-        description: Exact historical commit to restore
-        required: true
+        description: Legacy exact historical commit; used only when restore-source is empty
+        required: false
+        default: ""
         type: string
       dry-run:
         description: Preview recovery without mutating the release or tag
@@ -37,6 +43,7 @@ jobs:
     name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       packages: read
     outputs:
@@ -48,6 +55,8 @@ jobs:
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
       release-commit: ${{ steps.package.outputs.release-commit }}
+      restore-source: ${{ steps.package.outputs.restore-source }}
+      restore-source-kind: ${{ steps.package.outputs.restore-source-kind }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -66,14 +75,66 @@ jobs:
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
-          RELEASE_COMMIT: ${{ inputs.release-commit }}
+          RESTORE_SOURCE: ${{ inputs.restore-source || inputs.release-commit }}
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
-            echo "::error::Release commit does not exist: $RELEASE_COMMIT"
+          if [ -z "$RESTORE_SOURCE" ]; then
+            echo "::error::Provide restore-source (preferred) or release-commit (legacy)."
+            exit 1
+          fi
+
+          SOURCE_KIND="commit-or-tag"
+          SOURCE_VALUE="$RESTORE_SOURCE"
+          RELEASE_COMMIT=""
+
+          resolve_run_commit() {
+            local run_id="$1"
+            gh api "repos/$GH_REPO/actions/runs/$run_id" --jq '.head_sha'
+          }
+
+          resolve_artifact_commit() {
+            local artifact_id="$1"
+            gh api "repos/$GH_REPO/actions/artifacts/$artifact_id" --jq '.workflow_run.head_sha // empty'
+          }
+
+          case "$RESTORE_SOURCE" in
+            run:*)
+              SOURCE_KIND="workflow-run"
+              SOURCE_VALUE="${RESTORE_SOURCE#run:}"
+              RELEASE_COMMIT="$(resolve_run_commit "$SOURCE_VALUE")"
+              ;;
+            artifact:*)
+              SOURCE_KIND="workflow-artifact"
+              SOURCE_VALUE="${RESTORE_SOURCE#artifact:}"
+              RELEASE_COMMIT="$(resolve_artifact_commit "$SOURCE_VALUE")"
+              ;;
+            *"/actions/runs/"*"/artifacts/"*)
+              SOURCE_KIND="workflow-artifact-url"
+              SOURCE_VALUE="$(sed -E 's#.*?/artifacts/([0-9]+).*#\1#' <<< "$RESTORE_SOURCE")"
+              RELEASE_COMMIT="$(resolve_artifact_commit "$SOURCE_VALUE")"
+              ;;
+            *"/actions/runs/"*)
+              SOURCE_KIND="workflow-run-url"
+              SOURCE_VALUE="$(sed -E 's#.*?/actions/runs/([0-9]+).*#\1#' <<< "$RESTORE_SOURCE")"
+              RELEASE_COMMIT="$(resolve_run_commit "$SOURCE_VALUE")"
+              ;;
+            *)
+              RELEASE_COMMIT="$(git rev-parse --verify "${RESTORE_SOURCE}^{commit}" 2>/dev/null || true)"
+              ;;
+          esac
+
+          if [ -z "$RELEASE_COMMIT" ]; then
+            echo "::error::Unable to resolve restore source to a commit: $RESTORE_SOURCE"
+            exit 1
+          fi
+
+          RELEASE_COMMIT="$(git rev-parse --verify "${RELEASE_COMMIT}^{commit}" 2>/dev/null || true)"
+          if [ -z "$RELEASE_COMMIT" ]; then
+            echo "::error::Resolved commit is not available in the repository: $RESTORE_SOURCE"
             exit 1
           fi
 
@@ -193,6 +254,8 @@ jobs:
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
             echo "release-commit=$RELEASE_COMMIT"
+            echo "restore-source=$RESTORE_SOURCE"
+            echo "restore-source-kind=$SOURCE_KIND"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
@@ -209,7 +272,9 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Restore commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
+            printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
+            printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
@@ -329,7 +394,9 @@ jobs:
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'Restored commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
+            printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
+            printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
+            printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
