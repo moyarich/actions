@@ -59,7 +59,7 @@ Supported `github-url:` values are commit URLs, release-tag URLs, workflow-run U
 
 The JSON result includes the original source, source kind, resolved kind, normalized value, and exact full commit SHA.
 
-Verify that a candidate commit reproduces at least one immutable published package copy:
+Verify that a candidate commit contains package bytes matching at least one immutable published package copy:
 
 ```sh
 workspace-release-identity restore-equivalence <package> \
@@ -69,7 +69,7 @@ workspace-release-identity restore-equivalence <package> \
   [--json|--pretty-json]
 ```
 
-When multiple published registries are supplied, one verified match is sufficient. The result reports the matched registry plus per-registry comparison details.
+When multiple published registries are supplied, one verified match is sufficient. The verifier packs the candidate source with lifecycle scripts disabled; it does not rebuild historical generated output. The result reports the matched registry plus per-registry comparison details.
 
 ## workspace-release
 
