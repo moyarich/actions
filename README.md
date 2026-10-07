@@ -143,11 +143,11 @@ Remove `--dry-run` when you are ready to perform the operation.
 
 `workspace-release` determines or prepares the version being released, using one of three modes:
 
-| Mode              | Purpose                                                           |
-| ----------------- | ----------------------------------------------------------------- |
+| Mode           | Purpose                                                           |
+| -------------- | ----------------------------------------------------------------- |
 | `package-json` | Use the version already declared in the package's `package.json`. |
-| `bump`            | Resolve a semantic increment: `patch`, `minor`, or `major`.       |
-| `exact`           | Release an explicitly supplied version.                           |
+| `bump`         | Resolve a semantic increment: `patch`, `minor`, or `major`.       |
+| `exact`        | Release an explicitly supplied version.                           |
 
 ```sh
 # Use the package.json version
