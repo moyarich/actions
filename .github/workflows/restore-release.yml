@@ -17,9 +17,8 @@ on:
         default: main
         type: string
       restore-source:
-        description: Historical source — commit/tag, run:<id>, artifact:<id>, or GitHub Actions run/artifact URL
-        required: false
-        default: ""
+        description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
+        required: true
         type: string
       dry-run:
         description: Preview recovery without mutating the release or tag
@@ -82,43 +81,116 @@ jobs:
             exit 1
           fi
 
-          SOURCE_KIND="commit-or-tag"
-          SOURCE_VALUE="$RESTORE_SOURCE"
+          SOURCE_KIND=""
+          SOURCE_VALUE=""
           RELEASE_COMMIT=""
 
           resolve_run_commit() {
             local run_id="$1"
+            [[ "$run_id" =~ ^[0-9]+$ ]] || return 1
             gh api "repos/$GH_REPO/actions/runs/$run_id" --jq '.head_sha'
           }
 
           resolve_artifact_commit() {
             local artifact_id="$1"
+            [[ "$artifact_id" =~ ^[0-9]+$ ]] || return 1
             gh api "repos/$GH_REPO/actions/artifacts/$artifact_id" --jq '.workflow_run.head_sha // empty'
           }
 
+          resolve_github_url() {
+            local url="$1"
+            local expected_prefix="https://github.com/$GH_REPO/"
+            local remainder value
+
+            case "$url" in
+              "$expected_prefix"*) ;;
+              *)
+                echo "::error::github-url must belong to the current repository: $GH_REPO" >&2
+                return 1
+                ;;
+            esac
+
+            remainder="${url#"$expected_prefix"}"
+
+            case "$remainder" in
+              commit/*)
+                SOURCE_KIND="github-url:commit"
+                value="${remainder#commit/}"
+                value="${value%%[/?#]*}"
+                SOURCE_VALUE="$value"
+                git rev-parse --verify "${value}^{commit}" 2>/dev/null
+                ;;
+              releases/tag/*)
+                SOURCE_KIND="github-url:tag"
+                value="${remainder#releases/tag/}"
+                value="${value%%[?#]*}"
+                value="$(node -e 'process.stdout.write(decodeURIComponent(process.argv[1]))' "$value")"
+                SOURCE_VALUE="$value"
+                git rev-parse --verify "refs/tags/${value}^{commit}" 2>/dev/null
+                ;;
+              actions/runs/*/artifacts/*)
+                SOURCE_KIND="github-url:artifact"
+                value="$(sed -E 's#^actions/runs/[0-9]+/artifacts/([0-9]+)([/?#].*)?$#\1#' <<< "$remainder")"
+                [[ "$value" =~ ^[0-9]+$ ]] || return 1
+                SOURCE_VALUE="$value"
+                resolve_artifact_commit "$value"
+                ;;
+              actions/runs/*)
+                SOURCE_KIND="github-url:run"
+                value="$(sed -E 's#^actions/runs/([0-9]+)([/?#].*)?$#\1#' <<< "$remainder")"
+                [[ "$value" =~ ^[0-9]+$ ]] || return 1
+                SOURCE_VALUE="$value"
+                resolve_run_commit "$value"
+                ;;
+              *)
+                echo "::error::Unsupported GitHub URL for restore-source: $url" >&2
+                return 1
+                ;;
+            esac
+          }
+
           case "$RESTORE_SOURCE" in
+            commit:*)
+              SOURCE_KIND="commit"
+              SOURCE_VALUE="${RESTORE_SOURCE#commit:}"
+              [ -n "$SOURCE_VALUE" ] || {
+                echo "::error::commit: requires a SHA."
+                exit 1
+              }
+              RELEASE_COMMIT="$(git rev-parse --verify "${SOURCE_VALUE}^{commit}" 2>/dev/null || true)"
+              ;;
+            tag:*)
+              SOURCE_KIND="tag"
+              SOURCE_VALUE="${RESTORE_SOURCE#tag:}"
+              [ -n "$SOURCE_VALUE" ] || {
+                echo "::error::tag: requires a tag name."
+                exit 1
+              }
+              RELEASE_COMMIT="$(git rev-parse --verify "refs/tags/${SOURCE_VALUE}^{commit}" 2>/dev/null || true)"
+              ;;
             run:*)
-              SOURCE_KIND="workflow-run"
+              SOURCE_KIND="run"
               SOURCE_VALUE="${RESTORE_SOURCE#run:}"
-              RELEASE_COMMIT="$(resolve_run_commit "$SOURCE_VALUE")"
+              RELEASE_COMMIT="$(resolve_run_commit "$SOURCE_VALUE" 2>/dev/null || true)"
               ;;
             artifact:*)
-              SOURCE_KIND="workflow-artifact"
+              SOURCE_KIND="artifact"
               SOURCE_VALUE="${RESTORE_SOURCE#artifact:}"
-              RELEASE_COMMIT="$(resolve_artifact_commit "$SOURCE_VALUE")"
+              RELEASE_COMMIT="$(resolve_artifact_commit "$SOURCE_VALUE" 2>/dev/null || true)"
               ;;
-            *"/actions/runs/"*"/artifacts/"*)
-              SOURCE_KIND="workflow-artifact-url"
-              SOURCE_VALUE="$(sed -E 's#.*?/artifacts/([0-9]+).*#\1#' <<< "$RESTORE_SOURCE")"
-              RELEASE_COMMIT="$(resolve_artifact_commit "$SOURCE_VALUE")"
-              ;;
-            *"/actions/runs/"*)
-              SOURCE_KIND="workflow-run-url"
-              SOURCE_VALUE="$(sed -E 's#.*?/actions/runs/([0-9]+).*#\1#' <<< "$RESTORE_SOURCE")"
-              RELEASE_COMMIT="$(resolve_run_commit "$SOURCE_VALUE")"
+            github-url:*)
+              SOURCE_KIND="github-url"
+              SOURCE_VALUE="${RESTORE_SOURCE#github-url:}"
+              [ -n "$SOURCE_VALUE" ] || {
+                echo "::error::github-url: requires a GitHub URL."
+                exit 1
+              }
+              RELEASE_COMMIT="$(resolve_github_url "$SOURCE_VALUE" || true)"
               ;;
             *)
-              RELEASE_COMMIT="$(git rev-parse --verify "${RESTORE_SOURCE}^{commit}" 2>/dev/null || true)"
+              echo "::error::Unsupported restore-source syntax: $RESTORE_SOURCE"
+              echo "::error::Use commit:<sha>, tag:<tag>, run:<run-id>, artifact:<artifact-id>, or github-url:<supported-github-url>."
+              exit 1
               ;;
           esac
 
