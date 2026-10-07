@@ -96,7 +96,7 @@ jobs:
           fi
 
           PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
-          PACKAGE_VERSION="$(jq -r '.package-version // empty' "$MANIFEST")"
+          PACKAGE_VERSION="$(jq -r '.version // empty' "$MANIFEST")"
 
           if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
             echo "::error::Package name/version is missing from $MANIFEST."
