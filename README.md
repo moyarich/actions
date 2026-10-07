@@ -25,6 +25,15 @@ npm exec -- discover-packages --workspaces --include-root-package
 
 > `@moyarich/workspace-tools` is published to GitHub Packages. Configure npm authentication for the `@moyarich` scope when installing from the registry.
 
+Create or update `.npmrc`:
+
+```ini
+@moyarich:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Set `GITHUB_TOKEN` to a GitHub token with permission to read packages before installing.
+
 ## What it provides
 
 | Capability            | Command                      | Use it to                                                                                              |
