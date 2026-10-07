@@ -3583,7 +3583,16 @@ function registryConfig(registry) {
   }
 }
 function registryNpmEnvironment(config, npmrc) {
-  const env = registryNpmEnvironment();
+  const env = {
+    ...process.env,
+    NPM_CONFIG_USERCONFIG: npmrc,
+    npm_config_userconfig: npmrc
+  };
+  if (config.token) {
+    env.NODE_AUTH_TOKEN = config.token;
+  } else {
+    delete env.NODE_AUTH_TOKEN;
+  }
   return env;
 }
 function destinations(registry) {
@@ -3927,7 +3936,7 @@ function publishOne(root, pkg, artifact, registry, tag, access, { quiet = false 
       ""
     ].join("\n")
   );
-  const env = registryNpmEnvironment();
+  const env = registryNpmEnvironment(config, npmrc);
   try {
     if (registry === "github") {
       execFileSync(

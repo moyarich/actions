@@ -1,7 +1,7 @@
-name: Reset Release
+name: Restore Release
 
 run-name: >-
-  Reset release · ${{ inputs.package }} · dry-run=${{ inputs.dry-run }}
+  Restore release · ${{ inputs.package }} · ${{ inputs.release-commit }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
@@ -12,20 +12,16 @@ on:
         default: "."
         type: string
       target-branch:
-        description: Release target branch
+        description: Branch used to resolve the package path and changelog
         required: true
         default: main
         type: string
-      release-match:
-        description: Find the release by package.json version or require the exact canonical tag
+      release-commit:
+        description: Exact historical commit to restore
         required: true
-        default: package-json
-        type: choice
-        options:
-          - package-json
-          - exact
+        type: string
       dry-run:
-        description: Preview the reset without mutating the release or tag
+        description: Preview recovery without mutating the release or tag
         required: true
         default: true
         type: boolean
@@ -33,27 +29,24 @@ on:
 permissions: {}
 
 concurrency:
-  group: reset-release-${{ github.repository }}-${{ inputs.package }}
+  group: restore-release-${{ github.repository }}-${{ inputs.package }}
   cancel-in-progress: false
 
 jobs:
   resolve:
-    name: "job: Resolve reset target"
+    name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
     outputs:
       package-name: ${{ steps.package.outputs.name }}
       package-version: ${{ steps.package.outputs.package-version }}
       package-directory: ${{ steps.package.outputs.directory }}
       release-tag: ${{ steps.package.outputs.tag }}
       release-name: ${{ steps.package.outputs.release-name }}
-      release-query: ${{ steps.package.outputs.release-query }}
       changelog-path: ${{ steps.package.outputs.changelog }}
       tag-prefix: ${{ steps.package.outputs.tag-prefix }}
-      reset-commit: ${{ steps.package.outputs.reset-commit }}
-      previous-tag-commit: ${{ steps.package.outputs.previous-tag-commit }}
+      release-commit: ${{ steps.package.outputs.release-commit }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -65,14 +58,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve package identity
+      - name: Resolve historical package identity
         id: package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
+          RELEASE_COMMIT: ${{ inputs.release-commit }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Release commit does not exist: $RELEASE_COMMIT"
+            exit 1
+          fi
 
           if [ "$PACKAGE_SELECTOR" = "." ]; then
             PACKAGE_DIRECTORY="."
@@ -98,19 +97,17 @@ jobs:
             PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
           fi
 
-          PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
-          PACKAGE_VERSION="$(jq -r '.version // empty' "$MANIFEST")"
-          PACKAGE_REGISTRY="$(jq -r '.publishConfig.registry // "https://registry.npmjs.org"' "$MANIFEST")"
+          MANIFEST_AT_COMMIT="$(git show "${RELEASE_COMMIT}:${MANIFEST}" 2>/dev/null || true)"
+          if [ -z "$MANIFEST_AT_COMMIT" ]; then
+            echo "::error::Package manifest $MANIFEST does not exist at $RELEASE_COMMIT."
+            exit 1
+          fi
 
-          # Reset must account for every registry supported by Publish, not only
-          # publishConfig.registry. A version published to either registry is immutable.
-          PUBLISH_REGISTRIES=(
-            "https://registry.npmjs.org"
-            "https://npm.pkg.github.com"
-          )
+          PACKAGE_NAME="$(jq -r '.name // empty' <<< "$MANIFEST_AT_COMMIT")"
+          PACKAGE_VERSION="$(jq -r '.version // empty' <<< "$MANIFEST_AT_COMMIT")"
 
           if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
-            echo "::error::Package name/version is missing from $MANIFEST."
+            echo "::error::Historical package name/version is missing from $MANIFEST."
             exit 1
           fi
 
@@ -124,44 +121,6 @@ jobs:
 
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
-          RESET_COMMIT="$(git rev-parse HEAD)"
-          PREVIOUS_TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
-
-          PUBLISHED_REGISTRIES=()
-
-          for REGISTRY in "${PUBLISH_REGISTRIES[@]}"; do
-            REGISTRY_HOST="$(node -e 'console.log(new URL(process.argv[1]).host)' "$REGISTRY")"
-            NPMRC="$RUNNER_TEMP/reset-release-${REGISTRY_HOST}.npmrc"
-            {
-              printf 'registry=%s\n' "$REGISTRY"
-              if [ "$REGISTRY_HOST" = "npm.pkg.github.com" ]; then
-                printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST" "$GH_TOKEN"
-              fi
-            } > "$NPMRC"
-
-            REGISTRY_OUTPUT="$(
-              NPM_CONFIG_USERCONFIG="$NPMRC" npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version --registry "$REGISTRY" 2>&1
-            )" && REGISTRY_STATUS=published || REGISTRY_STATUS=missing
-
-            if [ "$REGISTRY_STATUS" = "published" ]; then
-              PUBLISHED_REGISTRIES+=("$REGISTRY")
-              continue
-            fi
-
-            if ! grep -Eq 'E404|404 Not Found|No match found|is not in this registry' <<< "$REGISTRY_OUTPUT"; then
-              echo "::error::Unable to establish registry state for $PACKAGE_NAME@$PACKAGE_VERSION at $REGISTRY."
-              printf '%s\n' "$REGISTRY_OUTPUT"
-              exit 1
-            fi
-          done
-
-          if [ "${#PUBLISHED_REGISTRIES[@]}" -gt 0 ]; then
-            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published to one or more supported registries:"
-            printf '::error::%s\n' "${PUBLISHED_REGISTRIES[@]}"
-            echo "::error::Reset cannot move its canonical tag to different source after any registry publication."
-            echo "::error::Use Restore Release to repair the tag for this version, then release newer source under a new version."
-            exit 1
-          fi
 
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
@@ -182,24 +141,11 @@ jobs:
             BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
 
             if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
-              echo "::error::Reset Release is only allowed while the GitHub Release is a draft."
-              echo "::error::$RELEASE_TAG is already published/finalized. Create a new version instead."
+              echo "::error::Restore Release will not rewrite a published/finalized release."
+              echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
               exit 1
             fi
           fi
-
-          case "${{ inputs.release-match }}" in
-            package-json)
-              RELEASE_QUERY="$PACKAGE_VERSION"
-              ;;
-            exact)
-              RELEASE_QUERY="$RELEASE_TAG"
-              ;;
-            *)
-              echo "::error::release-match must be package-json or exact."
-              exit 1
-              ;;
-          esac
 
           {
             echo "name=$PACKAGE_NAME"
@@ -207,45 +153,39 @@ jobs:
             echo "directory=$PACKAGE_DIRECTORY"
             echo "tag=$RELEASE_TAG"
             echo "release-name=$RELEASE_NAME"
-            echo "release-query=$RELEASE_QUERY"
             echo "changelog=$CHANGELOG_PATH"
             echo "tag-prefix=$TAG_PREFIX"
-            echo "reset-commit=$RESET_COMMIT"
-            echo "previous-tag-commit=$PREVIOUS_TAG_COMMIT"
+            echo "release-commit=$RELEASE_COMMIT"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "# Reset release"
+            echo "# Restore release"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
-            echo "| Registries checked | `npmjs.org`, `npm.pkg.github.com` |"
-            echo "| Registry version state | **not published in any supported registry** |"
-            printf '| Previous tag commit | `%s` |\n' "${PREVIOUS_TAG_COMMIT:-missing}"
-            printf '| New tag commit | `%s` |\n' "$RESET_COMMIT"
-            printf '| Target branch | `%s` |\n' "${{ inputs.target-branch }}"
+            printf '| Restore commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   delete-release:
-    name: "stage: Delete release + tag"
+    name: "stage: Delete current release + tag"
     needs: resolve
     permissions:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
     with:
-      tag: ${{ needs.resolve.outputs.release-query }}
+      tag: ${{ needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
 
-  move-tag:
-    name: "stage: Move canonical tag"
+  restore-tag:
+    name: "stage: Restore canonical tag"
     needs:
       - resolve
       - delete-release
@@ -261,26 +201,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Move canonical tag
+      - name: Restore canonical tag
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
-          RESET_COMMIT: ${{ needs.resolve.outputs.reset-commit }}
+          RELEASE_COMMIT: ${{ needs.resolve.outputs.release-commit }}
         shell: bash
         run: |
           set -euo pipefail
 
-          CURRENT_HEAD="$(git rev-parse HEAD)"
-          if [ "$CURRENT_HEAD" != "$RESET_COMMIT" ]; then
-            echo "::error::Target branch moved after reset resolution."
-            echo "::error::Resolved: $RESET_COMMIT"
-            echo "::error::Current:  $CURRENT_HEAD"
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Recovery commit is unavailable: $RELEASE_COMMIT"
             exit 1
           fi
 
           if [ "${{ inputs.dry-run }}" = "true" ]; then
-            echo "Would move $RELEASE_TAG to $RESET_COMMIT."
+            echo "Would restore $RELEASE_TAG to $RELEASE_COMMIT."
             exit 0
           fi
 
@@ -288,29 +225,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
 
-          git tag -f "$RELEASE_TAG" "$RESET_COMMIT"
+          git tag -f "$RELEASE_TAG" "$RELEASE_COMMIT"
           git push --force origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
-      - name: Tag movement summary
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          {
-            echo "## Canonical tag"
-            echo
-            printf '| Tag | `%s` |\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf '| Previous commit | `%s` |\n' "${{ needs.resolve.outputs.previous-tag-commit || 'missing' }}"
-            printf '| New commit | `%s` |\n' "${{ needs.resolve.outputs.reset-commit }}"
-            echo "| Dry run | **${{ inputs.dry-run }}** |"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
   create-draft:
-    name: "stage: Rebuild release draft"
+    name: "stage: Restore release draft"
     needs:
       - resolve
-      - move-tag
-    if: ${{ needs.resolve.result == 'success' && needs.move-tag.result == 'success' }}
+      - restore-tag
+    if: ${{ needs.resolve.result == 'success' && needs.restore-tag.result == 'success' }}
     permissions:
       contents: write
       pull-requests: read
@@ -331,46 +254,46 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
 
   summary:
-    name: "job: Reset summary"
+    name: "job: Restore summary"
     needs:
       - resolve
       - delete-release
-      - move-tag
+      - restore-tag
       - create-draft
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Reset result
+      - name: Restore result
         shell: bash
         run: |
           {
-            echo "# Release reset result"
+            echo "# Release restore result"
             echo
             echo "| Stage | Result |"
             echo "| --- | --- |"
-            echo "| Resolve target | **${{ needs.resolve.result }}** |"
-            echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
-            echo "| Move canonical tag | **${{ needs.move-tag.result }}** |"
-            echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
+            echo "| Resolve historical release | **${{ needs.resolve.result }}** |"
+            echo "| Delete current release + tag | **${{ needs.delete-release.result }}** |"
+            echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
+            echo "| Restore release draft | **${{ needs.create-draft.result }}** |"
             echo
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'New release commit: `%s`\n\n' "${{ needs.resolve.outputs.reset-commit }}"
+            printf 'Restored commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft."
+              echo "> Preview only. Re-run with `dry-run=false` to restore this historical release identity."
             else
-              echo "> Reset completed. The canonical tag now points at the current target branch source and the draft was rebuilt."
+              echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.resolve.result }}" != "success" ] ||
              [ "${{ needs.delete-release.result }}" != "success" ] ||
-             [ "${{ needs.move-tag.result }}" != "success" ] ||
+             [ "${{ needs.restore-tag.result }}" != "success" ] ||
              [ "${{ needs.create-draft.result }}" != "success" ]; then
             exit 1
           fi

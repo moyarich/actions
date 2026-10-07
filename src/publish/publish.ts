@@ -139,7 +139,17 @@ export function registryNpmEnvironment(
   config: RegistryConfig,
   npmrc: string,
 ): NodeJS.ProcessEnv {
-  const env = registryNpmEnvironment(config, npmrc);
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    NPM_CONFIG_USERCONFIG: npmrc,
+    npm_config_userconfig: npmrc,
+  };
+
+  if (config.token) {
+    env.NODE_AUTH_TOKEN = config.token;
+  } else {
+    delete env.NODE_AUTH_TOKEN;
+  }
 
   return env;
 }
