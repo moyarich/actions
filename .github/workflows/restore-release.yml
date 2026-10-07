@@ -51,6 +51,7 @@ jobs:
       release-commit: ${{ steps.package.outputs.release-commit }}
       restore-source: ${{ steps.package.outputs.restore-source }}
       restore-source-kind: ${{ steps.package.outputs.restore-source-kind }}
+      resolved-source-kind: ${{ steps.package.outputs.resolved-source-kind }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -64,6 +65,19 @@ jobs:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Build release identity CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --include=optional
+          npx vite build --config vite.cli.config.ts --mode workspace-release-identity
+          echo "WORKSPACE_RELEASE_IDENTITY=$GITHUB_WORKSPACE/dist/bin/workspace-release-identity.mjs" >> "$GITHUB_ENV"
 
       - name: Resolve historical package identity
         id: package
@@ -81,125 +95,24 @@ jobs:
             exit 1
           fi
 
-          SOURCE_KIND=""
-          SOURCE_VALUE=""
-          RELEASE_COMMIT=""
+          RESOLUTION="$(
+            node "$WORKSPACE_RELEASE_IDENTITY" restore-source "$RESTORE_SOURCE" \
+              --repository "$GH_REPO" \
+              --json
+          )"
 
-          resolve_commit_source() {
-            local value="$1"
-            [ -n "$value" ] || {
-              echo "::error::commit: requires a SHA." >&2
-              return 1
-            }
-            git rev-parse --verify "${value}^{commit}" 2>/dev/null
-          }
+          echo "$RESOLUTION" | jq -e '
+            type == "object" and
+            (.source | type == "string" and length > 0) and
+            (.kind | type == "string" and length > 0) and
+            (.resolvedKind | type == "string" and length > 0) and
+            (.commit | type == "string" and length == 40)
+          ' >/dev/null
 
-          resolve_tag_source() {
-            local value="$1"
-            [ -n "$value" ] || {
-              echo "::error::tag: requires a tag name." >&2
-              return 1
-            }
-            git rev-parse --verify "refs/tags/${value}^{commit}" 2>/dev/null
-          }
-
-          resolve_run_source() {
-            local run_id="$1"
-            [[ "$run_id" =~ ^[0-9]+$ ]] || {
-              echo "::error::run: requires a numeric workflow run ID." >&2
-              return 1
-            }
-            gh api "repos/$GH_REPO/actions/runs/$run_id" --jq '.head_sha'
-          }
-
-          resolve_artifact_source() {
-            local artifact_id="$1"
-            [[ "$artifact_id" =~ ^[0-9]+$ ]] || {
-              echo "::error::artifact: requires a numeric workflow artifact ID." >&2
-              return 1
-            }
-            gh api "repos/$GH_REPO/actions/artifacts/$artifact_id" --jq '.workflow_run.head_sha // empty'
-          }
-
-          resolve_github_url_source() {
-            local url="$1"
-            local expected_prefix="https://github.com/$GH_REPO/"
-            local remainder url_kind value resolver
-
-            [ -n "$url" ] || {
-              echo "::error::github-url: requires a GitHub URL." >&2
-              return 1
-            }
-
-            case "$url" in
-              "$expected_prefix"*) ;;
-              *)
-                echo "::error::github-url must belong to the current repository: $GH_REPO" >&2
-                return 1
-                ;;
-            esac
-
-            remainder="${url#"$expected_prefix"}"
-
-            if [[ "$remainder" =~ ^commit/([^/?#]+) ]]; then
-              url_kind="commit"
-              value="${BASH_REMATCH[1]}"
-            elif [[ "$remainder" =~ ^releases/tag/([^?#]+) ]]; then
-              url_kind="tag"
-              value="$(node -e 'process.stdout.write(decodeURIComponent(process.argv[1]))' "${BASH_REMATCH[1]}")"
-            elif [[ "$remainder" =~ ^actions/runs/[0-9]+/artifacts/([0-9]+) ]]; then
-              url_kind="artifact"
-              value="${BASH_REMATCH[1]}"
-            elif [[ "$remainder" =~ ^actions/runs/([0-9]+) ]]; then
-              url_kind="run"
-              value="${BASH_REMATCH[1]}"
-            else
-              echo "::error::Unsupported GitHub URL for restore-source: $url" >&2
-              return 1
-            fi
-
-            SOURCE_KIND="github-url:$url_kind"
-            SOURCE_VALUE="$value"
-            resolver="${RESTORE_SOURCE_DISPATCH[$url_kind]}"
-            "$resolver" "$value"
-          }
-
-          declare -A RESTORE_SOURCE_DISPATCH=(
-            [commit]=resolve_commit_source
-            [tag]=resolve_tag_source
-            [run]=resolve_run_source
-            [artifact]=resolve_artifact_source
-            [github-url]=resolve_github_url_source
-          )
-
-          if [[ "$RESTORE_SOURCE" != *:* ]]; then
-            echo "::error::Unsupported restore-source syntax: $RESTORE_SOURCE"
-            echo "::error::Use commit:<sha>, tag:<tag>, run:<run-id>, artifact:<artifact-id>, or github-url:<supported-github-url>."
-            exit 1
-          fi
-
-          SOURCE_KIND="${RESTORE_SOURCE%%:*}"
-          SOURCE_VALUE="${RESTORE_SOURCE#*:}"
-          RESOLVER="${RESTORE_SOURCE_DISPATCH[$SOURCE_KIND]:-}"
-
-          if [ -z "$RESOLVER" ]; then
-            echo "::error::Unsupported restore-source kind: $SOURCE_KIND"
-            echo "::error::Use commit, tag, run, artifact, or github-url."
-            exit 1
-          fi
-
-          RELEASE_COMMIT="$("$RESOLVER" "$SOURCE_VALUE" || true)"
-
-          if [ -z "$RELEASE_COMMIT" ]; then
-            echo "::error::Unable to resolve restore source to a commit: $RESTORE_SOURCE"
-            exit 1
-          fi
-
-          RELEASE_COMMIT="$(git rev-parse --verify "${RELEASE_COMMIT}^{commit}" 2>/dev/null || true)"
-          if [ -z "$RELEASE_COMMIT" ]; then
-            echo "::error::Resolved commit is not available in the repository: $RESTORE_SOURCE"
-            exit 1
-          fi
+          SOURCE_KIND="$(jq -r '.kind' <<< "$RESOLUTION")"
+          RESOLVED_SOURCE_KIND="$(jq -r '.resolvedKind' <<< "$RESOLUTION")"
+          SOURCE_VALUE="$(jq -r '.value' <<< "$RESOLUTION")"
+          RELEASE_COMMIT="$(jq -r '.commit' <<< "$RESOLUTION")"
 
           if [ "$PACKAGE_SELECTOR" = "." ]; then
             PACKAGE_DIRECTORY="."
@@ -319,6 +232,7 @@ jobs:
             echo "release-commit=$RELEASE_COMMIT"
             echo "restore-source=$RESTORE_SOURCE"
             echo "restore-source-kind=$SOURCE_KIND"
+            echo "resolved-source-kind=$RESOLVED_SOURCE_KIND"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
@@ -337,6 +251,8 @@ jobs:
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
             printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
+            printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
+            printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
             printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
@@ -459,6 +375,7 @@ jobs:
             printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
             printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
             printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
+            printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
             printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
             echo "Dry run: **${{ inputs.dry-run }}**"
