@@ -307,6 +307,7 @@ export function packageRegistryState(
 
   const env = {
     ...process.env,
+    NPM_CONFIG_USERCONFIG: npmrc,
     npm_config_userconfig: npmrc,
   };
 
