@@ -5,6 +5,7 @@ const entries: Record<string, string> = {
     "src/issue-dependency-tree/issue-dependency-tree-cli.ts",
   "discover-packages": "src/discover-packages/discover-packages-cli.ts",
   "workspace-release": "src/release/release-cli.ts",
+  "sim-version-resolver": "src/sim-version-resolver/sim-version-resolver-cli.ts",
   "workspace-publish": "src/publish/publish-cli.ts",
   "workspace-dependency-check": "src/dependency-check/dependency-check-cli.ts",
   "workspace-package-lock": "src/package-lock/package-lock-cli.ts",
