@@ -19,20 +19,20 @@ on:
 permissions: {}
 
 jobs:
-  delete-release-tag:
-    permissions:
-      contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
-    with:
-      tag: ${{ inputs.tag }}
-      dry-run: ${{ inputs.dry-run }}
-
   dispatch-input-summary:
     name: "job: Workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
     with:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "delete-release-tag · Dispatch parameters"
+
+  delete-release-tag:
+    needs: dispatch-input-summary
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
+    with:
+      tag: ${{ inputs.tag }}
+      dry-run: ${{ inputs.dry-run }}
