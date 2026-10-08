@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import childProcess from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
-import process from "node:process";
+import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
 class CommanderError extends Error {
   /**
@@ -1158,13 +1158,13 @@ class Command extends EventEmitter {
     this._showSuggestionAfterError = true;
     this._savedState = null;
     this._outputConfiguration = {
-      writeOut: (str) => process.stdout.write(str),
-      writeErr: (str) => process.stderr.write(str),
+      writeOut: (str) => process$1.stdout.write(str),
+      writeErr: (str) => process$1.stderr.write(str),
       outputError: (str, write) => write(str),
-      getOutHelpWidth: () => process.stdout.isTTY ? process.stdout.columns : void 0,
-      getErrHelpWidth: () => process.stderr.isTTY ? process.stderr.columns : void 0,
-      getOutHasColors: () => useColor() ?? (process.stdout.isTTY && process.stdout.hasColors?.()),
-      getErrHasColors: () => useColor() ?? (process.stderr.isTTY && process.stderr.hasColors?.()),
+      getOutHelpWidth: () => process$1.stdout.isTTY ? process$1.stdout.columns : void 0,
+      getErrHelpWidth: () => process$1.stderr.isTTY ? process$1.stderr.columns : void 0,
+      getOutHasColors: () => useColor() ?? (process$1.stdout.isTTY && process$1.stdout.hasColors?.()),
+      getErrHasColors: () => useColor() ?? (process$1.stderr.isTTY && process$1.stderr.hasColors?.()),
       stripColor: (str) => stripVTControlCharacters(str)
     };
     this._hidden = false;
@@ -1557,7 +1557,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     if (this._exitCallback) {
       this._exitCallback(new CommanderError(exitCode, code, message));
     }
-    process.exit(exitCode);
+    process$1.exit(exitCode);
   }
   /**
    * Register callback `fn` for the command.
@@ -1948,16 +1948,16 @@ Expecting one of '${allowedValues.join("', '")}'`);
     }
     parseOptions = parseOptions || {};
     if (argv === void 0 && parseOptions.from === void 0) {
-      if (process.versions?.electron) {
+      if (process$1.versions?.electron) {
         parseOptions.from = "electron";
       }
-      const execArgv = process.execArgv ?? [];
+      const execArgv = process$1.execArgv ?? [];
       if (execArgv.includes("-e") || execArgv.includes("--eval") || execArgv.includes("-p") || execArgv.includes("--print")) {
         parseOptions.from = "eval";
       }
     }
     if (argv === void 0) {
-      argv = process.argv;
+      argv = process$1.argv;
     }
     this.rawArgs = argv.slice();
     let userArgs;
@@ -1968,7 +1968,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         userArgs = argv.slice(2);
         break;
       case "electron":
-        if (process.defaultApp) {
+        if (process$1.defaultApp) {
           this._scriptPath = argv[1];
           userArgs = argv.slice(2);
         } else {
@@ -2166,11 +2166,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
     }
     const launchWithNode = sourceExt.includes(path.extname(executableFile));
     let proc;
-    if (process.platform !== "win32") {
+    if (process$1.platform !== "win32") {
       if (launchWithNode) {
         args.unshift(executableFile);
-        args = incrementNodeInspectorPort(process.execArgv).concat(args);
-        proc = childProcess.spawn(process.argv[0], args, { stdio: "inherit" });
+        args = incrementNodeInspectorPort(process$1.execArgv).concat(args);
+        proc = childProcess.spawn(process$1.argv[0], args, { stdio: "inherit" });
       } else {
         proc = childProcess.spawn(executableFile, args, { stdio: "inherit" });
       }
@@ -2181,13 +2181,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
         subcommand._name
       );
       args.unshift(executableFile);
-      args = incrementNodeInspectorPort(process.execArgv).concat(args);
-      proc = childProcess.spawn(process.execPath, args, { stdio: "inherit" });
+      args = incrementNodeInspectorPort(process$1.execArgv).concat(args);
+      proc = childProcess.spawn(process$1.execPath, args, { stdio: "inherit" });
     }
     if (!proc.killed) {
       const signals = ["SIGUSR1", "SIGUSR2", "SIGTERM", "SIGINT", "SIGHUP"];
       signals.forEach((signal) => {
-        process.on(signal, () => {
+        process$1.on(signal, () => {
           if (proc.killed === false && proc.exitCode === null) {
             proc.kill(signal);
           }
@@ -2198,7 +2198,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     proc.on("close", (code) => {
       code = code ?? 1;
       if (!exitCallback) {
-        process.exit(code);
+        process$1.exit(code);
       } else {
         exitCallback(
           new CommanderError(
@@ -2220,7 +2220,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         throw new Error(`'${executableFile}' not executable`);
       }
       if (!exitCallback) {
-        process.exit(1);
+        process$1.exit(1);
       } else {
         const wrappedError = new CommanderError(
           1,
@@ -2720,13 +2720,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
    */
   _parseOptionsEnv() {
     this.options.forEach((option) => {
-      if (option.envVar && option.envVar in process.env) {
+      if (option.envVar && option.envVar in process$1.env) {
         const optionKey = option.attributeName();
         if (this.getOptionValue(optionKey) === void 0 || ["default", "config", "env"].includes(
           this.getOptionValueSource(optionKey)
         )) {
           if (option.required || option.optional) {
-            this.emit(`optionEnv:${option.name()}`, process.env[option.envVar]);
+            this.emit(`optionEnv:${option.name()}`, process$1.env[option.envVar]);
           } else {
             this.emit(`optionEnv:${option.name()}`);
           }
@@ -3252,7 +3252,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
    */
   help(contextOptions) {
     this.outputHelp(contextOptions);
-    let exitCode = Number(process.exitCode ?? 0);
+    let exitCode = Number(process$1.exitCode ?? 0);
     if (exitCode === 0 && contextOptions && typeof contextOptions !== "function" && contextOptions.error) {
       exitCode = 1;
     }
@@ -3342,9 +3342,9 @@ function incrementNodeInspectorPort(args) {
   });
 }
 function useColor() {
-  if (process.env.NO_COLOR || process.env.FORCE_COLOR === "0" || process.env.FORCE_COLOR === "false")
+  if (process$1.env.NO_COLOR || process$1.env.FORCE_COLOR === "0" || process$1.env.FORCE_COLOR === "false")
     return false;
-  if (process.env.FORCE_COLOR || process.env.CLICOLOR_FORCE !== void 0)
+  if (process$1.env.FORCE_COLOR || process$1.env.CLICOLOR_FORCE !== void 0)
     return true;
   return void 0;
 }
@@ -3442,7 +3442,7 @@ program.option(
   "--workspace-tools <selection>",
   "workspace, registry:version, repository:ref",
   "registry:0.1.0"
-).option("--release <selection>", "auto, tag:name, name:title", "auto").option("--json", "Print JSON").action((options) => {
+).option("--release <selection>", "auto, tag:name, name:title", "auto").option("--json", "Print JSON").option("--github-output", "Append normalized values to GITHUB_OUTPUT").action(async (options) => {
   const version = parseTypedVersion(options.version);
   const target = parseTypedTarget(options.target);
   const source = parseTypedSource(options.workspaceTools);
@@ -3459,6 +3459,18 @@ program.option(
     releaseTag: release.kind === "tag" ? release.value : "",
     releaseName: release.kind === "name" ? release.value : ""
   };
+  if (options.githubOutput) {
+    const { appendFileSync } = await import("node:fs");
+    if (!process.env.GITHUB_OUTPUT)
+      throw new Error("GITHUB_OUTPUT is not set");
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      Object.entries(result).map(
+        ([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}=${value ?? ""}
+`
+      ).join("")
+    );
+  }
   console.log(JSON.stringify(result, null, options.json ? 0 : 2));
 });
 await program.parseAsync();
