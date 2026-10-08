@@ -5391,55 +5391,6 @@ function resolveVersionSelection(currentVersion, mode, bump = "patch", exactVers
   if (mode === "bump") return resolveNextVersion(currentVersion, bump);
   throw new Error(`Invalid release mode: ${mode}`);
 }
-function split(value, field) {
-  const index = value.indexOf(":");
-  const kind = index === -1 ? value : value.slice(0, index);
-  const detail = index === -1 ? void 0 : value.slice(index + 1);
-  if (!kind || detail === "" || /[\r\n]/.test(value)) {
-    throw new Error(`Invalid ${field} selection: ${JSON.stringify(value)}`);
-  }
-  return [kind, detail];
-}
-function bare(detail, field) {
-  if (detail !== void 0) throw new Error(`${field} does not accept a value`);
-}
-function required(detail, field) {
-  if (!detail) throw new Error(`${field} requires a value`);
-  return detail;
-}
-function parseTypedVersion(value) {
-  const [kind, detail] = split(value, "version");
-  switch (kind) {
-    case "auto":
-    case "package-json":
-      bare(detail, kind);
-      return { mode: kind };
-    case "bump": {
-      const bump = required(detail, kind);
-      if (![
-        "patch",
-        "minor",
-        "major",
-        "prepatch",
-        "preminor",
-        "premajor",
-        "prerelease"
-      ].includes(bump))
-        throw new Error(`Unsupported version bump: ${bump}`);
-      return { mode: "bump", bump };
-    }
-    case "exact": {
-      const exactVersion = required(detail, kind);
-      if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
-        exactVersion
-      ))
-        throw new Error(`Invalid semantic version: ${exactVersion}`);
-      return { mode: "exact", exactVersion };
-    }
-    default:
-      throw new Error(`Unsupported version selection: ${kind}`);
-  }
-}
 const program = new Command();
 program.name("sim-version-resolver").description(
   "Resolve a semantic version without modifying files or publishing."
@@ -5450,16 +5401,6 @@ program.name("sim-version-resolver").description(
   "--selection <selection>",
   "Typed selection, e.g. bump:minor or exact:1.2.3"
 ).option("--bump <type>", "Version increment", "patch").option("--exact-version <version>", "Exact version when --mode exact").option("--json", "Output a machine-readable JSON object").action((opts) => {
-  if (opts.selection) {
-    const selection = parseTypedVersion(opts.selection);
-    if (selection.mode === "auto")
-      throw new Error(
-        "auto requires Release Drafter history; supply bump, exact, or package-json"
-      );
-    opts.mode = selection.mode;
-    if (selection.bump) opts.bump = selection.bump;
-    if (selection.exactVersion) opts.exactVersion = selection.exactVersion;
-  }
   if (!["bump", "package-json", "exact"].includes(opts.mode)) {
     throw new Error(`Invalid version mode: ${opts.mode}`);
   }

@@ -35,21 +35,6 @@ program
   .option("-j, --json", "Print the operation result as JSON")
   .option("--no-fzf", "Disable automatic fzf selection")
   .action(async (release, options) => {
-    if (options.selection) {
-      const selected = parseTypedVersion(options.selection);
-      if (selected.mode === "auto")
-        throw new Error(
-          "workspace-release requires an explicit version selection",
-        );
-      options.mode = selected.mode;
-      options.version = selected.exactVersion ?? selected.bump;
-    }
-    if (options.target) {
-      const target = parseTypedTarget(options.target);
-      if (target.kind === "package" || target.kind === "directory")
-        release = target.value;
-      else release = ".";
-    }
     await releaseWorkspacePackage(release, options);
   });
 
