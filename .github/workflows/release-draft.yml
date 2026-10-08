@@ -84,236 +84,29 @@ jobs:
     needs: discover-packages
     permissions:
       contents: read
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.select.outputs.matrix }}
-      has-packages: ${{ steps.select.outputs.has-packages }}
-      count: ${{ steps.select.outputs.count }}
-      version-mode: ${{ steps.select.outputs.version-mode }}
-      version-bump: ${{ steps.select.outputs.version-bump }}
-      exact-version: ${{ steps.select.outputs.exact-version }}
-
-    steps:
-      - name: Checkout repository history
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target-branch || 'main' }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Select affected packages
-        id: select
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_PACKAGE: ${{ inputs.package }}
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
-          PACKAGES_JSON: ${{ needs.discover-packages.outputs.packages }}
-          VERSION_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version-mode || '' }}
-          VERSION_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.version-bump || '' }}
-          EXACT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.exact-version || '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ "$INPUT_PACKAGE" = "all" ]; then
-              SELECTED="$PACKAGES_JSON"
-            else
-              SELECTED="$(
-                jq -c --arg selector "$INPUT_PACKAGE" '
-                  [
-                    .[] |
-                    select(.name == $selector or .directory == $selector)
-                  ]
-                ' <<< "$PACKAGES_JSON"
-              )"
-            fi
-          else
-            if [ -n "$BEFORE_SHA" ] &&
-               [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] &&
-               git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
-              CHANGED_FILES="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
-            else
-              CHANGED_FILES="$(git diff-tree --root --no-commit-id --name-only -r "$AFTER_SHA")"
-            fi
-
-            SELECTED="$(
-              PACKAGES_JSON="$PACKAGES_JSON" CHANGED_FILES="$CHANGED_FILES" node --input-type=module <<'NODE'
-          const packages = JSON.parse(process.env.PACKAGES_JSON || "[]");
-          const files = (process.env.CHANGED_FILES || "")
-            .split("\n")
-            .map((file) => file.trim())
-            .filter(Boolean);
-
-          const selected = packages.filter((pkg) => {
-            if (pkg.directory === ".") {
-              return files.some(
-                (file) =>
-                  !packages.some(
-                    (candidate) =>
-                      candidate.directory !== "." &&
-                      (file === candidate.directory ||
-                        file.startsWith(`${candidate.directory}/`)),
-                  ) &&
-                  file !== ".github/workflows/release-draft.yml",
-              );
-            }
-
-            return files.some(
-              (file) =>
-                file === pkg.directory || file.startsWith(`${pkg.directory}/`),
-            );
-          });
-
-          process.stdout.write(JSON.stringify(selected));
-          NODE
-            )"
-          fi
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            case "$VERSION_MODE" in
-              bump|package-json|exact)
-                ;;
-              *)
-                echo "::error::Version mode must be bump, package-json, or exact."
-                exit 1
-                ;;
-            esac
-
-            case "$VERSION_BUMP" in
-              patch|minor|major|prepatch|preminor|premajor|prerelease)
-                ;;
-              *)
-                echo "::error::Invalid version bump: $VERSION_BUMP"
-                exit 1
-                ;;
-            esac
-
-            if [ "$VERSION_MODE" = "exact" ] && [ -z "$EXACT_VERSION" ]; then
-              echo "::error::Exact version is required when version-mode is exact."
-              exit 1
-            fi
-
-            SELECTED="$(
-              SELECTED_JSON="$SELECTED" \
-              VERSION_MODE="$VERSION_MODE" \
-              VERSION_BUMP="$VERSION_BUMP" \
-              EXACT_VERSION="$EXACT_VERSION" \
-              node --input-type=module <<'NODE'
-          import { execFileSync } from "node:child_process";
-
-          const packages = JSON.parse(process.env.SELECTED_JSON || "[]");
-          const mode = process.env.VERSION_MODE;
-          const bump = process.env.VERSION_BUMP;
-          const exact = process.env.EXACT_VERSION;
-
-          const resolved = packages.map((pkg) => {
-            let request = "";
-            if (mode === "bump") request = bump;
-            if (mode === "exact") request = exact;
-
-            const args = [
-              "dist/bin/workspace-release.mjs",
-              mode === "package-json" ? pkg.directory : `${pkg.directory}=${request}`,
-              `--mode=${mode}`,
-              "--json",
-              "--dry-run",
-            ];
-
-            if (mode !== "package-json") {
-              args.push(`--version=${request}`);
-            }
-
-            const output = execFileSync("node", args, {
-              encoding: "utf8",
-              stdio: ["ignore", "pipe", "inherit"],
-            });
-
-            const release = JSON.parse(output);
-
-            return {
-              ...pkg,
-              draftVersion: release.nextVersion,
-              draftTag: release.identity.tagName,
-              draftName: release.identity.releaseName,
-            };
-          });
-
-          process.stdout.write(JSON.stringify(resolved));
-          NODE
-            )"
-          fi
-
-          COUNT="$(jq 'length' <<< "$SELECTED")"
-          MATRIX="$(jq -cn --argjson packages "$SELECTED" '{include: $packages}')"
-
-          {
-            echo "matrix=$MATRIX"
-            echo "count=$COUNT"
-            if [ "$COUNT" -gt 0 ]; then
-              echo "has-packages=true"
-            else
-              echo "has-packages=false"
-            fi
-            echo "version-mode=$VERSION_MODE"
-            echo "version-bump=$VERSION_BUMP"
-            echo "exact-version=$EXACT_VERSION"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "# Package draft selection"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            echo "| Selected packages | **$COUNT** |"
-            echo
-            echo '~~~json'
-            jq . <<< "$SELECTED"
-            echo '~~~'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  validate-selection:
-    name: Validate package selector
-    needs: discover-packages
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Validate selected package
-        env:
-          INPUT_PACKAGE: ${{ inputs.package }}
-          PACKAGES_JSON: ${{ needs.discover-packages.outputs.packages }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ "$INPUT_PACKAGE" = "all" ]; then
-            exit 0
-          fi
-
-          if jq -e --arg selector "$INPUT_PACKAGE" '
-            any(.[]; .name == $selector or .directory == $selector)
-          ' <<< "$PACKAGES_JSON" >/dev/null; then
-            exit 0
-          fi
-
-          echo "::error::Unknown package selector: $INPUT_PACKAGE"
-          exit 1
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_select-release-packages.yml@main
+    with:
+      packages-json: ${{ needs.discover-packages.outputs.packages }}
+      ignored-paths-json: '[".github/workflows/release-draft.yml"]'
+      package: ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'all' }}
+      event-name: ${{ github.event_name }}
+      before-sha: ${{ github.event.before || '' }}
+      after-sha: ${{ github.sha }}
+      target-branch: ${{ github.event_name == 'workflow_dispatch' && inputs.target-branch || 'main' }}
+      version-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.version-mode || '' }}
+      version-bump: ${{ github.event_name == 'workflow_dispatch' && inputs.version-bump || '' }}
+      exact-version: ${{ github.event_name == 'workflow_dispatch' && inputs.exact-version || '' }}
 
   draft-package:
     name: "package: ${{ matrix.name }} | dir: ${{ matrix.directory }}"
     needs:
       - discover-packages
       - select-packages
-      - validate-selection
     if: >-
       ${{ always() &&
           needs.discover-packages.result == 'success' &&
           needs.select-packages.result == 'success' &&
-          needs.select-packages.outputs.has-packages == 'true' &&
-          (github.event_name != 'workflow_dispatch' ||
-           needs.validate-selection.result == 'success') }}
+          needs.select-packages.outputs.has-packages == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select-packages.outputs.matrix || '{"include":[]}') }}
@@ -326,14 +119,14 @@ jobs:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
     with:
       target-branch: ${{ github.event_name == 'workflow_dispatch' && inputs.target-branch || 'main' }}
-      version: ${{ github.event_name == 'workflow_dispatch' && matrix.draftVersion || '' }}
+      version: ''
       initial-version: "0.1.0"
       version-mode: ${{ needs.select-packages.outputs.version-mode }}
       version-bump: ${{ needs.select-packages.outputs.version-bump }}
       exact-version: ${{ needs.select-packages.outputs.exact-version }}
-      release-tag: ${{ github.event_name == 'workflow_dispatch' && matrix.draftTag || '' }}
+      release-tag: ''
       tag-prefix: ${{ matrix.directory == '.' && format('{0}@', matrix.name) || format('{0}@', matrix.directory) }}
-      release-name: ${{ github.event_name == 'workflow_dispatch' && matrix.draftName || format('{0} v$RESOLVED_VERSION', matrix.name) }}
+      release-name: ${{ format('{0} v$RESOLVED_VERSION', matrix.name) }}
       changelog-path: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
       template-path: .github/release-drafter-package-template.yml
       package-name: ${{ matrix.name }}
