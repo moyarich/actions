@@ -41,7 +41,7 @@
     "dev": "npm run dev --workspace @moyarich/workspace-tools-playground",
     "build:playground": "npm run build --workspace @moyarich/workspace-tools-playground",
     "test": "vitest run",
-    "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode sim-version-resolver && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity && vite build --config vite.cli.config.ts --mode typed-input-resolver",
+    "build:clis": "vite build --config vite.cli.config.ts --mode issue-dependency-tree && vite build --config vite.cli.config.ts --mode discover-packages && vite build --config vite.cli.config.ts --mode workspace-release && vite build --config vite.cli.config.ts --mode sim-version-resolver && vite build --config vite.cli.config.ts --mode workspace-publish && vite build --config vite.cli.config.ts --mode workspace-dependency-check && vite build --config vite.cli.config.ts --mode workspace-package-lock && vite build --config vite.cli.config.ts --mode workspace-release-identity",
     "build": "npm run build:clis"
   },
   "devDependencies": {
@@ -62,8 +62,7 @@
     "workspace-publish": "dist/bin/workspace-publish.mjs",
     "workspace-dependency-check": "dist/bin/workspace-dependency-check.mjs",
     "workspace-package-lock": "dist/bin/workspace-package-lock.mjs",
-    "workspace-release-identity": "dist/bin/workspace-release-identity.mjs",
-    "typed-input-resolver": "dist/bin/typed-input-resolver.mjs"
+    "workspace-release-identity": "dist/bin/workspace-release-identity.mjs"
   },
   "dependencies": {
     "semver": "^7.7.3"
