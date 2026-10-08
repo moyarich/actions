@@ -552,25 +552,13 @@ jobs:
             echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
             echo "| Restore release draft | **${{ needs.create-draft.result }}** |"
             echo
-            printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
-            printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
-            printf 'Canonical tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'Match mode: `%s`\n\n' "${{ inputs.match-mode }}"
-            printf 'Matched existing tag: `%s`\n\n' "${{ needs.resolve.outputs.matched-release-tag || 'none' }}"
-            printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
-            printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
-            printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             echo "## Draft seed marker"
             echo
-            printf 'Existing seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.draft-seed-sha || 'none' }}"
-            printf 'Suggested manual seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.suggested-seed-sha }}"
             if [ -n "${{ needs.resolve.outputs.draft-seed-sha }}" ] &&
                [ "${{ needs.resolve.outputs.draft-seed-sha }}" != "${{ needs.resolve.outputs.suggested-seed-sha }}" ]; then
               echo "> Restore preserves the existing release-draft-sync seed marker. If you want the draft baseline to align with the restored release source, manually change seed-sha to the suggested value."
               echo
             fi
-            printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
-            echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
