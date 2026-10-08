@@ -1,5 +1,13 @@
 /** Shared, side-effect-free SemVer resolver for release workflows and CLI. */
-const VALID_BUMPS = new Set(["major","minor","patch","premajor","preminor","prepatch","prerelease"]);
+const VALID_BUMPS = new Set([
+  "major",
+  "minor",
+  "patch",
+  "premajor",
+  "preminor",
+  "prepatch",
+  "prerelease",
+]);
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 /**
@@ -95,4 +103,3 @@ export function resolveVersionSelection(
   if (mode === "bump") return resolveNextVersion(currentVersion, bump);
   throw new Error(`Invalid release mode: ${mode}`);
 }
-

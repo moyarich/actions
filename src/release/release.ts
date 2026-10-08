@@ -8,8 +8,14 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { releaseIdentity } from "../release-identity/release-identity.ts";
-import { resolveNextVersion, resolveVersionSelection } from "../sim-version-resolver/sim-version-resolver.ts";
-export { resolveNextVersion, resolveVersionSelection } from "../sim-version-resolver/sim-version-resolver.ts";
+import {
+  resolveNextVersion,
+  resolveVersionSelection,
+} from "../sim-version-resolver/sim-version-resolver.ts";
+export {
+  resolveNextVersion,
+  resolveVersionSelection,
+} from "../sim-version-resolver/sim-version-resolver.ts";
 import { packageInfo, repositoryRoot } from "../workspace/workspace.ts";
 
 import {

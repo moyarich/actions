@@ -3,9 +3,15 @@ import { Command } from "commander";
 import { resolveVersionSelection } from "./sim-version-resolver.ts";
 
 const program = new Command();
-program.name("sim-version-resolver")
-  .description("Resolve a semantic version without modifying files or publishing.")
-  .option("--current-version <version>", "Current version; defaults to selected package manifest")
+program
+  .name("sim-version-resolver")
+  .description(
+    "Resolve a semantic version without modifying files or publishing.",
+  )
+  .option(
+    "--current-version <version>",
+    "Current version; defaults to selected package manifest",
+  )
   .option("--package-json <path>", "Package manifest path", "package.json")
   .option("--mode <mode>", "Version mode: bump, package-json, exact", "bump")
   .option("--bump <type>", "Version increment", "patch")
@@ -20,8 +26,18 @@ program.name("sim-version-resolver")
       const manifest = JSON.parse(readFileSync(opts.packageJson, "utf8"));
       currentVersion = manifest.version;
     }
-    const nextVersion = resolveVersionSelection(currentVersion, opts.mode, opts.bump, opts.exactVersion || "");
-    const result = { currentVersion, nextVersion, mode: opts.mode, ...(opts.mode === "bump" ? { bump: opts.bump } : {}) };
+    const nextVersion = resolveVersionSelection(
+      currentVersion,
+      opts.mode,
+      opts.bump,
+      opts.exactVersion || "",
+    );
+    const result = {
+      currentVersion,
+      nextVersion,
+      mode: opts.mode,
+      ...(opts.mode === "bump" ? { bump: opts.bump } : {}),
+    };
     console.log(opts.json ? JSON.stringify(result) : nextVersion);
   });
 await program.parseAsync();
