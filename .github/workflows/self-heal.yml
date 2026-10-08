@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   prettier:
+    needs: package-lock
     uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
     with:
       mode: fix
@@ -23,7 +24,6 @@ jobs:
       node-version: "24"
 
   package-lock:
-    needs: prettier
     uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-package-lock.yml@main
     with:
       commit: true
@@ -33,7 +33,7 @@ jobs:
 
   cli-dist:
     name: Build CLI dist
-    needs: package-lock
+    needs: prettier
     runs-on: ubuntu-latest
 
     steps:

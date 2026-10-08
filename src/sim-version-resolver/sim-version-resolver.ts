@@ -1,5 +1,7 @@
+import semver from "semver";
+
 /** Shared, side-effect-free SemVer resolver for release workflows and CLI. */
-const VALID_BUMPS = new Set([
+const BUMPS = new Set([
   "major",
   "minor",
   "patch",
@@ -7,85 +9,32 @@ const VALID_BUMPS = new Set([
   "preminor",
   "prepatch",
   "prerelease",
-]);
-const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+] as const);
 
-/**
- * Calculate the next package version.
- *
- * @param {string} currentVersion
- * Current semantic version.
- *
- * @param {string} versionSpec
- * Exact version or semantic-version bump.
- *
- * @returns {string}
- * Resolved next version.
- */
+type Bump = Parameters<typeof semver.inc>[1];
+
+/** Resolve a version spec without modifying files or publishing. */
 export function resolveNextVersion(
   currentVersion: string,
   versionSpec: string,
 ): string {
-  if (!SEMVER.test(currentVersion)) {
+  if (!semver.valid(currentVersion)) {
     throw new Error(`Invalid current SemVer: ${currentVersion}`);
   }
 
-  if (SEMVER.test(versionSpec)) {
+  if (semver.valid(versionSpec)) {
     return versionSpec;
   }
 
-  if (!VALID_BUMPS.has(versionSpec)) {
+  if (!BUMPS.has(versionSpec as Bump)) {
     throw new Error(`Invalid release bump: ${versionSpec}`);
   }
 
-  // Build metadata has no effect on version precedence or bump arithmetic.
-  // Separate it before parsing the core and prerelease identifiers.
-  const withoutBuild = currentVersion.split("+", 1)[0]!;
-  const dash = withoutBuild.indexOf("-");
-  const core = dash === -1 ? withoutBuild : withoutBuild.slice(0, dash);
-  const prerelease = dash === -1 ? "" : withoutBuild.slice(dash + 1);
-  const [major, minor, patch] = core.split(".").map(Number);
-
-  switch (versionSpec) {
-    case "major":
-      return `${major + 1}.0.0`;
-
-    case "minor":
-      return `${major}.${minor + 1}.0`;
-
-    case "patch":
-      return `${major}.${minor}.${patch + 1}`;
-
-    case "premajor":
-      return `${major + 1}.0.0-0`;
-
-    case "preminor":
-      return `${major}.${minor + 1}.0-0`;
-
-    case "prepatch":
-      return `${major}.${minor}.${patch + 1}-0`;
-
-    case "prerelease": {
-      if (!prerelease) {
-        return `${major}.${minor}.${patch + 1}-0`;
-      }
-
-      const parts = prerelease.split(".");
-
-      const last = parts.at(-1);
-
-      if (last && /^\d+$/.test(last)) {
-        parts[parts.length - 1] = String(Number(last) + 1);
-      } else {
-        parts.push("0");
-      }
-
-      return `${major}.${minor}.${patch}-${parts.join(".")}`;
-    }
-
-    default:
-      throw new Error(`Unsupported release bump: ${versionSpec}`);
+  const next = semver.inc(currentVersion, versionSpec as Bump);
+  if (!next) {
+    throw new Error(`Unable to resolve release bump: ${versionSpec}`);
   }
+  return next;
 }
 
 export function resolveVersionSelection(
@@ -95,13 +44,15 @@ export function resolveVersionSelection(
   exactVersion = "",
 ): string {
   if (mode === "package-json") {
-    if (!SEMVER.test(currentVersion))
+    if (!semver.valid(currentVersion)) {
       throw new Error(`Invalid package.json SemVer: ${currentVersion}`);
+    }
     return currentVersion;
   }
   if (mode === "exact") {
-    if (!SEMVER.test(exactVersion))
+    if (!semver.valid(exactVersion)) {
       throw new Error(`Invalid exact SemVer: ${exactVersion}`);
+    }
     return exactVersion;
   }
   if (mode === "bump") return resolveNextVersion(currentVersion, bump);
