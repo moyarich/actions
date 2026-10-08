@@ -67,3 +67,11 @@ test("ignores SemVer build metadata when calculating bumps", () => {
     "2.0.0+build.1",
   );
 });
+
+test("uses standard semver validation and prerelease bump semantics", () => {
+  assert.throws(() => resolveNextVersion("01.2.3", "patch"), /Invalid current SemVer/);
+  assert.throws(() => resolveVersionSelection("1.2.3", "exact", "patch", "1.02.3"), /Invalid exact SemVer/);
+  assert.equal(resolveNextVersion("1.2.3-beta.1", "patch"), "1.2.3");
+  assert.equal(resolveNextVersion("1.2.3-beta.1", "minor"), "1.3.0");
+  assert.equal(resolveNextVersion("1.2.3-beta.1", "prerelease"), "1.2.3-beta.2");
+});
