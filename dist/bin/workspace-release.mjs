@@ -6172,65 +6172,6 @@ function releaseWorkspacePackage(argument, options) {
     console.log(JSON.stringify(result, null, 2));
   }
 }
-function split(value, field) {
-  const index = value.indexOf(":");
-  const kind = index === -1 ? value : value.slice(0, index);
-  const detail = index === -1 ? void 0 : value.slice(index + 1);
-  if (!kind || detail === "" || /[\r\n]/.test(value)) {
-    throw new Error(`Invalid ${field} selection: ${JSON.stringify(value)}`);
-  }
-  return [kind, detail];
-}
-function bare(detail, field) {
-  if (detail !== void 0) throw new Error(`${field} does not accept a value`);
-}
-function required(detail, field) {
-  if (!detail) throw new Error(`${field} requires a value`);
-  return detail;
-}
-function parseTypedVersion(value) {
-  const [kind, detail] = split(value, "version");
-  switch (kind) {
-    case "auto":
-    case "package-json":
-      bare(detail, kind);
-      return { mode: kind };
-    case "bump": {
-      const bump = required(detail, kind);
-      if (![
-        "patch",
-        "minor",
-        "major",
-        "prepatch",
-        "preminor",
-        "premajor",
-        "prerelease"
-      ].includes(bump))
-        throw new Error(`Unsupported version bump: ${bump}`);
-      return { mode: "bump", bump };
-    }
-    case "exact": {
-      const exactVersion = required(detail, kind);
-      if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
-        exactVersion
-      ))
-        throw new Error(`Invalid semantic version: ${exactVersion}`);
-      return { mode: "exact", exactVersion };
-    }
-    default:
-      throw new Error(`Unsupported version selection: ${kind}`);
-  }
-}
-function parseTypedTarget(value) {
-  const [kind, detail] = split(value, "target");
-  if (kind === "repository") {
-    bare(detail, kind);
-    return { kind };
-  }
-  if (kind === "package" || kind === "directory")
-    return { kind, value: required(detail, kind) };
-  throw new Error(`Unsupported target selection: ${kind}`);
-}
 program.name("workspace-release").description("Preview or create a workspace package release.").addArgument(
   new Argument(
     "[release]",
@@ -6249,21 +6190,6 @@ program.name("workspace-release").description("Preview or create a workspace pac
   "--resolve-only",
   "Resolve the next version without release checks or side effects"
 ).option("-d, --dry-run", "Preview without changing repository files").option("-j, --json", "Print the operation result as JSON").option("--no-fzf", "Disable automatic fzf selection").action(async (release2, options) => {
-  if (options.selection) {
-    const selected = parseTypedVersion(options.selection);
-    if (selected.mode === "auto")
-      throw new Error(
-        "workspace-release requires an explicit version selection"
-      );
-    options.mode = selected.mode;
-    options.version = selected.exactVersion ?? selected.bump;
-  }
-  if (options.target) {
-    const target = parseTypedTarget(options.target);
-    if (target.kind === "package" || target.kind === "directory")
-      release2 = target.value;
-    else release2 = ".";
-  }
   await releaseWorkspacePackage(release2, options);
 });
 await program.parseAsync();
