@@ -20,14 +20,19 @@ on:
         description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
         required: true
         type: string
-      release-match:
-        description: Find the release by package.json version or require the exact canonical tag
+      match-mode:
+        description: Find release by package version or exact tag
         required: true
         default: package-json
         type: choice
         options:
           - package-json
           - exact
+      exact-tag:
+        description: Existing release tag to match when match-mode is exact
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Preview recovery without mutating the release or tag
         required: true
@@ -101,6 +106,8 @@ jobs:
           RESTORE_SOURCE: ${{ inputs.restore-source }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -259,15 +266,23 @@ jobs:
             exit 1
           fi
 
-          case "${{ inputs.release-match }}" in
+          case "$MATCH_MODE" in
             package-json)
               RELEASE_QUERY="$PACKAGE_VERSION"
               ;;
             exact)
-              RELEASE_QUERY="$RELEASE_TAG"
+              if [ -z "$EXACT_TAG" ]; then
+                echo "::error::exact-tag is required when match-mode is exact."
+                exit 1
+              fi
+              if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
+                echo "::error::Exact tag must match the historical package's canonical tag: $RELEASE_TAG"
+                exit 1
+              fi
+              RELEASE_QUERY="$EXACT_TAG"
               ;;
             *)
-              echo "::error::release-match must be package-json or exact."
+              echo "::error::match-mode must be package-json or exact."
               exit 1
               ;;
           esac
@@ -285,13 +300,13 @@ jobs:
             } | sed '/^$/d' | sort -u
           )"
 
-          if [ "${{ inputs.release-match }}" = "exact" ]; then
+          if [ "$MATCH_MODE" = "exact" ]; then
             MATCHED_RELEASE_TAG="$(
-              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_TAG" || true
+              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
             )"
 
             if [ -z "$MATCHED_RELEASE_TAG" ]; then
-              echo "::error::Exact canonical release tag not found: $RELEASE_TAG"
+              echo "::error::Exact release tag not found: $RELEASE_QUERY"
               exit 1
             fi
           else
@@ -324,7 +339,7 @@ jobs:
                   printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
                 } >> "$GITHUB_STEP_SUMMARY"
 
-                echo "::error::Release search matched $MATCH_COUNT tags. Use release-match=exact or a more specific canonical tag."
+                echo "::error::Release search matched $MATCH_COUNT tags. Use match-mode=exact and provide exact-tag."
                 exit 1
               fi
             fi
@@ -400,7 +415,7 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Canonical release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Release match mode | `%s` |\n' "${{ inputs.release-match }}"
+            printf '| Match mode | `%s` |\n' "${{ inputs.match-mode }}"
             printf '| Release query | `%s` |\n' "$RELEASE_QUERY"
             printf '| Matched existing tag | `%s` |\n' "${MATCHED_RELEASE_TAG:-none}"
             printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
@@ -444,7 +459,7 @@ jobs:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
     with:
-      tag: ${{ needs.resolve.outputs.release-query }}
+      tag: ${{ needs.resolve.outputs.matched-release-tag || needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
 
   restore-tag:
@@ -544,7 +559,7 @@ jobs:
             printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Canonical tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'Release match: `%s`\n\n' "${{ inputs.release-match }}"
+            printf 'Match mode: `%s`\n\n' "${{ inputs.match-mode }}"
             printf 'Release query: `%s`\n\n' "${{ needs.resolve.outputs.release-query }}"
             printf 'Matched existing tag: `%s`\n\n' "${{ needs.resolve.outputs.matched-release-tag || 'none' }}"
             printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
