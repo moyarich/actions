@@ -49,7 +49,7 @@ program
     if (options.githubOutput) {
       const { appendFileSync } = await import("node:fs");
       if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is not set");
-      appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(result).map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}=${value ?? ""}\\n`).join(""));
+      appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(result).map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}=${value ?? ""}\n`).join(""));
     }
     console.log(JSON.stringify(result, null, options.json ? 0 : 2));
   });
