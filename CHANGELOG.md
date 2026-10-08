@@ -4,6 +4,13 @@ All notable user-facing changes to the installable `@moyarich/workspace-tools` p
 
 Reusable GitHub workflows and standalone actions are released separately from `moyarich/reusable-workflows`.
 
+## Unreleased
+
+### Release recovery
+
+- **Resolve historical release sources** — `workspace-release-identity restore-source` resolves a commit, Git tag, GitHub Actions run, workflow artifact, or supported GitHub URL to the commit used for a release recovery. Use `--repository <owner/name>` to identify the repository and `--json` or `--pretty-json` for machine-readable results.
+- **Verify published artifact equivalence** — `workspace-release-identity restore-equivalence` compares a package built from a selected historical commit with published package contents from one or more registries. Results identify matching registries and report file-level differences when packages do not match, with text or JSON output.
+
 ## [0.1.1]
 
 ### Publishing
