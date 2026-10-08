@@ -56,7 +56,17 @@ on:
 permissions: {}
 
 jobs:
+  dispatch-input-summary:
+    name: "job: Workflow parameters"
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
+      heading: "release-draft · Run parameters"
+
   discover-packages:
+    needs: dispatch-input-summary
     name: Discover publishable packages
     permissions:
       contents: read
@@ -328,13 +338,3 @@ jobs:
       package-name: ${{ matrix.name }}
       package-directory: ${{ matrix.directory }}
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
-
-  dispatch-input-summary:
-    name: "job: Workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    permissions:
-      contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
-    with:
-      parameters-json: ${{ toJSON(inputs) }}
-      heading: "release-draft · Dispatch parameters"
