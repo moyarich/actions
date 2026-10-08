@@ -275,6 +275,10 @@ jobs:
                 echo "::error::exact-tag is required when match-mode is exact."
                 exit 1
               fi
+              if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
+                echo "::error::Exact tag must match the historical package's canonical tag: $RELEASE_TAG"
+                exit 1
+              fi
               RELEASE_QUERY="$EXACT_TAG"
               ;;
             *)
