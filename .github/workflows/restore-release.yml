@@ -46,7 +46,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  dispatch-input-summary:
+    name: "job: Workflow parameters"
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      heading: "restore-release · Dispatch parameters"
+
   resolve:
+    needs: dispatch-input-summary
     name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
@@ -572,13 +582,3 @@ jobs:
              [ "${{ needs.create-draft.result }}" != "success" ]; then
             exit 1
           fi
-
-  dispatch-input-summary:
-    name: "job: Workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    permissions:
-      contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
-    with:
-      parameters-json: ${{ toJSON(inputs) }}
-      heading: "restore-release · Dispatch parameters"
