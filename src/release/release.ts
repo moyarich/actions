@@ -105,6 +105,7 @@ interface ReleaseOptions {
   dryRun?: boolean;
   json?: boolean;
   fzf?: boolean;
+  resolveOnly?: boolean;
 }
 
 /**
@@ -179,6 +180,24 @@ export function resolveNextVersion(
     default:
       throw new Error(`Unsupported release bump: ${versionSpec}`);
   }
+}
+
+export function resolveVersionSelection(
+  currentVersion: string,
+  mode: "bump" | "exact" | "package-json",
+  bump = "patch",
+  exactVersion = "",
+): string {
+  if (mode === "package-json") {
+    if (!SEMVER.test(currentVersion)) throw new Error(`Invalid package.json SemVer: ${currentVersion}`);
+    return currentVersion;
+  }
+  if (mode === "exact") {
+    if (!SEMVER.test(exactVersion)) throw new Error(`Invalid exact SemVer: ${exactVersion}`);
+    return exactVersion;
+  }
+  if (mode === "bump") return resolveNextVersion(currentVersion, bump);
+  throw new Error(`Invalid release mode: ${mode}`);
 }
 
 /**
@@ -1146,6 +1165,23 @@ export function releaseWorkspacePackage(
   options: ReleaseOptions,
 ): void {
   const releaseArgument = resolveCliReleaseArgument(argument, options);
+
+  if (options.resolveOnly && releaseArgument) {
+    const { selector } = parseReleaseArgument(releaseArgument, options);
+    const pkg = packageInfo(repositoryRoot(), selector);
+    const mode = options.mode || "bump";
+    const currentVersion = pkg.manifest.version;
+    const nextVersion = resolveVersionSelection(
+      currentVersion,
+      mode,
+      mode === "bump" ? (options.version || releaseArgument.slice(releaseArgument.indexOf("=") + 1)) : "patch",
+      options.version || "",
+    );
+    const result = { packageName: pkg.manifest.name, currentVersion, nextVersion, mode };
+    if (options.json) console.log(JSON.stringify(result));
+    else console.log(`${currentVersion} → ${nextVersion}`);
+    return;
+  }
 
   if (!releaseArgument) {
     console.log("Release selection cancelled.");
