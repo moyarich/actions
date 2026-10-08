@@ -3369,7 +3369,10 @@ function resolveNextVersion(currentVersion, versionSpec) {
   if (!VALID_BUMPS.has(versionSpec)) {
     throw new Error(`Invalid release bump: ${versionSpec}`);
   }
-  const [core, prerelease = ""] = currentVersion.split("-", 2);
+  const withoutBuild = currentVersion.split("+", 1)[0];
+  const dash = withoutBuild.indexOf("-");
+  const core = dash === -1 ? withoutBuild : withoutBuild.slice(0, dash);
+  const prerelease = dash === -1 ? "" : withoutBuild.slice(dash + 1);
   const [major, minor, patch] = core.split(".").map(Number);
   switch (versionSpec) {
     case "major":
