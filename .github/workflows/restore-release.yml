@@ -415,10 +415,7 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Canonical release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Match mode | `%s` |\n' "${{ inputs.match-mode }}"
-            printf '| Release query | `%s` |\n' "$RELEASE_QUERY"
             printf '| Matched existing tag | `%s` |\n' "${MATCHED_RELEASE_TAG:-none}"
-            printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
             printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
             printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
             printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
@@ -427,7 +424,6 @@ jobs:
             printf '| Existing draft seed SHA | `%s` |\n' "${DRAFT_SEED_SHA:-none}"
             printf '| Suggested manual seed SHA | `%s` |\n' "$SUGGESTED_SEED_SHA"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
-            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
             echo
             echo "## Registry publication state"
             echo
@@ -560,9 +556,7 @@ jobs:
             printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
             printf 'Canonical tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
             printf 'Match mode: `%s`\n\n' "${{ inputs.match-mode }}"
-            printf 'Release query: `%s`\n\n' "${{ needs.resolve.outputs.release-query }}"
             printf 'Matched existing tag: `%s`\n\n' "${{ needs.resolve.outputs.matched-release-tag || 'none' }}"
-            printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
             printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
             printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
             printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
@@ -576,22 +570,6 @@ jobs:
               echo
             fi
             printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
-            echo "Dry run: **${{ inputs.dry-run }}**"
-            echo
-            echo "## Registry publication state"
-            echo
-            echo "| Registry | State |"
-            echo "| --- | --- |"
-            echo "| npmjs.org | **${{ needs.resolve.outputs.npm-registry-state || 'unknown' }}** |"
-            echo "| GitHub Packages | **${{ needs.resolve.outputs.github-registry-state || 'unknown' }}** |"
-            echo
-            echo "## Artifact equivalence"
-            echo
-            echo "Status: **${{ needs.resolve.outputs.artifact-equivalence || 'unknown' }}**"
-            echo
-            if [ -n "${{ needs.resolve.outputs.matched-registry }}" ]; then
-              printf 'Matched published copy: `%s`\n\n' "${{ needs.resolve.outputs.matched-registry }}"
-            fi
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
