@@ -288,51 +288,20 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
 
   move-tag:
-    name: "stage: Move canonical tag"
+    name: "stage: Move canonical release tag"
     needs:
       - resolve
       - delete-release
     if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
-    runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.target-branch }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Move canonical tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
-          RESET_COMMIT: ${{ needs.resolve.outputs.reset-commit }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          CURRENT_HEAD="$(git rev-parse HEAD)"
-          if [ "$CURRENT_HEAD" != "$RESET_COMMIT" ]; then
-            echo "::error::Target branch moved after reset resolution."
-            echo "::error::Resolved: $RESET_COMMIT"
-            echo "::error::Current:  $CURRENT_HEAD"
-            exit 1
-          fi
-
-          if [ "${{ inputs.dry-run }}" = "true" ]; then
-            echo "Would move $RELEASE_TAG to $RESET_COMMIT."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
-
-          git tag -f "$RELEASE_TAG" "$RESET_COMMIT"
-          git push --force origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-tag-move.yml@main
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      tag: ${{ needs.resolve.outputs.release-tag }}
+      commit: ${{ needs.resolve.outputs.reset-commit }}
+      require-branch-head: true
+      dry-run: ${{ inputs.dry-run }}
 
   create-draft:
     name: "stage: Rebuild release draft"
