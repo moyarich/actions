@@ -1,11 +1,31 @@
 import { Command } from "commander";
-import { parseTypedRelease, parseTypedSource, parseTypedTarget, parseTypedVersion } from "./typed-inputs.ts";
+import {
+  parseTypedRelease,
+  parseTypedSource,
+  parseTypedTarget,
+  parseTypedVersion,
+} from "./typed-inputs.ts";
 
 const program = new Command();
-program.name("typed-input-resolver").description("Parse and validate typed workflow inputs.");
-program.option("--version <selection>", "auto, package-json, bump:minor, exact:1.2.3", "auto")
-  .option("--target <selection>", "repository, package:name, directory:path", "repository")
-  .option("--workspace-tools <selection>", "workspace, registry:version, repository:ref", "registry:0.1.0")
+program
+  .name("typed-input-resolver")
+  .description("Parse and validate typed workflow inputs.");
+program
+  .option(
+    "--version <selection>",
+    "auto, package-json, bump:minor, exact:1.2.3",
+    "auto",
+  )
+  .option(
+    "--target <selection>",
+    "repository, package:name, directory:path",
+    "repository",
+  )
+  .option(
+    "--workspace-tools <selection>",
+    "workspace, registry:version, repository:ref",
+    "registry:0.1.0",
+  )
   .option("--release <selection>", "auto, tag:name, name:title", "auto")
   .option("--json", "Print JSON")
   .action((options) => {
@@ -14,7 +34,9 @@ program.option("--version <selection>", "auto, package-json, bump:minor, exact:1
     const source = parseTypedSource(options.workspaceTools);
     const release = parseTypedRelease(options.release);
     const result = {
-      versionMode: version.mode, versionBump: version.bump ?? "", exactVersion: version.exactVersion ?? "",
+      versionMode: version.mode,
+      versionBump: version.bump ?? "",
+      exactVersion: version.exactVersion ?? "",
       packageName: target.kind === "package" ? target.value : "",
       packageDirectory: target.kind === "directory" ? target.value : "",
       workspaceToolsSource: source.source,

@@ -1,6 +1,16 @@
-export type TypedVersion = { mode: "auto" | "bump" | "exact" | "package-json"; bump?: string; exactVersion?: string };
-export type TypedTarget = { kind: "repository" | "package" | "directory"; value?: string };
-export type TypedSource = { source: "workspace" | "registry" | "repository"; value?: string };
+export type TypedVersion = {
+  mode: "auto" | "bump" | "exact" | "package-json";
+  bump?: string;
+  exactVersion?: string;
+};
+export type TypedTarget = {
+  kind: "repository" | "package" | "directory";
+  value?: string;
+};
+export type TypedSource = {
+  source: "workspace" | "registry" | "repository";
+  value?: string;
+};
 export type TypedRelease = { kind: "auto" | "tag" | "name"; value?: string };
 
 function split(value: string, field: string): [string, string | undefined] {
@@ -22,37 +32,67 @@ function required(detail: string | undefined, field: string): string {
 export function parseTypedVersion(value: string): TypedVersion {
   const [kind, detail] = split(value, "version");
   switch (kind) {
-    case "auto": case "package-json": bare(detail, kind); return { mode: kind };
+    case "auto":
+    case "package-json":
+      bare(detail, kind);
+      return { mode: kind };
     case "bump": {
       const bump = required(detail, kind);
-      if (!["patch","minor","major","prepatch","preminor","premajor","prerelease"].includes(bump))
+      if (
+        ![
+          "patch",
+          "minor",
+          "major",
+          "prepatch",
+          "preminor",
+          "premajor",
+          "prerelease",
+        ].includes(bump)
+      )
         throw new Error(`Unsupported version bump: ${bump}`);
       return { mode: "bump", bump };
     }
     case "exact": {
       const exactVersion = required(detail, kind);
-      if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(exactVersion))
+      if (
+        !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+          exactVersion,
+        )
+      )
         throw new Error(`Invalid semantic version: ${exactVersion}`);
       return { mode: "exact", exactVersion };
     }
-    default: throw new Error(`Unsupported version selection: ${kind}`);
+    default:
+      throw new Error(`Unsupported version selection: ${kind}`);
   }
 }
 export function parseTypedTarget(value: string): TypedTarget {
   const [kind, detail] = split(value, "target");
-  if (kind === "repository") { bare(detail, kind); return { kind }; }
-  if (kind === "package" || kind === "directory") return { kind, value: required(detail, kind) };
+  if (kind === "repository") {
+    bare(detail, kind);
+    return { kind };
+  }
+  if (kind === "package" || kind === "directory")
+    return { kind, value: required(detail, kind) };
   throw new Error(`Unsupported target selection: ${kind}`);
 }
 export function parseTypedSource(value: string): TypedSource {
   const [source, detail] = split(value, "workspace-tools");
-  if (source === "workspace") { bare(detail, source); return { source }; }
-  if (source === "registry" || source === "repository") return { source, value: required(detail, source) };
+  if (source === "workspace") {
+    bare(detail, source);
+    return { source };
+  }
+  if (source === "registry" || source === "repository")
+    return { source, value: required(detail, source) };
   throw new Error(`Unsupported workspace-tools selection: ${source}`);
 }
 export function parseTypedRelease(value: string): TypedRelease {
   const [kind, detail] = split(value, "release");
-  if (kind === "auto") { bare(detail, kind); return { kind }; }
-  if (kind === "tag" || kind === "name") return { kind, value: required(detail, kind) };
+  if (kind === "auto") {
+    bare(detail, kind);
+    return { kind };
+  }
+  if (kind === "tag" || kind === "name")
+    return { kind, value: required(detail, kind) };
   throw new Error(`Unsupported release selection: ${kind}`);
 }
