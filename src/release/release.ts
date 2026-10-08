@@ -1167,15 +1167,15 @@ export function releaseWorkspacePackage(
   const releaseArgument = resolveCliReleaseArgument(argument, options);
 
   if (options.resolveOnly && releaseArgument) {
-    const { selector } = parseReleaseArgument(releaseArgument, options);
+    const { selector, versionSpec } = parseReleaseArgument(releaseArgument, options);
     const pkg = packageInfo(repositoryRoot(), selector);
     const mode = options.mode || "bump";
     const currentVersion = pkg.manifest.version;
     const nextVersion = resolveVersionSelection(
       currentVersion,
       mode,
-      mode === "bump" ? (options.version || releaseArgument.slice(releaseArgument.indexOf("=") + 1)) : "patch",
-      options.version || "",
+      mode === "bump" ? (options.version || versionSpec || "patch") : "patch",
+      mode === "exact" ? (options.version || versionSpec || "") : "",
     );
     const result = { packageName: pkg.manifest.name, currentVersion, nextVersion, mode };
     if (options.json) console.log(JSON.stringify(result));
