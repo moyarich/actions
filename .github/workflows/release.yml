@@ -53,7 +53,6 @@ jobs:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
     with:
-      show-input-summary: false
       parameters-json: ${{ toJSON(inputs) }}
       heading: "release · Dispatch parameters"
 
@@ -64,6 +63,7 @@ jobs:
       packages: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
     with:
+      show-input-summary: false
       target-branch: ${{ github.ref_name }}
       package: ${{ inputs.package }}
       version-mode: ${{ inputs.version-mode }}
