@@ -16,14 +16,19 @@ on:
         required: true
         default: main
         type: string
-      release-match:
-        description: Find the release by package.json version or require the exact canonical tag
+      match-mode:
+        description: Find release by package version or exact tag
         required: true
         default: package-json
         type: choice
         options:
           - package-json
           - exact
+      exact-tag:
+        description: Existing canonical release tag when match-mode is exact
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Preview the reset without mutating the release or tag
         required: true
@@ -70,6 +75,8 @@ jobs:
         env:
           PACKAGE_SELECTOR: ${{ inputs.package }}
           GH_TOKEN: ${{ github.token }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -209,15 +216,23 @@ jobs:
             fi
           fi
 
-          case "${{ inputs.release-match }}" in
+          case "$MATCH_MODE" in
             package-json)
               RELEASE_QUERY="$PACKAGE_VERSION"
               ;;
             exact)
-              RELEASE_QUERY="$RELEASE_TAG"
+              if [ -z "$EXACT_TAG" ]; then
+                echo "::error::exact-tag is required when match-mode is exact."
+                exit 1
+              fi
+              if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
+                echo "::error::Exact tag must match the package canonical tag: $RELEASE_TAG"
+                exit 1
+              fi
+              RELEASE_QUERY="$EXACT_TAG"
               ;;
             *)
-              echo "::error::release-match must be package-json or exact."
+              echo "::error::match-mode must be package-json or exact."
               exit 1
               ;;
           esac
@@ -261,7 +276,7 @@ jobs:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
     with:
-      tag: ${{ needs.resolve.outputs.release-query }}
+      tag: ${{ needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
 
   move-tag:
