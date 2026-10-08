@@ -49,9 +49,21 @@ test("rejects invalid versions and bump types", () => {
 test("ignores SemVer build metadata when calculating bumps", () => {
   assert.equal(resolveNextVersion("1.2.3+build.5", "patch"), "1.2.4");
   assert.equal(resolveNextVersion("1.2.3+sha.abc", "minor"), "1.3.0");
-  assert.equal(resolveNextVersion("0.2.0-beta.1+ci.2", "prerelease"), "0.2.0-beta.2");
+  assert.equal(
+    resolveNextVersion("0.2.0-beta.1+ci.2", "prerelease"),
+    "0.2.0-beta.2",
+  );
   assert.equal(resolveNextVersion("0.2.0+build.1", "prerelease"), "0.2.1-0");
-  assert.equal(resolveNextVersion("1.2.3-beta-feature.1", "prerelease"), "1.2.3-beta-feature.2");
-  assert.equal(resolveVersionSelection("1.2.3+abc", "package-json"), "1.2.3+abc");
-  assert.equal(resolveVersionSelection("1.2.3", "exact", "patch", "2.0.0+build.1"), "2.0.0+build.1");
+  assert.equal(
+    resolveNextVersion("1.2.3-beta-feature.1", "prerelease"),
+    "1.2.3-beta-feature.2",
+  );
+  assert.equal(
+    resolveVersionSelection("1.2.3+abc", "package-json"),
+    "1.2.3+abc",
+  );
+  assert.equal(
+    resolveVersionSelection("1.2.3", "exact", "patch", "2.0.0+build.1"),
+    "2.0.0+build.1",
+  );
 });
