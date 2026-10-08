@@ -6,6 +6,15 @@ Reusable GitHub workflows and standalone actions are released separately from `m
 
 ## Unreleased
 
+## [0.2.0]
+
+### Semantic versioning
+
+- **`sim-version-resolver`** — Resolve the next semantic version without changing files or publishing a package. Choose a `bump`, `package-json`, or `exact` version mode, with support for major, minor, patch, and prerelease increments.
+- **Machine-readable version results** — Use `sim-version-resolver --json` to retrieve the current and resolved versions for scripts and other tooling. Resolve from an explicit version or a selected package manifest.
+- **Preview release versions independently** — Use `workspace-release --resolve-only` to see the selected package version without running release checks or making changes. Supports JSON output.
+- **Support initial-development versions** — Minor increments preserve major version zero, so packages can progress from `0.1.0` to `0.2.0` and `0.3.0` before their first stable major release.
+
 ### Release recovery
 
 - **Resolve historical release sources** — `workspace-release-identity restore-source` resolves a commit, Git tag, GitHub Actions run, workflow artifact, or supported GitHub URL to the commit used for a release recovery. Use `--repository <owner/name>` to identify the repository and `--json` or `--pretty-json` for machine-readable results.
