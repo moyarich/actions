@@ -189,11 +189,13 @@ export function resolveVersionSelection(
   exactVersion = "",
 ): string {
   if (mode === "package-json") {
-    if (!SEMVER.test(currentVersion)) throw new Error(`Invalid package.json SemVer: ${currentVersion}`);
+    if (!SEMVER.test(currentVersion))
+      throw new Error(`Invalid package.json SemVer: ${currentVersion}`);
     return currentVersion;
   }
   if (mode === "exact") {
-    if (!SEMVER.test(exactVersion)) throw new Error(`Invalid exact SemVer: ${exactVersion}`);
+    if (!SEMVER.test(exactVersion))
+      throw new Error(`Invalid exact SemVer: ${exactVersion}`);
     return exactVersion;
   }
   if (mode === "bump") return resolveNextVersion(currentVersion, bump);
@@ -1167,17 +1169,25 @@ export function releaseWorkspacePackage(
   const releaseArgument = resolveCliReleaseArgument(argument, options);
 
   if (options.resolveOnly && releaseArgument) {
-    const { selector, versionSpec } = parseReleaseArgument(releaseArgument, options);
+    const { selector, versionSpec } = parseReleaseArgument(
+      releaseArgument,
+      options,
+    );
     const pkg = packageInfo(repositoryRoot(), selector);
     const mode = options.mode || "bump";
     const currentVersion = pkg.manifest.version;
     const nextVersion = resolveVersionSelection(
       currentVersion,
       mode,
-      mode === "bump" ? (options.version || versionSpec || "patch") : "patch",
-      mode === "exact" ? (options.version || versionSpec || "") : "",
+      mode === "bump" ? options.version || versionSpec || "patch" : "patch",
+      mode === "exact" ? options.version || versionSpec || "" : "",
     );
-    const result = { packageName: pkg.manifest.name, currentVersion, nextVersion, mode };
+    const result = {
+      packageName: pkg.manifest.name,
+      currentVersion,
+      nextVersion,
+      mode,
+    };
     if (options.json) console.log(JSON.stringify(result));
     else console.log(`${currentVersion} → ${nextVersion}`);
     return;

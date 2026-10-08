@@ -174,8 +174,20 @@ test("release version selection preserves v0 minor progression", () => {
 });
 
 test("inactive version inputs do not override the selected release mode", () => {
-  assert.equal(resolveVersionSelection("0.2.0", "package-json", "major", "9.0.0"), "0.2.0");
-  assert.equal(resolveVersionSelection("0.2.0", "exact", "major", "0.4.0"), "0.4.0");
-  assert.equal(resolveVersionSelection("0.2.0", "bump", "patch", "9.0.0"), "0.2.1");
-  assert.throws(() => resolveVersionSelection("0.2.0", "exact", "minor", ""), /Invalid exact SemVer/);
+  assert.equal(
+    resolveVersionSelection("0.2.0", "package-json", "major", "9.0.0"),
+    "0.2.0",
+  );
+  assert.equal(
+    resolveVersionSelection("0.2.0", "exact", "major", "0.4.0"),
+    "0.4.0",
+  );
+  assert.equal(
+    resolveVersionSelection("0.2.0", "bump", "patch", "9.0.0"),
+    "0.2.1",
+  );
+  assert.throws(
+    () => resolveVersionSelection("0.2.0", "exact", "minor", ""),
+    /Invalid exact SemVer/,
+  );
 });
