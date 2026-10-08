@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { resolveVersionSelection } from "./sim-version-resolver.ts";
+import { parseTypedVersion } from "../typed-inputs/typed-inputs.ts";
 
 const program = new Command();
 program
@@ -14,10 +15,24 @@ program
   )
   .option("--package-json <path>", "Package manifest path", "package.json")
   .option("--mode <mode>", "Version mode: bump, package-json, exact", "bump")
+  .option(
+    "--selection <selection>",
+    "Typed selection, e.g. bump:minor or exact:1.2.3",
+  )
   .option("--bump <type>", "Version increment", "patch")
   .option("--exact-version <version>", "Exact version when --mode exact")
   .option("--json", "Output a machine-readable JSON object")
   .action((opts) => {
+    if (opts.selection) {
+      const selection = parseTypedVersion(opts.selection);
+      if (selection.mode === "auto")
+        throw new Error(
+          "auto requires Release Drafter history; supply bump, exact, or package-json",
+        );
+      opts.mode = selection.mode;
+      if (selection.bump) opts.bump = selection.bump;
+      if (selection.exactVersion) opts.exactVersion = selection.exactVersion;
+    }
     if (!["bump", "package-json", "exact"].includes(opts.mode)) {
       throw new Error(`Invalid version mode: ${opts.mode}`);
     }
