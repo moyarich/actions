@@ -47,7 +47,17 @@ on:
 permissions: {}
 
 jobs:
+  dispatch-input-summary:
+    name: "job: Workflow parameters"
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      heading: "release · Dispatch parameters"
+
   release:
+    needs: dispatch-input-summary
     permissions:
       contents: write
       packages: read
@@ -61,13 +71,3 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       node-version: "24"
       workspace-tools-source: caller
-
-  dispatch-input-summary:
-    name: "job: Workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    permissions:
-      contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
-    with:
-      parameters-json: ${{ toJSON(inputs) }}
-      heading: "release · Dispatch parameters"

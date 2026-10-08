@@ -46,7 +46,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  dispatch-input-summary:
+    name: "job: Workflow parameters"
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      heading: "restore-release · Dispatch parameters"
+
   resolve:
+    needs: dispatch-input-summary
     name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
@@ -415,10 +425,7 @@ jobs:
             printf '| Package | `%s` |\n' "$PACKAGE_NAME"
             printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
             printf '| Canonical release tag | `%s` |\n' "$RELEASE_TAG"
-            printf '| Match mode | `%s` |\n' "${{ inputs.match-mode }}"
-            printf '| Release query | `%s` |\n' "$RELEASE_QUERY"
             printf '| Matched existing tag | `%s` |\n' "${MATCHED_RELEASE_TAG:-none}"
-            printf '| Restore source | `%s` |\n' "$RESTORE_SOURCE"
             printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
             printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
             printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
@@ -427,7 +434,6 @@ jobs:
             printf '| Existing draft seed SHA | `%s` |\n' "${DRAFT_SEED_SHA:-none}"
             printf '| Suggested manual seed SHA | `%s` |\n' "$SUGGESTED_SEED_SHA"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
-            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
             echo
             echo "## Registry publication state"
             echo
@@ -556,43 +562,13 @@ jobs:
             echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
             echo "| Restore release draft | **${{ needs.create-draft.result }}** |"
             echo
-            printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
-            printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
-            printf 'Canonical tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'Match mode: `%s`\n\n' "${{ inputs.match-mode }}"
-            printf 'Release query: `%s`\n\n' "${{ needs.resolve.outputs.release-query }}"
-            printf 'Matched existing tag: `%s`\n\n' "${{ needs.resolve.outputs.matched-release-tag || 'none' }}"
-            printf 'Restore source: `%s`\n\n' "${{ needs.resolve.outputs.restore-source }}"
-            printf 'Source kind: `%s`\n\n' "${{ needs.resolve.outputs.restore-source-kind }}"
-            printf 'Resolved source kind: `%s`\n\n' "${{ needs.resolve.outputs.resolved-source-kind }}"
-            printf 'Resolved full commit: `%s`\n\n' "${{ needs.resolve.outputs.release-commit }}"
             echo "## Draft seed marker"
             echo
-            printf 'Existing seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.draft-seed-sha || 'none' }}"
-            printf 'Suggested manual seed SHA: `%s`\n\n' "${{ needs.resolve.outputs.suggested-seed-sha }}"
             if [ -n "${{ needs.resolve.outputs.draft-seed-sha }}" ] &&
                [ "${{ needs.resolve.outputs.draft-seed-sha }}" != "${{ needs.resolve.outputs.suggested-seed-sha }}" ]; then
               echo "> Restore preserves the existing release-draft-sync seed marker. If you want the draft baseline to align with the restored release source, manually change seed-sha to the suggested value."
               echo
             fi
-            printf 'Configured package registry: `%s`\n\n' "${{ needs.resolve.outputs.configured-registry }}"
-            echo "Dry run: **${{ inputs.dry-run }}**"
-            echo
-            echo "## Registry publication state"
-            echo
-            echo "| Registry | State |"
-            echo "| --- | --- |"
-            echo "| npmjs.org | **${{ needs.resolve.outputs.npm-registry-state || 'unknown' }}** |"
-            echo "| GitHub Packages | **${{ needs.resolve.outputs.github-registry-state || 'unknown' }}** |"
-            echo
-            echo "## Artifact equivalence"
-            echo
-            echo "Status: **${{ needs.resolve.outputs.artifact-equivalence || 'unknown' }}**"
-            echo
-            if [ -n "${{ needs.resolve.outputs.matched-registry }}" ]; then
-              printf 'Matched published copy: `%s`\n\n' "${{ needs.resolve.outputs.matched-registry }}"
-            fi
-            echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
@@ -606,13 +582,3 @@ jobs:
              [ "${{ needs.create-draft.result }}" != "success" ]; then
             exit 1
           fi
-
-  dispatch-input-summary:
-    name: "job: Workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    permissions:
-      contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
-    with:
-      parameters-json: ${{ toJSON(inputs) }}
-      heading: "restore-release · Dispatch parameters"
