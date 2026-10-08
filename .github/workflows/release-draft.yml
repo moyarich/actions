@@ -38,11 +38,6 @@ on:
         required: false
         default: ""
         type: string
-      target-branch:
-        description: Draft target branch
-        required: true
-        default: main
-        type: string
       dry-run:
         description: Preview without creating or modifying release drafts
         required: true
@@ -62,7 +57,6 @@ jobs:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
     with:
-      show-input-summary: false
       parameters-json: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
       heading: "release-draft · Run parameters"
 
@@ -92,7 +86,7 @@ jobs:
       event-name: ${{ github.event_name }}
       before-sha: ${{ github.event.before || '' }}
       after-sha: ${{ github.sha }}
-      target-branch: ${{ github.event_name == 'workflow_dispatch' && inputs.target-branch || 'main' }}
+      target-branch: ${{ github.ref_name }}
       version-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.version-mode || '' }}
       version-bump: ${{ github.event_name == 'workflow_dispatch' && inputs.version-bump || '' }}
       exact-version: ${{ github.event_name == 'workflow_dispatch' && inputs.exact-version || '' }}
@@ -118,7 +112,7 @@ jobs:
       pull-requests: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
     with:
-      target-branch: ${{ github.event_name == 'workflow_dispatch' && inputs.target-branch || 'main' }}
+      target-branch: ${{ github.ref_name }}
       version: ''
       initial-version: "0.1.0"
       version-mode: ${{ needs.select-packages.outputs.version-mode }}
