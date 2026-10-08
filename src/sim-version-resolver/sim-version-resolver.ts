@@ -38,8 +38,10 @@ export function resolveNextVersion(
     throw new Error(`Invalid release bump: ${versionSpec}`);
   }
 
-  const [core, prerelease = ""] = currentVersion.split("-", 2);
-
+  // Build metadata has no effect on version precedence or bump arithmetic.
+  // Separate it before parsing the core and prerelease identifiers.
+  const withoutBuild = currentVersion.split("+", 1)[0]!;
+  const [core, prerelease = ""] = withoutBuild.split("-", 2);
   const [major, minor, patch] = core.split(".").map(Number);
 
   switch (versionSpec) {
