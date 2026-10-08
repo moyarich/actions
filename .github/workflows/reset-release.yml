@@ -300,6 +300,7 @@ jobs:
       target-branch: ${{ inputs.target-branch }}
       tag: ${{ needs.resolve.outputs.release-tag }}
       commit: ${{ needs.resolve.outputs.reset-commit }}
+      require-branch-head: true
       dry-run: ${{ inputs.dry-run }}
 
   create-draft:
