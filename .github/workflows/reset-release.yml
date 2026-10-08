@@ -324,19 +324,6 @@ jobs:
           git tag -f "$RELEASE_TAG" "$RESET_COMMIT"
           git push --force origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
-      - name: Tag movement summary
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          {
-            echo "## Canonical tag"
-            echo
-            printf '| Tag | `%s` |\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf '| Previous commit | `%s` |\n' "${{ needs.resolve.outputs.previous-tag-commit || 'missing' }}"
-            printf '| New commit | `%s` |\n' "${{ needs.resolve.outputs.reset-commit }}"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
   create-draft:
     name: "stage: Rebuild release draft"
     needs:
@@ -386,11 +373,6 @@ jobs:
             echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
             echo "| Move canonical tag | **${{ needs.move-tag.result }}** |"
             echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
-            echo
-            printf 'Package: `%s`\n\n' "${{ needs.resolve.outputs.package-name }}"
-            printf 'Version: `%s`\n\n' "${{ needs.resolve.outputs.package-version }}"
-            printf 'Tag: `%s`\n\n' "${{ needs.resolve.outputs.release-tag }}"
-            printf 'New release commit: `%s`\n\n' "${{ needs.resolve.outputs.reset-commit }}"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo "> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft."
