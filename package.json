@@ -45,6 +45,7 @@
     "build": "npm run build:clis"
   },
   "devDependencies": {
+    "@types/semver": "^7.7.1",
     "commander": "^15.0.0",
     "prettier": "^3.6.2",
     "vite": "^7.1.5",
@@ -62,5 +63,8 @@
     "workspace-dependency-check": "dist/bin/workspace-dependency-check.mjs",
     "workspace-package-lock": "dist/bin/workspace-package-lock.mjs",
     "workspace-release-identity": "dist/bin/workspace-release-identity.mjs"
+  },
+  "dependencies": {
+    "semver": "^7.7.3"
   }
 }
