@@ -8,6 +8,14 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { releaseIdentity } from "../release-identity/release-identity.ts";
+import {
+  resolveNextVersion,
+  resolveVersionSelection,
+} from "../sim-version-resolver/sim-version-resolver.ts";
+export {
+  resolveNextVersion,
+  resolveVersionSelection,
+} from "../sim-version-resolver/sim-version-resolver.ts";
 import { packageInfo, repositoryRoot } from "../workspace/workspace.ts";
 
 import {
@@ -105,80 +113,7 @@ interface ReleaseOptions {
   dryRun?: boolean;
   json?: boolean;
   fzf?: boolean;
-}
-
-/**
- * Calculate the next package version.
- *
- * @param {string} currentVersion
- * Current semantic version.
- *
- * @param {string} versionSpec
- * Exact version or semantic-version bump.
- *
- * @returns {string}
- * Resolved next version.
- */
-export function resolveNextVersion(
-  currentVersion: string,
-  versionSpec: string,
-): string {
-  if (!SEMVER.test(currentVersion)) {
-    throw new Error(`Invalid current SemVer: ${currentVersion}`);
-  }
-
-  if (SEMVER.test(versionSpec)) {
-    return versionSpec;
-  }
-
-  if (!VALID_BUMPS.has(versionSpec)) {
-    throw new Error(`Invalid release bump: ${versionSpec}`);
-  }
-
-  const [core, prerelease = ""] = currentVersion.split("-", 2);
-
-  const [major, minor, patch] = core.split(".").map(Number);
-
-  switch (versionSpec) {
-    case "major":
-      return `${major + 1}.0.0`;
-
-    case "minor":
-      return `${major}.${minor + 1}.0`;
-
-    case "patch":
-      return `${major}.${minor}.${patch + 1}`;
-
-    case "premajor":
-      return `${major + 1}.0.0-0`;
-
-    case "preminor":
-      return `${major}.${minor + 1}.0-0`;
-
-    case "prepatch":
-      return `${major}.${minor}.${patch + 1}-0`;
-
-    case "prerelease": {
-      if (!prerelease) {
-        return `${major}.${minor}.${patch + 1}-0`;
-      }
-
-      const parts = prerelease.split(".");
-
-      const last = parts.at(-1);
-
-      if (last && /^\d+$/.test(last)) {
-        parts[parts.length - 1] = String(Number(last) + 1);
-      } else {
-        parts.push("0");
-      }
-
-      return `${major}.${minor}.${patch}-${parts.join(".")}`;
-    }
-
-    default:
-      throw new Error(`Unsupported release bump: ${versionSpec}`);
-  }
+  resolveOnly?: boolean;
 }
 
 /**
@@ -1146,6 +1081,31 @@ export function releaseWorkspacePackage(
   options: ReleaseOptions,
 ): void {
   const releaseArgument = resolveCliReleaseArgument(argument, options);
+
+  if (options.resolveOnly && releaseArgument) {
+    const { selector, versionSpec } = parseReleaseArgument(
+      releaseArgument,
+      options,
+    );
+    const pkg = packageInfo(repositoryRoot(), selector);
+    const mode = options.mode || "bump";
+    const currentVersion = pkg.manifest.version;
+    const nextVersion = resolveVersionSelection(
+      currentVersion,
+      mode,
+      mode === "bump" ? options.version || versionSpec || "patch" : "patch",
+      mode === "exact" ? options.version || versionSpec || "" : "",
+    );
+    const result = {
+      packageName: pkg.manifest.name,
+      currentVersion,
+      nextVersion,
+      mode,
+    };
+    if (options.json) console.log(JSON.stringify(result));
+    else console.log(`${currentVersion} → ${nextVersion}`);
+    return;
+  }
 
   if (!releaseArgument) {
     console.log("Release selection cancelled.");

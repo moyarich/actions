@@ -7,6 +7,7 @@ import {
   parseReleaseArgument,
   releaseNotes,
   resolveNextVersion,
+  resolveVersionSelection,
 } from "../../src/release/release.ts";
 import { packageInfo } from "../../src/workspace/workspace.ts";
 
@@ -163,5 +164,30 @@ test("existingChangelogSection returns null when the version is absent", () => {
   assert.equal(
     existingChangelogSection("# Changelog\n\n## [1.2.2]\n", "1.2.3"),
     null,
+  );
+});
+
+test("release version selection preserves v0 minor progression", () => {
+  assert.equal(resolveVersionSelection("0.1.0", "bump", "minor"), "0.2.0");
+  assert.equal(resolveVersionSelection("0.2.0", "bump", "minor"), "0.3.0");
+  assert.equal(resolveVersionSelection("0.3.0", "bump", "major"), "1.0.0");
+});
+
+test("inactive version inputs do not override the selected release mode", () => {
+  assert.equal(
+    resolveVersionSelection("0.2.0", "package-json", "major", "9.0.0"),
+    "0.2.0",
+  );
+  assert.equal(
+    resolveVersionSelection("0.2.0", "exact", "major", "0.4.0"),
+    "0.4.0",
+  );
+  assert.equal(
+    resolveVersionSelection("0.2.0", "bump", "patch", "9.0.0"),
+    "0.2.1",
+  );
+  assert.throws(
+    () => resolveVersionSelection("0.2.0", "exact", "minor", ""),
+    /Invalid exact SemVer/,
   );
 });
