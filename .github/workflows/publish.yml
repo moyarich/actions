@@ -11,8 +11,16 @@ on:
         required: true
         default: "."
         type: string
-      version:
-        description: Exact version to publish; empty uses package.json
+      version-mode:
+        description: Version mode
+        required: true
+        default: package-json
+        type: choice
+        options:
+          - package-json
+          - exact
+      exact-version:
+        description: Exact version when version-mode is exact
         required: false
         default: ""
         type: string
@@ -49,7 +57,8 @@ jobs:
     with:
       target-branch: ${{ github.ref_name }}
       package-directory: ${{ inputs.package }}
-      version: ${{ inputs.version }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
       tag: ${{ inputs.tag }}
       dry-run: ${{ inputs.dry-run }}
