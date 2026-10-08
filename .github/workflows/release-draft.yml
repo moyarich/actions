@@ -255,13 +255,7 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            printf '| Trigger | `%s` |\n' "$EVENT_NAME"
             echo "| Selected packages | **$COUNT** |"
-            if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-              printf '| Version mode | `%s` |\n' "$VERSION_MODE"
-              printf '| Version bump | `%s` |\n' "$VERSION_BUMP"
-              printf '| Exact version | `%s` |\n' "${EXACT_VERSION:-not used}"
-            fi
             echo
             echo '~~~json'
             jq . <<< "$SELECTED"
