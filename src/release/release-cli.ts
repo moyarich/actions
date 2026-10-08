@@ -18,6 +18,7 @@ program
     ]),
   )
   .option("--version <version>", "Override the version or bump")
+  .option("--resolve-only", "Resolve the next version without release checks or side effects")
   .option("-d, --dry-run", "Preview without changing repository files")
   .option("-j, --json", "Print the operation result as JSON")
   .option("--no-fzf", "Disable automatic fzf selection")
