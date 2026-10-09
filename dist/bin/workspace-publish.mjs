@@ -3993,7 +3993,7 @@ function publishOne(root, pkg, artifact, registry, tag, access, { quiet = false 
 }
 function publish({
   selector,
-  registry = "github",
+  registry = "npm",
   tag,
   access = "public",
   dryRun = false,
@@ -4256,7 +4256,7 @@ function runCliCommand(selector, options) {
 program.name("workspace-publish").description("Validate and publish workspace packages.").addArgument(
   new Argument("[package]", "Package name, directory, or workspace selector")
 ).addOption(
-  new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "all", "both"]).default("github")
+  new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "all", "both"]).default("npm")
 ).addOption(
   new Option(
     "-t, --tag <tag>",
