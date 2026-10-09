@@ -52,7 +52,7 @@
     "vitest": "^3.2.4"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "bin": {
     "issue-dependency-tree": "dist/bin/issue-dependency-tree.mjs",

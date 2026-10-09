@@ -27,7 +27,7 @@ on:
       registry:
         description: Package registry
         required: true
-        default: github
+        default: npm
         type: choice
         options:
           - github

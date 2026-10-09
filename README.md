@@ -17,7 +17,7 @@ npm install --save-dev @moyarich/workspace-tools
 
 ### GitHub Packages
 
-The package is also published to GitHub Packages. To install from there, configure npm authentication for the `@moyarich` scope in `.npmrc`:
+Public npm (`registry.npmjs.org`) is the default installation and publishing registry. GitHub Packages is an optional publishing destination; to install from GitHub Packages, explicitly configure npm authentication for the `@moyarich` scope in `.npmrc`:
 
 ```ini
 @moyarich:registry=https://npm.pkg.github.com/
@@ -181,7 +181,7 @@ npm exec -- workspace-publish . --dry-run
 
 Supported options include:
 
-- GitHub Packages, npm, or both registries
+- Public npm (default), GitHub Packages, or both registries
 - npm distribution tags and package access controls
 - saved tarball artifacts
 - optional inclusion of publishable workspace dependencies

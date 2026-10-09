@@ -824,7 +824,7 @@ function publishOne(
  *
  * @param {object} options
  * @param {string | undefined} options.selector
- * @param {RegistrySelection} [options.registry="github"]
+ * @param {RegistrySelection} [options.registry="npm"]
  * @param {string} [options.tag]
  * @param {PackageAccess} [options.access="public"]
  * @param {boolean} [options.dryRun=false]
@@ -834,7 +834,7 @@ function publishOne(
  */
 export function publish({
   selector,
-  registry = "github",
+  registry = "npm",
   tag,
   access = "public",
   dryRun = false,
