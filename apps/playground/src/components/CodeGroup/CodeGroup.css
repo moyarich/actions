@@ -1,49 +1,71 @@
 /* Tabbed examples retain Shiki's build-time highlighting inside each panel. */
 .code-group {
-  margin: var(--code-group-margin);
-  border: var(--code-group-border-width) solid var(--code-group-border-color);
-  border-radius: var(--code-group-radius);
+  /* Private component tokens: copy this directory without global defaults. */
+  --_code-group-margin: 1.5rem 0;
+  --_code-group-border-width: 1px;
+  --_code-group-border-color: #30394d;
+  --_code-group-radius: 0.7rem;
+  --_code-group-background: #171e30;
+  --_code-group-tab-gap: 0.25rem;
+  --_code-group-tabs-padding: 0.3rem 0.7rem 0;
+  --_code-group-tabs-background: #20283a;
+  --_code-group-tabs-border-width: 1px;
+  --_code-group-tabs-border-color: #364158;
+  --_code-group-tab-indicator-width: 2px;
+  --_code-group-tab-padding: 0.7rem 0.8rem;
+  --_code-group-tab-color: #aeb9ce;
+  --_code-group-tab-font-size: 0.81rem;
+  --_code-group-tab-active-color: #fff;
+  --_code-group-tab-indicator-color: #a5b4fc;
+  --_code-group-tab-active-font-weight: 650;
+  --_code-group-focus-width: 2px;
+  --_code-group-focus-color: #a5b4fc;
+  --_code-group-focus-offset: -3px;
+
+  margin: var(--_code-group-margin);
+  border: var(--_code-group-border-width) solid var(--_code-group-border-color);
+  border-radius: var(--_code-group-radius);
   overflow: hidden;
-  background: var(--code-group-background);
+  background: var(--_code-group-background);
 }
 .code-group-tabs {
   display: flex;
-  gap: var(--code-group-tab-gap);
+  gap: var(--_code-group-tab-gap);
   align-items: stretch;
-  padding: var(--code-group-tabs-padding);
-  background: var(--code-group-tabs-background);
-  border-bottom: var(--code-group-tabs-border-width) solid
-    var(--code-group-tabs-border-color);
+  padding: var(--_code-group-tabs-padding);
+  background: var(--_code-group-tabs-background);
+  border-bottom: var(--_code-group-tabs-border-width) solid
+    var(--_code-group-tabs-border-color);
   overflow-x: auto;
 }
 
 .code-group-tabs button {
   appearance: none;
   border: 0;
-  border-bottom: var(--code-group-tab-indicator-width) solid transparent;
+  border-bottom: var(--_code-group-tab-indicator-width) solid transparent;
   border-radius: 0;
-  padding: var(--code-group-tab-padding);
-  color: var(--code-group-tab-color);
+  padding: var(--_code-group-tab-padding);
+  color: var(--_code-group-tab-color);
   background: transparent;
   font: inherit;
-  font-size: var(--code-group-tab-font-size);
+  font-size: var(--_code-group-tab-font-size);
   white-space: nowrap;
   cursor: pointer;
 }
 
 .code-group-tabs button:hover {
-  color: var(--code-group-tab-active-color);
+  color: var(--_code-group-tab-active-color);
 }
 
 .code-group-tabs button[aria-selected="true"] {
-  color: var(--code-group-tab-active-color);
-  border-bottom-color: var(--code-group-tab-indicator-color);
-  font-weight: var(--code-group-tab-active-font-weight);
+  color: var(--_code-group-tab-active-color);
+  border-bottom-color: var(--_code-group-tab-indicator-color);
+  font-weight: var(--_code-group-tab-active-font-weight);
 }
 
 .code-group-tabs button:focus-visible {
-  outline: var(--code-group-focus-width) solid var(--code-group-focus-color);
-  outline-offset: var(--code-group-focus-offset);
+  outline: var(--_code-group-focus-width) solid var(--_code-group-focus-color);
+  outline-offset: var(--_code-group-focus-offset);
 }
 
 .code-group-panel[hidden] {
