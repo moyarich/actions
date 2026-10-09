@@ -276,11 +276,3 @@ pre {
   text-decoration: underline;
 }
 
-/* Tabbed examples retain Shiki's build-time highlighting inside each panel. */
-.code-group {
-  margin: 1.5rem 0;
-  border: 1px solid #30394d;
-  border-radius: 0.7rem;
-  overflow: hidden;
-  background: #171e30;
-}
