@@ -1,59 +1,60 @@
 .doc-outline {
   position: sticky;
-  top: 98px;
+  top: var(--doc-outline-top, 98px);
   align-self: start;
-  max-height: calc(100vh - 125px);
+  max-height: var(--doc-outline-max-height, calc(100vh - 125px));
   overflow-y: auto;
-  padding-left: 1rem;
-  border-left: 1px solid #e6e8f0;
+  padding-left: var(--doc-outline-padding-left, 1rem);
+  border-left: var(--doc-outline-border-width, 1px) solid var(--doc-outline-border-color, #e6e8f0);
 }
 
 .doc-outline-title {
-  margin: 0 0 0.85rem;
-  color: #778197;
-  font-size: 0.75rem;
-  font-weight: 750;
+  margin: 0 0 var(--doc-outline-title-gap, 0.85rem);
+  color: var(--doc-outline-title-color, #778197);
+  font-size: var(--doc-outline-title-font-size, 0.75rem);
+  font-weight: var(--doc-outline-title-font-weight, 750);
 }
 
 .doc-outline nav {
   display: grid;
-  gap: 0.18rem;
+  gap: var(--doc-outline-item-gap, 0.18rem);
 }
 
 .doc-outline nav a {
   display: block;
   position: relative;
-  color: #69758b;
-  font-size: 0.79rem;
-  line-height: 1.45;
-  padding: 0.32rem 0.55rem;
+  color: var(--doc-outline-link-color, #69758b);
+  font-size: var(--doc-outline-link-font-size, 0.79rem);
+  line-height: var(--doc-outline-link-line-height, 1.45);
+  padding: var(--doc-outline-link-padding-block, 0.32rem) var(--doc-outline-link-padding-inline, 0.55rem);
   text-decoration: none;
-  border-radius: 0.3rem;
+  border-radius: var(--doc-outline-link-radius, 0.3rem);
 }
 
 .doc-outline nav a.depth-3 {
-  padding-left: 1.4rem;
+  padding-left: var(--doc-outline-nested-padding-left, 1.4rem);
 }
 
 .doc-outline nav a:hover {
-  color: #384ca3;
+  color: var(--doc-outline-hover-color, #384ca3);
 }
 
 .doc-outline nav a.active::before {
   content: "";
   position: absolute;
-  left: -1rem;
-  top: 0.15rem;
-  bottom: 0.15rem;
-  width: 2px;
-  border-radius: 2px;
-  background: #3549a6;
+  /* Align the marker's center with the left border's center. */
+  left: calc(-1 * var(--doc-outline-padding-left, 1rem) - (var(--doc-outline-border-width, 1px) + var(--doc-outline-marker-width, 2px)) / 2);
+  top: var(--doc-outline-marker-inset-block, 0.15rem);
+  bottom: var(--doc-outline-marker-inset-block, 0.15rem);
+  width: var(--doc-outline-marker-width, 2px);
+  border-radius: var(--doc-outline-marker-radius, 2px);
+  background: var(--doc-outline-marker-color, #3549a6);
 }
 
 .doc-outline nav a.active {
-  color: #3549a6;
-  font-weight: 650;
-  background: #f2f3fc;
+  color: var(--doc-outline-active-color, #3549a6);
+  font-weight: var(--doc-outline-active-font-weight, 650);
+  background: var(--doc-outline-active-background, #f2f3fc);
 }
 
 @media (max-width: 1240px) {
