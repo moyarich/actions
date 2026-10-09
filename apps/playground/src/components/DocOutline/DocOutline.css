@@ -1,5 +1,4 @@
 .doc-outline {
-  /* Private component tokens: copy this directory without global defaults. */
   --_doc-outline-top: var(--doc-outline-top, 98px);
   --_doc-outline-max-height: var(--doc-outline-max-height, calc(100vh - 125px));
   --_doc-outline-padding-left: var(--doc-outline-padding-left, 1rem);
