@@ -1,198 +1,98 @@
 ---
-title: Repository release draft
-description: How moyarich/workspace-tools prepares its release draft through its repository-local caller workflow.
+title: Repository release and publishing
+description: Maintainer guide to release drafts, canonical tags, registry publishing, and recovery.
 ---
 
-# Repository release draft
+# Repository release and publishing
 
-Workspace Tools keeps its public reusable workflow separate from this repository's own release orchestration.
+Workspace Tools separates **release drafting**, **release preparation**, and **package publishing**. Its local workflows call implementations in [moyarich/reusable-workflows](https://github.com/moyarich/reusable-workflows); the reusable workflow YAML files do not live in this repository.
 
-```text
-.github/
-├── release-drafter-template.yml        # Release Drafter config template
-└── workflows/
-    ├── reusable_release-drafter.yml    # public reusable draft implementation
-    └── release-drafter.yml             # repository-local caller for moyarich/workspace-tools
+| Local workflow | Responsibility |
+| --- | --- |
+| `.github/workflows/release-draft.yml` | Preview or update a persistent GitHub Release draft |
+| `.github/workflows/release.yml` | Resolve and prepare the selected package version and canonical Git release identity |
+| `.github/workflows/publish.yml` | Publish the prepared canonical package artifact to selected registries |
+| `.github/workflows/reset-release.yml` | Guarded reset of an unpublished release |
+| `.github/workflows/restore-release.yml` | Restore release identity from verified historical evidence |
+| `.github/workflows/delete-release-tag.yml` | Explicit release/tag deletion |
+
+## First validate the repository state
+
+```sh
+npm ci
+npm test
+npm run build
+npm pack --dry-run
 ```
 
-## Repository-local caller
+Commit any required `dist/bin/` updates. Ensure CI's package tests and committed-distribution checks pass at the latest branch head before merging or performing an actual release.
 
-`.github/workflows/release-drafter.yml` is not part of the public reusable API.
+## Release draft
 
-It owns only repository-specific concerns:
+The `release-draft.yml` workflow can run on pushes to `main` or through **Actions → Release Draft**. It discovers publishable packages from npm workspaces, supports the root package, and accepts an explicit package selector for manual dispatch. Its version controls are `version-mode` (`bump`, `package-json`, `exact`), `version-bump`, `exact-version`, and `dry-run`.
 
-- the `Workspace Tools v<version>` release name;
-- the default target branch;
-- repository-level concurrency; and
-- the inputs exposed in the Actions UI.
+On pushes, the package selection is based on the push range, while the draft's accumulated release notes are based on the previous published package release through current `main`. Keep these two boundaries distinct: changing the release-note baseline to a single push would omit prior unreleased changes.
 
-The repository-local caller delegates draft mechanics to:
+The caller invokes the shared `reusable_discover-packages.yml`, `reusable_select-release-packages.yml`, and `reusable_release-drafter.yml` workflows. It selects the local CLI with `workspace-tools-source: workspace` so draft selection can use this repository's checked-out implementation.
 
-```yaml
-uses: ./.github/workflows/reusable_release-drafter.yml
+Drafts are persistent reviewer-editable state: new qualifying PR notes are appended without erasing existing manual text or duplicating previously captured entries. Dry runs preview the change without updating a release. Release drafting **does not publish a package**.
+
+## Prepare a package release
+
+Use **Actions → Release** (`.github/workflows/release.yml`). The package selector defaults to `.`. Choose a version mode:
+
+- `bump`: choose a semantic increment such as patch or minor.
+- `package-json`: use the version in the selected package manifest.
+- `exact`: supply `exact-version`.
+
+Start with `dry-run: true`. The local caller delegates to `reusable_npm-release.yml` with `workspace-tools-source: workspace`. Review the run summary, canonical tag, and changelog section before performing a real release.
+
+The canonical package release tag identifies the source commit and the package version. Registry publication must use the artifact derived from that identity; do not repoint an already-published version at newer source.
+
+## Publish
+
+Use **Actions → Publish** (`.github/workflows/publish.yml`) or the `workspace-publish` CLI. Public npm is the default publishing destination:
+
+| Selection | Destination | Authentication |
+| --- | --- | --- |
+| `npm` (default) | `https://registry.npmjs.org` | npm publishing credentials / configured approval |
+| `github` | `https://npm.pkg.github.com` | GitHub Packages publishing permissions |
+| `all` | Both supported registries | Credentials and permissions for each |
+
+`package.json#publishConfig.registry` also defaults to the public npm registry. The `--registry` CLI flag or the Publish workflow's `registry` input explicitly chooses the destination for a given operation. GitHub Packages remains optional for organizations that want an additional GitHub-hosted copy or private/internal distribution.
+
+**Installing the Workspace Tools CLI** from public npm does *not* require a GitHub Packages token. **Publishing a package** is a separate authenticated operation and may require npm staging approval, release tag verification, and registry-specific tokens. The shared npm publish implementation may stage a release pending approval; staging is not proof that the version is already public.
+
+The publish workflow defaults to `dry-run: true` and requires an explicit non-dry-run decision to make registry changes. Keep `verify-git-tag` enabled for normal releases. Use `npm pack --dry-run` for a separate inspection of the package contents.
+
+Local preview:
+
+```sh
+npm exec -- workspace-publish . --registry=npm --dry-run
+npm exec -- workspace-publish . --registry=github --dry-run
 ```
 
-## Dry run
+`registry` as a **Workspace Tools source** is different from the `npm` or `github` **publication destination**. Do not conflate these two settings.
 
-The repository-local workflow defaults to `dry-run: true`.
+## Changelog and GitHub Release
 
-A dry run resolves the changelog entry, release name, and draft tag name without creating or modifying a GitHub Release.
+Keep `CHANGELOG.md` and the public GitHub Release draft focused on capabilities, new commands/options, observable behavior changes, compatibility improvements and user-facing bug fixes. CI maintenance and internal refactors without a user-visible result belong in development documentation or the pull request, not public release notes.
 
-## Create or reuse the draft
+A staged npm release does not automatically mean the matching GitHub Release is published. Inspect the registry results and GitHub Release state separately; do not assume the two publication stages are identical.
 
-To create or reuse the repository draft, run `release-drafter.yml` with `dry-run: false`.
+## Reset and historical restore
 
-The reusable workflow creates or reuses the matching release draft.
+Reset and Restore are recovery tools, not normal release steps.
 
-It does not create a Git tag and it does not publish the GitHub Release.
+- **Reset Release** must not move a canonical tag once that exact package version exists in a supported registry.
+- **Restore Release** accepts a typed historical `restore-source`: `commit:<sha>`, `tag:<tag>`, `run:<id>`, `artifact:<id>`, or `github-url:<supported-url>`.
+- Restore verifies the candidate package artifact against immutable published copies when publication already exists. A mismatch or unverifiable source stops the operation.
+- Immutable GitHub Releases may prevent editing their notes or assets, but this does not change the canonical source identity for a package version.
 
-If a matching draft already exists, its release-note body is preserved.
+Prefer a new version for new source after publication rather than attempting to rewrite existing published package bytes.
 
-## Release Drafter template
+## Maintaining workflow compatibility
 
-`.github/release-drafter-template.yml` owns the draft-note presentation and categorization rules used by the reusable workflow.
+When updating a caller, compare its `with:` keys, allowed values, permission requirements and outputs against the actual `workflow_call` definition in `moyarich/reusable-workflows`. Keep the two repositories in sync when changing source selectors or registry behavior. Use a dry run to validate the change; a successful workflow parse alone does not prove publishing works.
 
-It stays outside `.github/workflows/` because files in that directory are reserved for GitHub Actions workflow definitions.
-
-## First-draft source
-
-For a first release draft, the reusable workflow prefers a matching changelog entry.
-
-If the selected changelog file does not exist, or the requested version has no matching changelog section, it falls back to Git history:
-
-- package drafts use commits scoped to that package directory;
-- repository drafts use repository-wide commits.
-
-This keeps first-draft generation working for packages that have not started maintaining a changelog yet.
-
-## Package layouts
-
-Package drafting uses the repository's root `package.json#workspaces` declarations rather than assuming every package is a direct child of `packages/`.
-
-Supported package locations include:
-
-```text
-repository/
-├── package.json
-├── packages/
-│   ├── foo/package.json
-│   └── bar/package.json
-├── plugins/
-│   └── foo2/package.json
-└── tools/
-    └── group/
-        └── bar2/package.json
-```
-
-For example, workspace declarations may include:
-
-```json
-{
-  "workspaces": ["packages/*", "plugins/*", "tools/*/*"]
-}
-```
-
-The root package can also participate when `include-root-package` is enabled and it satisfies the package filters.
-
-Package-specific changelog lookup and Git-history fallback always use the discovered package directory, regardless of nesting depth.
-
-## Drafting versus releasing
-
-Release Drafter and npm release are separate workflows with different responsibilities.
-
-```text
-reusable_release-drafter.yml  # prepares or updates GitHub Release drafts
-reusable_npm-release.yml      # performs the npm package release lifecycle
-```
-
-`reusable_npm-release.yml` is not deprecated and is not replaced by Release Drafter. Existing callers should continue using it for release operations.
-
-The Release Drafter workflows prepare release-note state only. The npm release workflow remains responsible for versioning, release commits/tags, package publishing, and final release lifecycle behavior.
-
-## Persistent draft contract
-
-A release draft is persistent state, not generated output.
-
-When no draft exists, the reusable workflow chooses the first available seed in this order:
-
-1. the matching changelog version;
-2. Release Drafter pull-request history;
-3. scoped Git commit history;
-4. a minimal `Initial release.` body.
-
-Once a draft exists, its body is authoritative. Maintainer-authored text is preserved.
-
-Release Drafter runs in dry-run mode to discover newly merged pull requests. Generated pull-request entries include stable hidden markers such as:
-
-```html
-<!-- moya-release:pr=123 -->
-```
-
-The reconciliation helper appends only entries whose PR marker is not already present. Existing generated entries and manual text are not removed or regenerated.
-
-The draft also records a seed SHA. Release Drafter uses that baseline so pull requests already represented by the initial seed are not replayed on later runs.
-
-For older drafts created before seed metadata existed, the workflow derives a migration baseline from the draft's last update time and then adds the persistent metadata without discarding the existing body.
-
-## Release lifecycle
-
-The canonical package identity and the GitHub Release are related, but registry publication and GitHub Release state are separate concerns:
-
-```text
-canonical Git tag
-      ↓
-source commit
-      ↓
-canonical package artifact
-      ↓
-selected registry destinations
-
-matching GitHub Release
-      ↓
-release notes + optional package assets
-      ↓
-draft or published state
-```
-
-`Reset Release` may move the canonical package tag only while that exact package version is still absent from every supported registry. Once any supported registry accepts the version, Reset refuses to move the source identity.
-
-Registry publishing always derives the canonical package artifact from the commit referenced by the canonical tag. GitHub Release assets are supplemental release artifacts; they do not become the authority for package bytes.
-
-When a matching GitHub Release is mutable, the release-oriented publish workflow can add or replace package assets. When the release is immutable, asset mutation is skipped and a missing registry destination may still be published from the canonical tag/commit.
-
-Publishing to npmjs.org does not itself publish or close a GitHub Release draft. Publishing to GitHub Packages may publish a matching draft; if the GitHub Release is already published, registry publication can continue without changing release state.
-
-`Restore Release` is a separate recovery operation. It accepts one typed `restore-source` value:
-
-```text
-commit:<sha>
-tag:<tag>
-run:<run-id>
-artifact:<artifact-id>
-github-url:<supported-github-url>
-```
-
-The `workspace-release-identity restore-source` CLI resolves that input to one exact full commit SHA before the workflow performs destructive recovery. The workflow then derives the historical package/version/tag identity from that commit.
-
-If the exact package version already exists in one or more supported registries, Restore treats those immutable registry packages as fallback evidence. It packs the candidate commit exactly as committed, with lifecycle scripts disabled, and compares the normalized package contents with each published copy. The candidate is accepted when it matches **any** published copy. If no published copy matches, or none can be verified, Restore stops before changing the tag or GitHub Release.
-
-This proves artifact equivalence even when the original publishing commit is unknown. A matching candidate commit does not need to be the unique historical source commit; its publishable package contents must match at least one immutable published package exactly.
-
-A `github-url:` may identify a commit, release tag, workflow run, or workflow artifact in the current repository. Cross-repository URLs are rejected.
-
-For repositories with GitHub immutable releases enabled, an immutable release cannot have its notes or assets rewritten. That immutability does not change the canonical tag/commit authority for a package version and does not by itself prevent publication to a registry where that version is still missing.
-
-## Missing-tag recovery
-
-A missing tag during the draft phase is recoverable without pretending that the package is a new release.
-
-If the package version is **not yet published**, Reset Release may recreate the tag at the current target-branch commit:
-
-```text
-package.json version
-  → canonical release tag
-  → current target-branch commit
-  → rebuilt and attested .tgz
-```
-
-If the package version is already present in a registry, the registry artifact is immutable and Reset must not point the same version at newer source. In that partial-publication state, use Restore Release with a typed historical source such as a workflow run, artifact, tag, commit, or supported GitHub URL. Restore resolves that source to the original full commit SHA, recreates the canonical tag/release identity from that commit, and allows any still-missing registry destination to be published from the restored source. Newer source must use a new package version.
+See [Repository structure](../01-repository-structure/page.mdx) for current source, build, dist and CI ownership.
