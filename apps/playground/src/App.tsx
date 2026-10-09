@@ -21,15 +21,26 @@ const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
 type OutlineItem = { id: string; title: string; depth: 2 | 3 };
 
-function resolveMdxHref(sourcePath: string, href?: string) {
-  if (!href || !href.endsWith(".mdx")) return null;
-  const segments = sourcePath.split("/").slice(0, -1);
-  for (const segment of href.split("/")) {
-    if (!segment || segment === ".") continue;
-    if (segment === "..") segments.pop();
-    else segments.push(segment);
+function resolveMdxHref(page: ContentPage, href?: string) {
+  if (!href) return null;
+  // HashRouter owns the fragment. A plain #heading would replace the whole route.
+  if (href.startsWith("#")) return `${page.route}${href}`;
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href)) return null;
+
+  const [path, fragment = ""] = href.split("#", 2);
+  if (!path || !/\.(?:md|mdx)$/.test(path)) return null;
+
+  const parts = path.startsWith("/") ? [] : page.sourcePath.split("/").slice(0, -1);
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
   }
-  return `/${segments.join("/").replace(/\/page\.mdx$/, "")}`;
+  const sourcePath = parts.join("/");
+  const match = allPages.find((candidate) => candidate.sourcePath === sourcePath);
+  // Ordinary Markdown files aren't compiled as playground routes.
+  if (!match) return null;
+  return `${match.route}${fragment ? `#${fragment}` : ""}`;
 }
 
 function MdxLink({
@@ -38,9 +49,9 @@ function MdxLink({
   children,
   ...props
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
-  const route = resolveMdxHref(page.sourcePath, href);
+  const route = resolveMdxHref(page, href);
   return route ? (
-    <Link to={route}>{children}</Link>
+    <Link to={route} {...props}>{children}</Link>
   ) : (
     <a href={href} {...props}>
       {children}
@@ -49,6 +60,7 @@ function MdxLink({
 }
 
 function DocOutline({ headings }: { headings: OutlineItem[] }) {
+  const location = useLocation();
   const [active, setActive] = useState<string>("");
   useEffect(() => {
     if (!headings.length) return;
@@ -72,9 +84,9 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
       <p className="doc-outline-title">On this page</p>
       <nav>
         {headings.map((heading) => (
-          <a
+          <Link
             key={heading.id}
-            href={`#${heading.id}`}
+            to={`${location.pathname}#${heading.id}`}
             className={[
               `depth-${heading.depth}`,
               active === heading.id ? "active" : "",
@@ -82,7 +94,7 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
             aria-current={active === heading.id ? "location" : undefined}
           >
             {heading.title}
-          </a>
+          </Link>
         ))}
       </nav>
     </aside>
