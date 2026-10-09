@@ -6,8 +6,7 @@
   gap: var(--docs-layout-gap);
   justify-content: center;
   padding: var(--docs-layout-padding-block-start)
-    var(--docs-layout-padding-inline)
-    var(--docs-layout-padding-block-end);
+    var(--docs-layout-padding-inline) var(--docs-layout-padding-block-end);
 }
 
 @media (max-width: 1240px) {
