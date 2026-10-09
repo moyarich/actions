@@ -1,9 +1,8 @@
 .article-layout {
   display: grid;
-  grid-template-columns: minmax(
-      0,
-      var(--docs-layout-content-width, 760px)
-    ) minmax(
+  grid-template-columns:
+    minmax(0, var(--docs-layout-content-width, 760px))
+    minmax(
       var(--docs-layout-toc-min-width, 175px),
       var(--docs-layout-toc-max-width, 220px)
     );
