@@ -44,6 +44,6 @@
   background: #f2f3fc;
 }
 
-.doc-outline {
-    display: none;
-  }
+@media (max-width: 1240px) {
+  .doc-outline { display: none; }
+}
