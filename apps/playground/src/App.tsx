@@ -82,11 +82,20 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
         if (element && element.getBoundingClientRect().top <= 130)
           next = heading.id;
       }
+      // The final heading may never reach the top threshold on short pages.
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 3;
+      if (atBottom) next = headings[headings.length - 1].id;
       setActive(next);
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, [headings]);
 
   if (!headings.length) return null;
@@ -98,6 +107,7 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
           <Link
             key={heading.id}
             to={`${location.pathname}#${heading.id}`}
+            onClick={() => setActive(heading.id)}
             className={[
               `depth-${heading.depth}`,
               active === heading.id ? "active" : "",
