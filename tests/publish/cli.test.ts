@@ -93,13 +93,24 @@ test("publish CLI accepts all as a registry selection", () => {
 });
 
 test("named package selectors replace positional release arguments", () => {
-  const result = invoke("dist/bin/workspace-release.mjs", ".", "--mode=package-json", "--dry-run");
+  const result = invoke(
+    "dist/bin/workspace-release.mjs",
+    ".",
+    "--mode=package-json",
+    "--dry-run",
+  );
   expect(result.status).toBe(1);
-  expect(result.stderr).toMatch(/too many arguments|excess arguments|unexpected argument/i);
+  expect(result.stderr).toMatch(
+    /too many arguments|excess arguments|unexpected argument/i,
+  );
 });
 
 test("release refuses to prompt for missing named options in non-TTY mode", () => {
-  const result = invoke("dist/bin/workspace-release.mjs", "--no-interactive", "--dry-run");
+  const result = invoke(
+    "dist/bin/workspace-release.mjs",
+    "--no-interactive",
+    "--dry-run",
+  );
   expect(result.status).toBe(1);
   expect(result.stderr).toMatch(/Missing --package/);
 });
