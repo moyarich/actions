@@ -9,9 +9,11 @@ export type PlaygroundFile = {
 
 type PlaygroundProps = {
   files: PlaygroundFile[];
+  editable?: boolean;
+  height?: number;
 };
 
-export function Playground({ files }: PlaygroundProps) {
+export function Playground({ files, editable = false, height = 360 }: PlaygroundProps) {
   const [activeName, setActiveName] = useState(files[0]?.name ?? "");
   const activeFile = useMemo(
     () => files.find((file) => file.name === activeName) ?? files[0],
@@ -44,13 +46,14 @@ export function Playground({ files }: PlaygroundProps) {
       </div>
       <div className="example-playground-editor" role="tabpanel">
         <Editor
-          height="520px"
+          height={`${height}px`}
+          keepCurrentModel
           path={activeFile.name}
           language={activeFile.language}
           value={activeFile.source}
           theme="vs-dark"
           options={{
-            readOnly: true,
+            readOnly: !editable,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             automaticLayout: true,
@@ -60,4 +63,9 @@ export function Playground({ files }: PlaygroundProps) {
       </div>
     </section>
   );
+}
+
+/** Reusable MDX-facing Monaco tabs. Accepts the same file data as Playground. */
+export function MonacoCodeGroup(props: PlaygroundProps) {
+  return <Playground {...props} />;
 }
