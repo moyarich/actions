@@ -2,6 +2,7 @@ import { MDXProvider } from "@mdx-js/react";
 import { DynamicIcon } from "lucide-react/dynamic";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -155,6 +156,18 @@ function ContentRoute() {
   );
   const articleRef = useRef<HTMLElement>(null);
   const [headings, setHeadings] = useState<OutlineItem[]>([]);
+  const mdxComponents = useMemo(
+    () => ({
+      Playground,
+      Icon: DynamicIcon,
+      MonacoCodeGroup,
+      CodeGroup,
+      CodeTab,
+      a: (props: ComponentPropsWithoutRef<"a">) =>
+        page ? <MdxLink {...props} page={page} /> : <a {...props} />,
+    }),
+    [page],
+  );
 
   useEffect(() => {
     const article = articleRef.current;
@@ -225,16 +238,7 @@ function ContentRoute() {
         <p className="content-kicker">
           {page.route.startsWith("/examples") ? "Examples" : "Documentation"}
         </p>
-        <MDXProvider
-          components={{
-            Playground,
-            Icon: DynamicIcon,
-            MonacoCodeGroup,
-            CodeGroup,
-            CodeTab,
-            a: (props) => <MdxLink {...props} page={page} />,
-          }}
-        >
+        <MDXProvider components={mdxComponents}>
           <Page />
         </MDXProvider>
         <footer className="article-footer">
