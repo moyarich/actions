@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { selectMany } from "../cli/prompts/index.ts";
 import { Command } from "commander";
 import {
   dependencyGraphJson,
@@ -8,49 +8,16 @@ import {
 } from "./issue-dependency-tree";
 import { fetchDependencyGraph, resolveRepository } from "./github";
 
-function selectWithFzf(graph: DependencyGraph): number[] {
+async function selectRoots(graph: DependencyGraph): Promise<number[]> {
   const choices = dependencyNodeNumbers(graph).map((number) => {
     const node = graph[String(number)];
-    return `#${number}\t[${node.state}]\t${node.title}`;
+    return {
+      name: `#${number} [${node.state}] ${node.title}`,
+      value: String(number),
+    };
   });
-
-  if (choices.length === 0) return [];
-
-  const result = spawnSync(
-    "fzf",
-    [
-      "--multi",
-      "--prompt",
-      "Issue root> ",
-      "--header",
-      "Select one or more issue roots (TAB toggles selection)",
-    ],
-    {
-      input: `${choices.join("\n")}\n`,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "inherit"],
-    },
-  );
-
-  if (
-    result.error &&
-    (result.error as NodeJS.ErrnoException).code === "ENOENT"
-  ) {
-    throw new Error(
-      "fzf is required for --interactive. Install fzf or run without --interactive.",
-    );
-  }
-
-  if (result.status === 130 || result.status === 1) return [];
-  if (result.status !== 0) {
-    throw new Error(`fzf exited with status ${result.status ?? "unknown"}`);
-  }
-
-  return result.stdout
-    .split("\n")
-    .map((line) => line.match(/^#(\d+)/)?.[1])
-    .filter((value): value is string => Boolean(value))
-    .map(Number);
+  const selected = await selectMany(choices, "Issue root");
+  return selected.map(Number);
 }
 
 function parseRoots(values: string[]): number[] {
@@ -79,7 +46,7 @@ export async function runCli(argv = process.argv): Promise<void> {
     )
     .option(
       "-i, --interactive",
-      "Select one or more roots interactively with fzf",
+      "Select issue roots interactively (fzf with Inquirer fallback)",
     )
     .option("--json", "Print dependency graph JSON instead of Markdown")
     .addHelpText(
@@ -95,7 +62,7 @@ export async function runCli(argv = process.argv): Promise<void> {
       ].join("\n"),
     )
     .action(
-      (options: {
+      async (options: {
         repo?: string;
         root: string[];
         interactive?: boolean;
@@ -111,7 +78,7 @@ export async function runCli(argv = process.argv): Promise<void> {
 
         const explicitRoots = parseRoots(options.root);
         const selectedRoots = options.interactive
-          ? selectWithFzf(graph)
+          ? await selectRoots(graph)
           : explicitRoots;
 
         process.stdout.write(
