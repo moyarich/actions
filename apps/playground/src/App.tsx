@@ -1,6 +1,18 @@
 import { MDXProvider } from "@mdx-js/react";
-import { useEffect, useRef, useState, type ComponentPropsWithoutRef } from "react";
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+} from "react";
+import {
+  Link,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
 import { Playground } from "./Playground";
 
@@ -26,7 +38,13 @@ function MdxLink({
   ...props
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
   const route = resolveMdxHref(page.sourcePath, href);
-  return route ? <Link to={route}>{children}</Link> : <a href={href} {...props}>{children}</a>;
+  return route ? (
+    <Link to={route}>{children}</Link>
+  ) : (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  );
 }
 
 function DocOutline({ headings }: { headings: OutlineItem[] }) {
@@ -37,7 +55,8 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
       let next = headings[0].id;
       for (const heading of headings) {
         const element = document.getElementById(heading.id);
-        if (element && element.getBoundingClientRect().top <= 130) next = heading.id;
+        if (element && element.getBoundingClientRect().top <= 130)
+          next = heading.id;
       }
       setActive(next);
     };
@@ -55,7 +74,10 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
           <a
             key={heading.id}
             href={`#${heading.id}`}
-            className={[`depth-${heading.depth}`, active === heading.id ? "active" : ""].join(" ")}
+            className={[
+              `depth-${heading.depth}`,
+              active === heading.id ? "active" : "",
+            ].join(" ")}
             aria-current={active === heading.id ? "location" : undefined}
           >
             {heading.title}
@@ -68,7 +90,9 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
 
 function ContentRoute() {
   const location = useLocation();
-  const page = allPages.find((candidate) => candidate.route === location.pathname);
+  const page = allPages.find(
+    (candidate) => candidate.route === location.pathname,
+  );
   const articleRef = useRef<HTMLElement>(null);
   const [headings, setHeadings] = useState<OutlineItem[]>([]);
 
@@ -76,35 +100,65 @@ function ContentRoute() {
     const article = articleRef.current;
     if (!article) return;
     const used = new Map<string, number>();
-    const entries: OutlineItem[] = Array.from(article.querySelectorAll<HTMLHeadingElement>("h2, h3"))
+    const entries: OutlineItem[] = Array.from(
+      article.querySelectorAll<HTMLHeadingElement>("h2, h3"),
+    )
       .map((element) => {
         const title = element.textContent?.trim() ?? "";
         if (!title) return null;
-        const base = element.id || title.toLowerCase().normalize("NFKD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9\s-]/g, "")
-          .trim().replace(/\s+/g, "-") || "section";
+        const base =
+          element.id ||
+          title
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-") ||
+          "section";
         const seen = used.get(base) ?? 0;
         used.set(base, seen + 1);
         const id = seen ? `${base}-${seen + 1}` : base;
         element.id = id;
-        return { id, title, depth: element.tagName === "H2" ? 2 : 3 } as OutlineItem;
-      }).filter((entry): entry is OutlineItem => entry !== null);
+        return {
+          id,
+          title,
+          depth: element.tagName === "H2" ? 2 : 3,
+        } as OutlineItem;
+      })
+      .filter((entry): entry is OutlineItem => entry !== null);
     setHeadings(entries);
     if (location.hash) {
-      requestAnimationFrame(() => document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView());
+      requestAnimationFrame(() =>
+        document
+          .getElementById(decodeURIComponent(location.hash.slice(1)))
+          ?.scrollIntoView(),
+      );
     }
   }, [page?.route, location.hash]);
 
   if (!page) {
-    return <article className="content-page"><p className="eyebrow">Not found</p><h1>Page not found</h1><p>Choose documentation or a CLI example from the navigation.</p></article>;
+    return (
+      <article className="content-page">
+        <p className="eyebrow">Not found</p>
+        <h1>Page not found</h1>
+        <p>Choose documentation or a CLI example from the navigation.</p>
+      </article>
+    );
   }
   const Page = page.Component;
   return (
     <div className="article-layout">
       <article className="content-page" ref={articleRef}>
-        <p className="content-kicker">{page.route.startsWith("/examples") ? "Examples" : "Documentation"}</p>
-        <MDXProvider components={{ Playground, a: (props) => <MdxLink {...props} page={page} /> }}>
+        <p className="content-kicker">
+          {page.route.startsWith("/examples") ? "Examples" : "Documentation"}
+        </p>
+        <MDXProvider
+          components={{
+            Playground,
+            a: (props) => <MdxLink {...props} page={page} />,
+          }}
+        >
           <Page />
         </MDXProvider>
       </article>
@@ -117,11 +171,30 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <Link className="brand" to="/docs"><span className="brand-icon">W</span><span>Workspace Tools</span></Link>
+        <Link className="brand" to="/docs">
+          <span className="brand-icon">W</span>
+          <span>Workspace Tools</span>
+        </Link>
         <nav className="top-nav" aria-label="Main navigation">
-          <NavLink to="/docs" className={({ isActive }) => isActive ? "active" : ""}>Docs</NavLink>
-          <NavLink to="/examples" className={({ isActive }) => isActive ? "active" : ""}>Examples</NavLink>
-          <a href="https://github.com/moyarich/workspace-tools" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <NavLink
+            to="/docs"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Docs
+          </NavLink>
+          <NavLink
+            to="/examples"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Examples
+          </NavLink>
+          <a
+            href="https://github.com/moyarich/workspace-tools"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub ↗
+          </a>
         </nav>
       </header>
       <div className="playground-layout">
@@ -131,7 +204,12 @@ export function App() {
               <h2>{section.label}</h2>
               <nav>
                 {section.pages.map((page) => (
-                  <NavLink key={page.route} to={page.route} end className={({ isActive }) => isActive ? "active" : ""}>
+                  <NavLink
+                    key={page.route}
+                    to={page.route}
+                    end
+                    className={({ isActive }) => (isActive ? "active" : "")}
+                  >
                     {page.title}
                   </NavLink>
                 ))}
