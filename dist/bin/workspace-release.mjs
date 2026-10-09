@@ -6179,52 +6179,14 @@ function assertInteractive() {
     );
   }
 }
-function hasFzf() {
-  const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
-  return !probe.error && probe.status === 0;
-}
-async function selectMany(choices, message) {
-  assertInteractive();
-  if (!choices.length) return [];
-  if (hasFzf()) {
-    const result = spawnSync(
-      "fzf",
-      [
-        "--multi",
-        "--delimiter=	",
-        "--with-nth=2..",
-        "--prompt",
-        message + "> ",
-        "--header",
-        "TAB toggles selection; ENTER confirms"
-      ],
-      {
-        input: choices.map((choice, i) => `${i}	${choice.name}`).join("\n") + "\n",
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "inherit"]
-      }
-    );
-    if (result.status === 1 || result.status === 130) return [];
-    if (result.error || result.status !== 0)
-      throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
-    return result.stdout.trim().split("\n").filter(Boolean).map((line) => {
-      const index = Number(line.split("	", 1)[0]);
-      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
-        throw new Error("Invalid fzf selection");
-      return choices[index].value;
-    });
-  }
-  const { checkbox } = await import("./assets/index-d44Uz5vd.js");
-  return checkbox({ message, choices });
-}
 async function confirm(message, defaultValue = false) {
   assertInteractive();
-  const { confirm: ask } = await import("./assets/index-d44Uz5vd.js");
+  const { confirm: ask } = await import("./assets/index-Bs5iDJtx.js");
   return ask({ message, default: defaultValue });
 }
 async function askText(message, defaultValue = "") {
   assertInteractive();
-  const { input } = await import("./assets/index-d44Uz5vd.js");
+  const { input } = await import("./assets/index-Bs5iDJtx.js");
   return input({ message, default: defaultValue });
 }
 function packageChoices(root = process.cwd()) {
@@ -6251,8 +6213,41 @@ function packageChoices(root = process.cwd()) {
   return choices;
 }
 async function selectOne(choices, message) {
-  const selected = await selectMany(choices, message);
-  return selected[0];
+  assertInteractive();
+  if (!choices.length) return void 0;
+  if (choices.length >= 8) {
+    const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
+    if (!probe.error && probe.status === 0) {
+      const result = spawnSync(
+        "fzf",
+        [
+          "--prompt",
+          message + "> ",
+          "--delimiter=\\t",
+          "--with-nth=2..",
+          "--exit-0"
+        ],
+        {
+          input: choices.map((choice, i) => `${i}\\t${choice.name}`).join("\n") + "\n",
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "inherit"]
+        }
+      );
+      if (result.status === 1 || result.status === 130) return void 0;
+      if (result.error || result.status !== 0)
+        throw new Error(
+          `fzf failed: ${result.error?.message ?? result.status}`
+        );
+      const line = result.stdout.trim();
+      if (!line) return void 0;
+      const index = Number(line.split("	", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
+      return choices[index].value;
+    }
+  }
+  const { select } = await import("./assets/index-Bs5iDJtx.js");
+  return select({ message, choices });
 }
 program.name("workspace-release").description("Preview or create a workspace package release.").option(
   "--package <selector>",
@@ -6302,6 +6297,9 @@ program.name("workspace-release").description("Preview or create a workspace pac
   }
   if (mode !== "package-json" && !version)
     throw new Error("Missing --version <version>.");
+  if (mode === "exact" && version && !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`Invalid exact SemVer: ${version}`);
+  }
   if (canPrompt && !options.dryRun && !options.resolveOnly) {
     if (!await confirm(
       `Release ${selector} (${mode}${version ? ":" + version : ""})?`,
