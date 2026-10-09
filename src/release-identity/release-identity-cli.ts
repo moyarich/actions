@@ -113,7 +113,7 @@ if (restoreSourceMode) {
   ]);
 } else {
   program
-    .addArgument(new Argument("<package>", "Workspace package selector"))
+    .requiredOption("--package <selector>", "Workspace package selector")
     .addOption(
       new Option(
         "--version <version>",
@@ -122,7 +122,8 @@ if (restoreSourceMode) {
     )
     .option("--json", "Print compact JSON")
     .option("--pretty-json", "Print formatted JSON")
-    .action((selector, options) => {
+    .action((options) => {
+      const selector = options.package;
       const pkg = packageInfo(repositoryRoot(), selector);
       const identity = releaseIdentity(
         pkg,
