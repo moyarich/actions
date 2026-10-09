@@ -15,7 +15,10 @@ program
 
 if (restoreSourceMode) {
   program
-    .requiredOption("--source <source>", "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>")
+    .requiredOption(
+      "--source <source>",
+      "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>",
+    )
     .requiredOption(
       "--repository <owner/name>",
       "GitHub repository used for run, artifact, and github-url resolution",

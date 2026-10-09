@@ -29,7 +29,11 @@ program
     }
     let currentVersion = opts.currentVersion;
     if (!currentVersion) {
-      const manifestPath = opts.package ? (opts.package === "." ? "package.json" : `${packageInfo(repositoryRoot(), opts.package).directory}/package.json`) : opts.packageJson;
+      const manifestPath = opts.package
+        ? opts.package === "."
+          ? "package.json"
+          : `${packageInfo(repositoryRoot(), opts.package).directory}/package.json`
+        : opts.packageJson;
       const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
       currentVersion = manifest.version;
     }
