@@ -3734,12 +3734,80 @@ function runDependencyCheck(selector, options) {
   }
   checkPackage(root, selectedPackage, format, options);
 }
-program.name("workspace-dependency-check").description(
-  "Check workspace dependencies for outdated versions and internal version mismatches."
-).addArgument(
-  new Argument("[package]", "Package name, directory, or workspace selector")
-).option("-a, --all", "Check every workspace package").option("-j, --json", "Output dependency check results as JSON").option(
-  "-n, --no-assert",
-  "Report dependency failures without exiting with an error"
-).option("--no-fzf", "Disable automatic fzf selection").action(runDependencyCheck);
+function assertInteractive() {
+  if (process$1.env.CI || !process$1.stdin.isTTY || !process$1.stderr.isTTY) {
+    throw new Error(
+      "Interactive selection requires a TTY and is unavailable in CI. Pass explicit options instead."
+    );
+  }
+}
+function hasFzf() {
+  const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
+  return !probe.error && probe.status === 0;
+}
+async function selectMany(choices, message) {
+  assertInteractive();
+  if (!choices.length) return [];
+  if (hasFzf()) {
+    const result = spawnSync(
+      "fzf",
+      [
+        "--multi",
+        "--delimiter=	",
+        "--with-nth=2..",
+        "--prompt",
+        message + "> ",
+        "--header",
+        "TAB toggles selection; ENTER confirms"
+      ],
+      {
+        input: choices.map((choice, i) => `${i}	${choice.name}`).join("\n") + "\n",
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "inherit"]
+      }
+    );
+    if (result.status === 1 || result.status === 130) return [];
+    if (result.error || result.status !== 0)
+      throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
+    return result.stdout.trim().split("\n").filter(Boolean).map((line) => {
+      const index = Number(line.split("	", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
+      return choices[index].value;
+    });
+  }
+  const { checkbox } = await import("./assets/index-Buxpy2n2.js");
+  return checkbox({ message, choices });
+}
+function packageChoices(root = process.cwd()) {
+  const choices = [{ name: "Root package (.)", value: "." }];
+  const manifestPath = resolve(root, "package.json");
+  if (existsSync(manifestPath)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const patterns = manifest.workspaces ?? [];
+    for (const pattern of patterns) {
+      if (!pattern.endsWith("/*")) continue;
+      const base = pattern.slice(0, -2), folder = resolve(root, base);
+      if (!existsSync(folder)) continue;
+      for (const entry of readdirSync(folder, { withFileTypes: true })) {
+        const path2 = resolve(folder, entry.name, "package.json");
+        if (!entry.isDirectory() || !existsSync(path2)) continue;
+        const pkg = JSON.parse(readFileSync(path2, "utf8"));
+        choices.push({ name: `${pkg.name ?? entry.name} (${base}/${entry.name})`, value: `${base}/${entry.name}` });
+      }
+    }
+  }
+  return choices;
+}
+async function selectOne(choices, message) {
+  const selected = await selectMany(choices, message);
+  return selected[0];
+}
+program.name("workspace-dependency-check").description("Check outdated and mismatched workspace dependencies.").option("--package <selector>", "Package name or directory").option("-a, --all", "Check every workspace package").option("-j, --json", "Output JSON").option("-n, --no-assert", "Report failures without failing").option("--no-interactive", "Never prompt").action(async (options) => {
+  let selector = options.package;
+  if (!options.all && !options.json && !selector && options.interactive && !process.env.CI && process.stdin.isTTY && process.stderr.isTTY) {
+    selector = await selectOne(packageChoices(), "Package to check");
+  }
+  runDependencyCheck(selector, { ...options, fzf: false });
+});
 await program.parseAsync();

@@ -4250,31 +4250,86 @@ function publishWorkspacePackage(selector, options) {
   }
   return result;
 }
-function runCliCommand(selector, options) {
-  publishWorkspacePackage(selector, options);
+function assertInteractive() {
+  if (process$1.env.CI || !process$1.stdin.isTTY || !process$1.stderr.isTTY) {
+    throw new Error(
+      "Interactive selection requires a TTY and is unavailable in CI. Pass explicit options instead."
+    );
+  }
 }
-program.name("workspace-publish").description("Validate and publish workspace packages.").addArgument(
-  new Argument("[package]", "Package name, directory, or workspace selector")
-).addOption(
-  new Option("-r, --registry <registry>", "Registry to publish to").choices(["github", "npm", "all", "both"]).default("npm")
-).addOption(
-  new Option(
-    "-t, --tag <tag>",
-    "npm distribution tag (required to publish; previews suggest one)"
-  )
-).addOption(
-  new Option("-a, --access <access>", "Package access level").choices(["public", "restricted"]).default("public")
-).option("-d, --dry-run", "Run release checks without publishing").option("-l, --list", "Print the publish plan without publishing").option("-j, --json", "Print the operation result as JSON").option(
-  "--artifact-directory <directory>",
-  "Keep generated package tarballs in this directory"
-).option(
-  "--artifact-file <file>",
-  "Publish an existing canonical package tarball instead of rebuilding it"
-).option(
-  "-w, --with-dependencies",
-  "Include publishable workspace dependencies"
-).option(
-  "--no-verify-git-tag",
-  "Allow publishing without verifying the matching package release Git tag"
-).action(runCliCommand);
+function hasFzf() {
+  const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
+  return !probe.error && probe.status === 0;
+}
+async function selectMany(choices, message) {
+  assertInteractive();
+  if (!choices.length) return [];
+  if (hasFzf()) {
+    const result = spawnSync(
+      "fzf",
+      [
+        "--multi",
+        "--delimiter=	",
+        "--with-nth=2..",
+        "--prompt",
+        message + "> ",
+        "--header",
+        "TAB toggles selection; ENTER confirms"
+      ],
+      {
+        input: choices.map((choice, i) => `${i}	${choice.name}`).join("\n") + "\n",
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "inherit"]
+      }
+    );
+    if (result.status === 1 || result.status === 130) return [];
+    if (result.error || result.status !== 0)
+      throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
+    return result.stdout.trim().split("\n").filter(Boolean).map((line) => {
+      const index = Number(line.split("	", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
+      return choices[index].value;
+    });
+  }
+  const { checkbox } = await import("./assets/index-axgcvvt2.js");
+  return checkbox({ message, choices });
+}
+async function confirm(message, defaultValue = false) {
+  assertInteractive();
+  const { confirm: ask } = await import("./assets/index-axgcvvt2.js");
+  return ask({ message, default: defaultValue });
+}
+function packageChoices(root = process.cwd()) {
+  const choices = [{ name: "Root package (.)", value: "." }];
+  const manifestPath = resolve(root, "package.json");
+  if (existsSync(manifestPath)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const patterns = manifest.workspaces ?? [];
+    for (const pattern of patterns) {
+      if (!pattern.endsWith("/*")) continue;
+      const base = pattern.slice(0, -2), folder = resolve(root, base);
+      if (!existsSync(folder)) continue;
+      for (const entry of readdirSync(folder, { withFileTypes: true })) {
+        const path2 = resolve(folder, entry.name, "package.json");
+        if (!entry.isDirectory() || !existsSync(path2)) continue;
+        const pkg = JSON.parse(readFileSync(path2, "utf8"));
+        choices.push({ name: `${pkg.name ?? entry.name} (${base}/${entry.name})`, value: `${base}/${entry.name}` });
+      }
+    }
+  }
+  return choices;
+}
+async function selectOne(choices, message) {
+  const selected = await selectMany(choices, message);
+  return selected[0];
+}
+program.name("workspace-publish").description("Validate and publish workspace packages.").option("--package <selector>", "Package name or directory").addOption(new Option("-r, --registry <registry>", "Registry").choices(["github", "npm", "all", "both"]).default("npm")).option("-t, --tag <tag>", "npm distribution tag").addOption(new Option("-a, --access <access>", "Package access").choices(["public", "restricted"]).default("public")).option("-d, --dry-run", "Validate without publishing").option("-l, --list", "Show plan").option("-j, --json", "Output JSON").option("--artifact-directory <directory>", "Tarball output directory").option("--artifact-file <file>", "Use existing tarball").option("-w, --with-dependencies", "Include workspace dependencies").option("--no-verify-git-tag", "Skip tag verification").option("--no-interactive", "Never prompt").action(async (options) => {
+  const canPrompt = options.interactive && !options.json && !process.env.CI && Boolean(process.stdin.isTTY && process.stderr.isTTY);
+  let selector = options.package;
+  if (!selector && canPrompt) selector = await selectOne(packageChoices(), "Package to publish");
+  if (!selector && !options.dryRun && !options.list) throw new Error("Missing --package <selector>.");
+  if (canPrompt && !options.dryRun && !options.list && !await confirm(`Publish ${selector} to ${options.registry}?`, false)) return;
+  publishWorkspacePackage(selector, options);
+});
 await program.parseAsync();

@@ -6172,24 +6172,114 @@ function releaseWorkspacePackage(argument, options) {
     console.log(JSON.stringify(result, null, 2));
   }
 }
-program.name("workspace-release").description("Preview or create a workspace package release.").addArgument(
-  new Argument(
-    "[release]",
-    "Package selector or package=version, for example workspace-tools or workspace-tools=patch"
-  )
-).addOption(
-  new Option("--mode <mode>", "Version mode").choices([
-    "bump",
-    "exact",
-    "package-json"
-  ])
-).option("--version <version>", "Override the version or bump").option("--selection <selection>", "Typed version selection, e.g. bump:minor").option(
-  "--target <selection>",
-  "Typed package target, e.g. directory:packages/foo"
-).option(
-  "--resolve-only",
-  "Resolve the next version without release checks or side effects"
-).option("-d, --dry-run", "Preview without changing repository files").option("-j, --json", "Print the operation result as JSON").option("--no-fzf", "Disable automatic fzf selection").action(async (release2, options) => {
-  await releaseWorkspacePackage(release2, options);
+function assertInteractive() {
+  if (process$1.env.CI || !process$1.stdin.isTTY || !process$1.stderr.isTTY) {
+    throw new Error(
+      "Interactive selection requires a TTY and is unavailable in CI. Pass explicit options instead."
+    );
+  }
+}
+function hasFzf() {
+  const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
+  return !probe.error && probe.status === 0;
+}
+async function selectMany(choices, message) {
+  assertInteractive();
+  if (!choices.length) return [];
+  if (hasFzf()) {
+    const result = spawnSync(
+      "fzf",
+      [
+        "--multi",
+        "--delimiter=	",
+        "--with-nth=2..",
+        "--prompt",
+        message + "> ",
+        "--header",
+        "TAB toggles selection; ENTER confirms"
+      ],
+      {
+        input: choices.map((choice, i) => `${i}	${choice.name}`).join("\n") + "\n",
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "inherit"]
+      }
+    );
+    if (result.status === 1 || result.status === 130) return [];
+    if (result.error || result.status !== 0)
+      throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
+    return result.stdout.trim().split("\n").filter(Boolean).map((line) => {
+      const index = Number(line.split("	", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
+      return choices[index].value;
+    });
+  }
+  const { checkbox } = await import("./assets/index-d44Uz5vd.js");
+  return checkbox({ message, choices });
+}
+async function confirm(message, defaultValue = false) {
+  assertInteractive();
+  const { confirm: ask } = await import("./assets/index-d44Uz5vd.js");
+  return ask({ message, default: defaultValue });
+}
+async function askText(message, defaultValue = "") {
+  assertInteractive();
+  const { input } = await import("./assets/index-d44Uz5vd.js");
+  return input({ message, default: defaultValue });
+}
+function packageChoices(root = process.cwd()) {
+  const choices = [{ name: "Root package (.)", value: "." }];
+  const manifestPath = resolve(root, "package.json");
+  if (existsSync(manifestPath)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const patterns = manifest.workspaces ?? [];
+    for (const pattern of patterns) {
+      if (!pattern.endsWith("/*")) continue;
+      const base = pattern.slice(0, -2), folder = resolve(root, base);
+      if (!existsSync(folder)) continue;
+      for (const entry of readdirSync(folder, { withFileTypes: true })) {
+        const path2 = resolve(folder, entry.name, "package.json");
+        if (!entry.isDirectory() || !existsSync(path2)) continue;
+        const pkg = JSON.parse(readFileSync(path2, "utf8"));
+        choices.push({ name: `${pkg.name ?? entry.name} (${base}/${entry.name})`, value: `${base}/${entry.name}` });
+      }
+    }
+  }
+  return choices;
+}
+async function selectOne(choices, message) {
+  const selected = await selectMany(choices, message);
+  return selected[0];
+}
+program.name("workspace-release").description("Preview or create a workspace package release.").option("--package <selector>", "Package name or directory, including . for root").addOption(new Option("--mode <mode>", "Version mode").choices(["bump", "exact", "package-json"])).option("--version <version>", "SemVer version or bump type").option("--resolve-only", "Resolve the version without release side effects").option("-d, --dry-run", "Preview without modifying files").option("-j, --json", "Print JSON").option("--no-interactive", "Never prompt for missing values").action(async (options) => {
+  const canPrompt = options.interactive !== false && !options.json && !process.env.CI && Boolean(process.stdin.isTTY && process.stderr.isTTY);
+  let selector = options.package;
+  let mode = options.mode;
+  let version = options.version;
+  if (!selector && canPrompt) selector = await selectOne(packageChoices(), "Package");
+  if (!selector) throw new Error("Missing --package <selector> (required without an interactive terminal).");
+  if (!mode && canPrompt) mode = await selectOne([
+    { name: "Patch/minor/major bump", value: "bump" },
+    { name: "Exact version", value: "exact" },
+    { name: "Version from package.json", value: "package-json" }
+  ], "Version mode");
+  if (!mode) throw new Error("Missing --mode <bump|exact|package-json>.");
+  if (mode !== "package-json" && !version && canPrompt) {
+    if (mode === "bump") version = await selectOne(["patch", "minor", "major", "prerelease", "prepatch", "preminor", "premajor"].map((x) => ({ name: x, value: x })), "Version bump");
+    else version = await askText("Exact version");
+  }
+  if (mode !== "package-json" && !version) throw new Error("Missing --version <version>.");
+  if (canPrompt && !options.dryRun && !options.resolveOnly) {
+    if (!await confirm(`Release ${selector} (${mode}${version ? ":" + version : ""})?`, false)) return;
+  }
+  releaseWorkspacePackage(selector, {
+    ...options,
+    mode,
+    version,
+    fzf: false
+  });
 });
 await program.parseAsync();
+export {
+  getDefaultExportFromCjs as g
+};
