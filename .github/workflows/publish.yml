@@ -74,6 +74,6 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       verify-git-tag: true
       node-version: "24"
-      workspace-tools-source: workspace
+      workspace-tools-source: checkout:current
     secrets:
       npm-token: ${{ secrets._NPM_TOKEN }}
