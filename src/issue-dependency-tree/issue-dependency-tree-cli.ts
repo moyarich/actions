@@ -11,7 +11,10 @@ import { fetchDependencyGraph, resolveRepository } from "./github";
 async function selectRoots(graph: DependencyGraph): Promise<number[]> {
   const choices = dependencyNodeNumbers(graph).map((number) => {
     const node = graph[String(number)];
-    return { name: `#${number} [${node.state}] ${node.title}`, value: String(number) };
+    return {
+      name: `#${number} [${node.state}] ${node.title}`,
+      value: String(number),
+    };
   });
   const selected = await selectMany(choices, "Issue root");
   return selected.map(Number);
