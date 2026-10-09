@@ -8,9 +8,9 @@ description: Preview or create package-scoped workspace releases.
 Use a bump or exact semantic version:
 
 ```sh
-workspace-release css-expand-collapse=patch
-workspace-release css-expand-collapse=minor
-workspace-release css-expand-collapse=1.0.0
+workspace-release css-expand-collapse=patch --dry-run
+workspace-release css-expand-collapse=minor --dry-run
+workspace-release css-expand-collapse=1.0.0 --dry-run
 ```
 
 Supported npm version increments are `major`, `minor`, `patch`, `premajor`, `preminor`, `prepatch`, and `prerelease`.
@@ -18,7 +18,7 @@ Supported npm version increments are `major`, `minor`, `patch`, `premajor`, `pre
 To release the version already stored in the package manifest:
 
 ```sh
-workspace-release css-expand-collapse --mode=package-json
+workspace-release css-expand-collapse --mode=package-json --dry-run
 ```
 
 `package-json` does not run `npm version` and does not create a release-only version change. It creates the package-scoped tag, such as `packages/css-expand-collapse@1.0.0`, at the current `HEAD`.
@@ -57,31 +57,9 @@ Use `workspace-release-identity` when another tool or workflow needs the package
 
 The package-specific release job handles versioning, changelog updates, commit creation, and the immutable package tag. GitHub Release creation is a separate release surface from registry publication. A release draft can remain open after npmjs.org publication, and an already-published GitHub Release does not prevent publishing the same canonical package version to a missing registry.
 
-## Separate workflow releases
+## Reusable workflow releases
 
-Reusable workflows are not versioned from `package.json`.
-
-They use:
-
-```text
-Version source:          workflow-version.json
-Git tag:                 workflows-v<version>
-GitHub Release name:     Workspace Tools Workflows v<version>
-Workflow changelog:      CHANGELOG_WORKFLOWS.md
-Compatible major alias:  workflows-v<major>
-```
-
-For example:
-
-```text
-workflow-version.json:   0.1.0
-Immutable tag:           workflows-v0.1.0
-Major alias:             workflows-v0
-Release name:            Workspace Tools Workflows v0.1.0
-GitHub Release state:    draft
-```
-
-The workflow and npm package release lines can advance independently.
+The shared workflow definitions are maintained in [moyarich/reusable-workflows](https://github.com/moyarich/reusable-workflows) and have their own repository release lifecycle. They are **not** versioned or tagged by this package's `workspace-release` command. This repository versions the npm CLI package through its `package.json` and canonical package release tag.
 
 ## Restore a historical release identity
 
