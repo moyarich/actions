@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
-  type ReactNode,
 } from "react";
 import {
   Link,
@@ -17,12 +16,13 @@ import {
   useLocation,
 } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
-import { Playground, MonacoCodeGroup } from "./Playground";
-import { CodeGroup, CodeTab } from "./CodeGroup";
+import { Playground, MonacoCodeGroup } from "./components/Playground";
+import { CodeGroup, CodeTab } from "./components/CodeGroup";
+import { DocOutline, type OutlineItem } from "./components/DocOutline";
+import { DocsLayout } from "./components/DocsLayout";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
-type OutlineItem = { id: string; title: string; depth: 2 | 3 };
 
 function resolveMdxHref(page: ContentPage, href?: string) {
   if (!href) return null;
@@ -69,83 +69,6 @@ function MdxLink({
     <a href={route ?? href} {...props}>
       {children}
     </a>
-  );
-}
-
-function DocOutline({ headings }: { headings: OutlineItem[] }) {
-  const location = useLocation();
-  const [active, setActive] = useState<string>("");
-  const scrollingTo = useRef<string | null>(null);
-  useEffect(() => {
-    if (!headings.length) return;
-    const update = () => {
-      if (scrollingTo.current) return;
-      let next = headings[0].id;
-      for (const heading of headings) {
-        const element = document.getElementById(heading.id);
-        if (element && element.getBoundingClientRect().top <= 130)
-          next = heading.id;
-      }
-      // The final heading may never reach the top threshold on short pages.
-      const atBottom =
-        window.innerHeight + window.scrollY >=
-        document.documentElement.scrollHeight - 3;
-      if (atBottom) next = headings[headings.length - 1].id;
-      setActive(next);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const finishScroll = () => {
-      scrollingTo.current = null;
-      update();
-    };
-    window.addEventListener("scrollend", finishScroll);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scrollend", finishScroll);
-    };
-  }, [headings]);
-
-  if (!headings.length) return null;
-  return (
-    <aside className="doc-outline" aria-label="On this page">
-      <p className="doc-outline-title">On this page</p>
-      <nav>
-        {headings.map((heading) => (
-          <Link
-            key={heading.id}
-            to={`${location.pathname}#${heading.id}`}
-            onClick={() => {
-              scrollingTo.current = heading.id;
-              setActive(heading.id);
-            }}
-            className={[
-              `depth-${heading.depth}`,
-              active === heading.id ? "active" : "",
-            ].join(" ")}
-            aria-current={active === heading.id ? "location" : undefined}
-          >
-            {heading.title}
-          </Link>
-        ))}
-      </nav>
-    </aside>
-  );
-}
-
-type DocsLayoutProps = {
-  children: ReactNode;
-  toc?: ReactNode;
-};
-
-function DocsLayout({ children, toc }: DocsLayoutProps) {
-  return (
-    <div className="article-layout">
-      {children}
-      {toc ?? null}
-    </div>
   );
 }
 
