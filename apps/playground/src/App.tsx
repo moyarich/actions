@@ -197,7 +197,9 @@ function ContentRoute() {
   }
   const Page = page.Component;
   return (
-    <DocsLayout toc={headings.length > 0 ? <DocOutline headings={headings} /> : undefined}>
+    <DocsLayout
+      toc={headings.length > 0 ? <DocOutline headings={headings} /> : undefined}
+    >
       <article className="content-page" ref={articleRef}>
         <p className="content-kicker">
           {page.route.startsWith("/examples") ? "Examples" : "Documentation"}
