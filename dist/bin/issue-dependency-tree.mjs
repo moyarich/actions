@@ -1,10 +1,55 @@
 #!/usr/bin/env node
-import childProcess, { execFileSync, spawnSync } from "node:child_process";
+import childProcess, { spawnSync, execFileSync } from "node:child_process";
+import process$1 from "node:process";
 import { EventEmitter } from "node:events";
 import path from "node:path";
 import fs from "node:fs";
-import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
+function assertInteractive() {
+  if (process$1.env.CI || !process$1.stdin.isTTY || !process$1.stderr.isTTY) {
+    throw new Error(
+      "Interactive selection requires a TTY and is unavailable in CI. Pass explicit options instead."
+    );
+  }
+}
+function hasFzf() {
+  const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
+  return !probe.error && probe.status === 0;
+}
+async function selectMany(choices, message) {
+  assertInteractive();
+  if (!choices.length) return [];
+  if (hasFzf()) {
+    const result = spawnSync(
+      "fzf",
+      [
+        "--multi",
+        "--delimiter=	",
+        "--with-nth=2..",
+        "--prompt",
+        message + "> ",
+        "--header",
+        "TAB toggles selection; ENTER confirms"
+      ],
+      {
+        input: choices.map((choice, i) => `${i}	${choice.name}`).join("\n") + "\n",
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "inherit"]
+      }
+    );
+    if (result.status === 1 || result.status === 130) return [];
+    if (result.error || result.status !== 0)
+      throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
+    return result.stdout.trim().split("\n").filter(Boolean).map((line) => {
+      const index = Number(line.split("	", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
+      return choices[index].value;
+    });
+  }
+  const { checkbox } = await import("./assets/index-Buxpy2n2.js");
+  return checkbox({ message, choices });
+}
 class CommanderError extends Error {
   /**
    * Constructs the CommanderError class
@@ -3496,38 +3541,16 @@ function fetchDependencyGraph(repository) {
   );
   return buildDependencyGraph(details);
 }
-function selectWithFzf(graph) {
+async function selectRoots(graph) {
   const choices = dependencyNodeNumbers(graph).map((number) => {
     const node = graph[String(number)];
-    return `#${number}	[${node.state}]	${node.title}`;
+    return {
+      name: `#${number} [${node.state}] ${node.title}`,
+      value: String(number)
+    };
   });
-  if (choices.length === 0) return [];
-  const result = spawnSync(
-    "fzf",
-    [
-      "--multi",
-      "--prompt",
-      "Issue root> ",
-      "--header",
-      "Select one or more issue roots (TAB toggles selection)"
-    ],
-    {
-      input: `${choices.join("\n")}
-`,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "inherit"]
-    }
-  );
-  if (result.error && result.error.code === "ENOENT") {
-    throw new Error(
-      "fzf is required for --interactive. Install fzf or run without --interactive."
-    );
-  }
-  if (result.status === 130 || result.status === 1) return [];
-  if (result.status !== 0) {
-    throw new Error(`fzf exited with status ${result.status ?? "unknown"}`);
-  }
-  return result.stdout.split("\n").map((line) => line.match(/^#(\d+)/)?.[1]).filter((value) => Boolean(value)).map(Number);
+  const selected = await selectMany(choices, "Issue root");
+  return selected.map(Number);
 }
 function parseRoots(values) {
   return values.map((value) => {
@@ -3548,7 +3571,7 @@ async function runCli(argv = process.argv) {
     []
   ).option(
     "-i, --interactive",
-    "Select one or more roots interactively with fzf"
+    "Select issue roots interactively (fzf with Inquirer fallback)"
   ).option("--json", "Print dependency graph JSON instead of Markdown").addHelpText(
     "after",
     [
@@ -3561,7 +3584,7 @@ async function runCli(argv = process.argv) {
       "  issue-dependency-tree --json"
     ].join("\n")
   ).action(
-    (options) => {
+    async (options) => {
       const repo = resolveRepository(options.repo);
       const graph = fetchDependencyGraph(repo);
       if (options.json) {
@@ -3570,7 +3593,7 @@ async function runCli(argv = process.argv) {
         return;
       }
       const explicitRoots = parseRoots(options.root);
-      const selectedRoots = options.interactive ? selectWithFzf(graph) : explicitRoots;
+      const selectedRoots = options.interactive ? await selectRoots(graph) : explicitRoots;
       process.stdout.write(
         renderDependencyTree(
           graph,
