@@ -30,14 +30,18 @@ function resolveMdxHref(page: ContentPage, href?: string) {
   const [path, fragment = ""] = href.split("#", 2);
   if (!path || !/\.(?:md|mdx)$/.test(path)) return null;
 
-  const parts = path.startsWith("/") ? [] : page.sourcePath.split("/").slice(0, -1);
+  const parts = path.startsWith("/")
+    ? []
+    : page.sourcePath.split("/").slice(0, -1);
   for (const part of path.split("/")) {
     if (!part || part === ".") continue;
     if (part === "..") parts.pop();
     else parts.push(part);
   }
   const sourcePath = parts.join("/");
-  const match = allPages.find((candidate) => candidate.sourcePath === sourcePath);
+  const match = allPages.find(
+    (candidate) => candidate.sourcePath === sourcePath,
+  );
   // Ordinary Markdown files aren't compiled as playground routes.
   if (!match) {
     // Render source-only Markdown links on GitHub instead of navigating to a
@@ -55,7 +59,9 @@ function MdxLink({
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
   const route = resolveMdxHref(page, href);
   return route?.startsWith("/") ? (
-    <Link to={route} {...props}>{children}</Link>
+    <Link to={route} {...props}>
+      {children}
+    </Link>
   ) : (
     <a href={route ?? href} {...props}>
       {children}
