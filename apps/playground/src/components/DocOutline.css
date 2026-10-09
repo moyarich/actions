@@ -45,5 +45,7 @@
 }
 
 @media (max-width: 1240px) {
-  .doc-outline { display: none; }
+  .doc-outline {
+    display: none;
+  }
 }

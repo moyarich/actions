@@ -7,9 +7,13 @@
 }
 
 @media (max-width: 1240px) {
-  .article-layout { grid-template-columns: minmax(0, 760px); }
+  .article-layout {
+    grid-template-columns: minmax(0, 760px);
+  }
 }
 
 @media (max-width: 760px) {
-  .article-layout { padding: 2rem 1.25rem 4rem; }
+  .article-layout {
+    padding: 2rem 1.25rem 4rem;
+  }
 }
