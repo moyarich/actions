@@ -1,24 +1,36 @@
 .article-layout {
+  /* Private component tokens: copy this directory without global defaults. */
+  --_docs-layout-content-width: 760px;
+  --_docs-layout-toc-min-width: 175px;
+  --_docs-layout-toc-max-width: 220px;
+  --_docs-layout-gap: clamp(2rem, 4vw, 5rem);
+  --_docs-layout-padding-block-start: 3rem;
+  --_docs-layout-padding-inline: clamp(1.5rem, 4vw, 5rem);
+  --_docs-layout-padding-block-end: 5rem;
+  --_docs-layout-mobile-padding-block-start: 2rem;
+  --_docs-layout-mobile-padding-inline: 1.25rem;
+  --_docs-layout-mobile-padding-block-end: 4rem;
+
   display: grid;
   grid-template-columns:
-    minmax(0, var(--docs-layout-content-width))
-    minmax(var(--docs-layout-toc-min-width), var(--docs-layout-toc-max-width));
-  gap: var(--docs-layout-gap);
+    minmax(0, var(--_docs-layout-content-width))
+    minmax(var(--_docs-layout-toc-min-width), var(--_docs-layout-toc-max-width));
+  gap: var(--_docs-layout-gap);
   justify-content: center;
-  padding: var(--docs-layout-padding-block-start)
-    var(--docs-layout-padding-inline) var(--docs-layout-padding-block-end);
+  padding: var(--_docs-layout-padding-block-start)
+    var(--_docs-layout-padding-inline) var(--_docs-layout-padding-block-end);
 }
 
 @media (max-width: 1240px) {
   .article-layout {
-    grid-template-columns: minmax(0, var(--docs-layout-content-width));
+    grid-template-columns: minmax(0, var(--_docs-layout-content-width));
   }
 }
 
 @media (max-width: 760px) {
   .article-layout {
-    padding: var(--docs-layout-mobile-padding-block-start)
-      var(--docs-layout-mobile-padding-inline)
-      var(--docs-layout-mobile-padding-block-end);
+    padding: var(--_docs-layout-mobile-padding-block-start)
+      var(--_docs-layout-mobile-padding-inline)
+      var(--_docs-layout-mobile-padding-block-end);
   }
 }
