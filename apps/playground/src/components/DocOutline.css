@@ -1,0 +1,49 @@
+.doc-outline {
+  position: sticky;
+  top: 98px;
+  align-self: start;
+  max-height: calc(100vh - 125px);
+  overflow-y: auto;
+  padding-left: 1rem;
+  border-left: 1px solid #e6e8f0;
+}
+
+.doc-outline-title {
+  margin: 0 0 0.85rem;
+  color: #778197;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.doc-outline nav {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.doc-outline nav a {
+  display: block;
+  color: #69758b;
+  font-size: 0.79rem;
+  line-height: 1.45;
+  padding: 0.32rem 0.55rem;
+  text-decoration: none;
+  border-radius: 0.3rem;
+}
+
+.doc-outline nav a.depth-3 {
+  padding-left: 1.4rem;
+}
+
+.doc-outline nav a:hover {
+  color: #384ca3;
+}
+
+.doc-outline nav a.active {
+  color: #3549a6;
+  font-weight: 650;
+  background: #f2f3fc;
+}
+
+.doc-outline {
+    display: none;
+  }
