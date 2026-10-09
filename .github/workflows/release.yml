@@ -71,4 +71,4 @@ jobs:
       exact-version: ${{ inputs.exact-version }}
       dry-run: ${{ inputs.dry-run }}
       node-version: "24"
-      workspace-tools-source: workspace
+      workspace-tools-source: checkout:current
