@@ -1,5 +1,4 @@
 .example-playground {
-  /* Private component tokens: copy this directory without global defaults. */
   --_playground-margin: var(--playground-margin, 1.5rem 0);
   --_playground-border-width: var(--playground-border-width, 1px);
   --_playground-border-color: var(--playground-border-color, #e0e4ed);
