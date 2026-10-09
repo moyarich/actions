@@ -34,15 +34,15 @@ Run any command through `npm exec`. Package selection uses named `--package` opt
 npm exec -- <command> [arguments] [options]
 ```
 
-| Command                      | Use it to…                                            | Example                                                                     |
-| ---------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| `discover-packages`          | Find packages in a repository or workspace            | `npm exec -- discover-packages --workspaces --include-root-package`         |
-| `workspace-dependency-check` | Check dependency versions across a workspace          | `npm exec -- workspace-dependency-check --all`                              |
-| `workspace-package-lock`     | Review or regenerate the root `package-lock.json`     | `npm exec -- workspace-package-lock --dry-run`                              |
+| Command                      | Use it to…                                            | Example                                                                           |
+| ---------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `discover-packages`          | Find packages in a repository or workspace            | `npm exec -- discover-packages --workspaces --include-root-package`               |
+| `workspace-dependency-check` | Check dependency versions across a workspace          | `npm exec -- workspace-dependency-check --all`                                    |
+| `workspace-package-lock`     | Review or regenerate the root `package-lock.json`     | `npm exec -- workspace-package-lock --dry-run`                                    |
 | `workspace-release`          | Decide which version to release                       | `npm exec -- workspace-release --package . --mode bump --version patch --dry-run` |
-| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity --package . --pretty-json`                    |
-| `workspace-publish`          | Validate and publish a package                        | `npm exec -- workspace-publish --package . --dry-run`                                 |
-| `issue-dependency-tree`      | See which GitHub issues block other issues            | `npm exec -- issue-dependency-tree`                                         |
+| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity --package . --pretty-json`                |
+| `workspace-publish`          | Validate and publish a package                        | `npm exec -- workspace-publish --package . --dry-run`                             |
+| `issue-dependency-tree`      | See which GitHub issues block other issues            | `npm exec -- issue-dependency-tree`                                               |
 
 Every command documents its full arguments and options through `--help`:
 
