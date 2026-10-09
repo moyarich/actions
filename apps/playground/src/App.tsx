@@ -15,10 +15,7 @@ import {
   MonacoCodeGroup,
 } from "./components/Playground/Playground";
 import { CodeGroup, CodeTab } from "./components/CodeGroup/CodeGroup";
-import {
-  DocOutline,
-  type OutlineItem,
-} from "./components/DocOutline/DocOutline";
+import { DocOutline } from "./components/DocOutline/DocOutline";
 import { DocsLayout } from "./components/DocsLayout/DocsLayout";
 import { useDocOutline } from "./components/DocOutline/useDocOutline";
 
@@ -103,7 +100,14 @@ function ContentRoute() {
   const Page = page.Component;
   return (
     <DocsLayout
-      toc={headings.length > 0 ? <DocOutline headings={headings} /> : undefined}
+      toc={
+        headings.length > 0 ? (
+          <DocOutline
+            headings={headings}
+            hrefForHeading={(id) => `#${location.pathname}#${id}`}
+          />
+        ) : undefined
+      }
     >
       <article className="content-page" ref={articleRef}>
         <p className="content-kicker">
