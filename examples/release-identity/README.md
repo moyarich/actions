@@ -41,8 +41,10 @@ Verify a candidate commit against one or more already-published registry copies:
 ```sh
 npm exec -- workspace-release-identity restore-equivalence . \
   --commit 8b4539e214afc9d87dfbad3e52243e4426c26179 \
-  --registry https://npm.pkg.github.com \
+  --registry https://registry.npmjs.org \
   --pretty-json
 ```
 
 Repeat `--registry` when the exact version exists in more than one registry. The candidate is accepted when **any** published copy matches.
+
+The registry in `restore-equivalence` selects an existing published artifact for comparison; public npm and GitHub Packages are separate destinations. Supply each registry explicitly when comparing multiple copies.
