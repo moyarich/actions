@@ -313,12 +313,49 @@ pre {
 }
 
 /* Shiki highlights fenced MDX snippets during the Vite build. */
-.content-page figure[data-rehype-pretty-code-figure] { margin: 1.5rem 0; min-width: 0; }
-.content-page figure[data-rehype-pretty-code-figure] pre { margin: 0; overflow-x: auto; border: 1px solid #30394d; }
-.content-page figure[data-rehype-pretty-code-figure] code { display: grid; font-size: 0.85rem; }
-.content-page figure[data-rehype-pretty-code-figure] code [data-line] { padding: 0 1.2rem; }
-.content-page figure[data-rehype-pretty-code-figure] [data-rehype-pretty-code-title] { padding: 0.6rem 1rem; font-size: 0.76rem; font-weight: 650; background: #f4f5f9; border: 1px solid #e0e4ed; border-bottom: 0; border-radius: 0.65rem 0.65rem 0 0; }
-.content-page figure[data-rehype-pretty-code-figure] [data-rehype-pretty-code-title] + pre { border-radius: 0 0 0.65rem 0.65rem; }
-.article-footer { margin-top: 3.5rem; padding-top: 1.2rem; border-top: 1px solid #e5e7ef; font-size: 0.84rem; }
-.article-footer a { color: #5264ac; text-decoration: none; }
-.article-footer a:hover { text-decoration: underline; }
+.content-page figure[data-rehype-pretty-code-figure] {
+  margin: 1.5rem 0;
+  min-width: 0;
+}
+.content-page figure[data-rehype-pretty-code-figure] pre {
+  margin: 0;
+  overflow-x: auto;
+  border: 1px solid #30394d;
+}
+.content-page figure[data-rehype-pretty-code-figure] code {
+  display: grid;
+  font-size: 0.85rem;
+}
+.content-page figure[data-rehype-pretty-code-figure] code [data-line] {
+  padding: 0 1.2rem;
+}
+.content-page
+  figure[data-rehype-pretty-code-figure]
+  [data-rehype-pretty-code-title] {
+  padding: 0.6rem 1rem;
+  font-size: 0.76rem;
+  font-weight: 650;
+  background: #f4f5f9;
+  border: 1px solid #e0e4ed;
+  border-bottom: 0;
+  border-radius: 0.65rem 0.65rem 0 0;
+}
+.content-page
+  figure[data-rehype-pretty-code-figure]
+  [data-rehype-pretty-code-title]
+  + pre {
+  border-radius: 0 0 0.65rem 0.65rem;
+}
+.article-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid #e5e7ef;
+  font-size: 0.84rem;
+}
+.article-footer a {
+  color: #5264ac;
+  text-decoration: none;
+}
+.article-footer a:hover {
+  text-decoration: underline;
+}
