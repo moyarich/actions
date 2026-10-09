@@ -36,7 +36,7 @@ function createPages(
   return Object.entries(modules)
     .map(([path, pageModule]) => {
       const sourcePath = path.replace("../../../", "");
-      const route = `/${sourcePath.replace(/\/page\.mdx$/, "")}`;
+      const route = `/${sourcePath.replace(/\/(?:page\.mdx|README\.md)$/, "").replace(/\.md$/, "")}`;
       const routeSegments = route.split("/").filter(Boolean);
 
       return {
@@ -52,25 +52,47 @@ function createPages(
     .sort((a, b) => a.route.localeCompare(b.route));
 }
 
-const docsModules = import.meta.glob("../../../docs/**/page.mdx", {
-  eager: true,
-}) as Record<string, ContentPageModule>;
+const docsModules = import.meta.glob(
+  ["../../../docs/**/page.mdx", "../../../docs/**/*.md"],
+  {
+    eager: true,
+  },
+) as Record<string, ContentPageModule>;
 
-const exampleModules = import.meta.glob("../../../examples/**/page.mdx", {
-  eager: true,
-}) as Record<string, ContentPageModule>;
+const exampleModules = import.meta.glob(
+  ["../../../examples/**/page.mdx", "../../../examples/**/*.md"],
+  {
+    eager: true,
+  },
+) as Record<string, ContentPageModule>;
 
 export const CONTENT_SECTIONS: ContentSection[] = [
   {
     id: "docs",
     label: "Docs",
     description: "Authoritative documentation for the workspace-tools package.",
-    pages: createPages(docsModules),
+    pages: createPages(docsModules).filter(
+      (page, _, pages) =>
+        !page.sourcePath.endsWith("README.md") ||
+        !pages.some(
+          (candidate) =>
+            candidate.route === page.route &&
+            candidate.sourcePath.endsWith("page.mdx"),
+        ),
+    ),
   },
   {
     id: "examples",
     label: "CLI examples",
     description: "Copyable command examples loaded directly from examples.",
-    pages: createPages(exampleModules),
+    pages: createPages(exampleModules).filter(
+      (page, _, pages) =>
+        !page.sourcePath.endsWith("README.md") ||
+        !pages.some(
+          (candidate) =>
+            candidate.route === page.route &&
+            candidate.sourcePath.endsWith("page.mdx"),
+        ),
+    ),
   },
 ];
