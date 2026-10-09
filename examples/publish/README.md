@@ -5,3 +5,5 @@ Preview registry readiness and the package artifact without publishing:
 ```sh
 npm exec -- workspace-publish . --dry-run
 ```
+
+Public npm is the default publishing destination. Use `--registry=github` only when deliberately publishing to GitHub Packages; its permissions are separate from public npm.
