@@ -3,10 +3,10 @@
   grid-template-columns:
     minmax(0, var(--docs-layout-content-width))
     minmax(var(--docs-layout-toc-min-width), var(--docs-layout-toc-max-width));
-  gap: var(--docs-layout-gap, clamp(2rem, 4vw, 5rem));
+  gap: var(--docs-layout-gap);
   justify-content: center;
   padding: var(--docs-layout-padding-block-start)
-    var(--docs-layout-padding-inline, clamp(1.5rem, 4vw, 5rem))
+    var(--docs-layout-padding-inline)
     var(--docs-layout-padding-block-end);
 }
 
