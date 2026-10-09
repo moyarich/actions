@@ -15,6 +15,7 @@ import {
 } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
 import { Playground } from "./Playground";
+import { CodeGroup, CodeTab } from "./CodeGroup";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
@@ -156,6 +157,8 @@ function ContentRoute() {
         <MDXProvider
           components={{
             Playground,
+            CodeGroup,
+            CodeTab,
             a: (props) => <MdxLink {...props} page={page} />,
           }}
         >
