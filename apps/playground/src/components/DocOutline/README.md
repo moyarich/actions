@@ -6,7 +6,13 @@ Copy this entire directory into another React application. No React Router depen
 import { DocOutline } from "./components/DocOutline/DocOutline";
 import { useDocOutline } from "./components/DocOutline/useDocOutline";
 
-function Article({ children, pageKey }: { children: React.ReactNode; pageKey: string }) {
+function Article({
+  children,
+  pageKey,
+}: {
+  children: React.ReactNode;
+  pageKey: string;
+}) {
   const { articleRef, headings } = useDocOutline(pageKey, window.location.hash);
   return (
     <div>
