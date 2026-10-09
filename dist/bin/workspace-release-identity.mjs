@@ -34,7 +34,7 @@ class InvalidArgumentError extends CommanderError {
     this.name = this.constructor.name;
   }
 }
-class Argument {
+let Argument$1 = class Argument2 {
   /**
    * Initialize a new command argument with the given name and description.
    * The default is that the argument is required, and you can explicitly
@@ -148,7 +148,7 @@ class Argument {
     this.required = false;
     return this;
   }
-}
+};
 function humanReadableArgName(arg) {
   const nameOutput = arg.name() + (arg.variadic === true ? "..." : "");
   return arg.required ? "<" + nameOutput + ">" : "[" + nameOutput + "]";
@@ -1376,7 +1376,7 @@ class Command extends EventEmitter {
    * @return {Argument} new argument
    */
   createArgument(name, description) {
-    return new Argument(name, description);
+    return new Argument$1(name, description);
   }
   /**
    * Define argument syntax for command.
@@ -3838,15 +3838,14 @@ program.name("workspace-release-identity").description(
   "Resolve canonical workspace package release identity and historical restore sources."
 );
 if (restoreSourceMode) {
-  program.addArgument(
-    new Argument(
-      "<source>",
-      "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>"
-    )
+  program.requiredOption(
+    "--source <source>",
+    "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>"
   ).requiredOption(
     "--repository <owner/name>",
     "GitHub repository used for run, artifact, and github-url resolution"
-  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((source, options) => {
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((options) => {
+    const source = options.source;
     const resolution = resolveRestoreSource(source, options.repository);
     if (options.json) process.stdout.write(JSON.stringify(resolution));
     else if (options.prettyJson)
@@ -3871,12 +3870,13 @@ if (restoreSourceMode) {
     ...process.argv.slice(3)
   ]);
 } else if (restoreEquivalenceMode) {
-  program.addArgument(new Argument("<package>", "Workspace package selector")).requiredOption("--commit <sha>", "Candidate historical commit").addOption(
+  program.requiredOption("--package <selector>", "Workspace package selector").requiredOption("--commit <sha>", "Candidate historical commit").addOption(
     new Option(
       "--registry <url>",
       "Published registry to compare; repeat for multiple registries"
     ).argParser((value, previous = []) => [...previous, value]).default([])
-  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((options) => {
+    const selector = options.package;
     if (!Array.isArray(options.registry) || options.registry.length === 0) {
       throw new Error("At least one --registry <url> is required.");
     }

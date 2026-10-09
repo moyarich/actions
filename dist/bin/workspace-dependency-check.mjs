@@ -3793,7 +3793,10 @@ function packageChoices(root = process.cwd()) {
         const path2 = resolve(folder, entry.name, "package.json");
         if (!entry.isDirectory() || !existsSync(path2)) continue;
         const pkg = JSON.parse(readFileSync(path2, "utf8"));
-        choices.push({ name: `${pkg.name ?? entry.name} (${base}/${entry.name})`, value: `${base}/${entry.name}` });
+        choices.push({
+          name: `${pkg.name ?? entry.name} (${base}/${entry.name})`,
+          value: `${base}/${entry.name}`
+        });
       }
     }
   }

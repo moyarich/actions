@@ -6241,7 +6241,10 @@ function packageChoices(root = process.cwd()) {
         const path2 = resolve(folder, entry.name, "package.json");
         if (!entry.isDirectory() || !existsSync(path2)) continue;
         const pkg = JSON.parse(readFileSync(path2, "utf8"));
-        choices.push({ name: `${pkg.name ?? entry.name} (${base}/${entry.name})`, value: `${base}/${entry.name}` });
+        choices.push({
+          name: `${pkg.name ?? entry.name} (${base}/${entry.name})`,
+          value: `${base}/${entry.name}`
+        });
       }
     }
   }
@@ -6251,26 +6254,60 @@ async function selectOne(choices, message) {
   const selected = await selectMany(choices, message);
   return selected[0];
 }
-program.name("workspace-release").description("Preview or create a workspace package release.").option("--package <selector>", "Package name or directory, including . for root").addOption(new Option("--mode <mode>", "Version mode").choices(["bump", "exact", "package-json"])).option("--version <version>", "SemVer version or bump type").option("--resolve-only", "Resolve the version without release side effects").option("-d, --dry-run", "Preview without modifying files").option("-j, --json", "Print JSON").option("--no-interactive", "Never prompt for missing values").action(async (options) => {
+program.name("workspace-release").description("Preview or create a workspace package release.").option(
+  "--package <selector>",
+  "Package name or directory, including . for root"
+).addOption(
+  new Option("--mode <mode>", "Version mode").choices([
+    "bump",
+    "exact",
+    "package-json"
+  ])
+).option("--version <version>", "SemVer version or bump type").option("--resolve-only", "Resolve the version without release side effects").option("-d, --dry-run", "Preview without modifying files").option("-j, --json", "Print JSON").option("--no-interactive", "Never prompt for missing values").action(async (options) => {
   const canPrompt = options.interactive !== false && !options.json && !process.env.CI && Boolean(process.stdin.isTTY && process.stderr.isTTY);
   let selector = options.package;
   let mode = options.mode;
   let version = options.version;
-  if (!selector && canPrompt) selector = await selectOne(packageChoices(), "Package");
-  if (!selector) throw new Error("Missing --package <selector> (required without an interactive terminal).");
-  if (!mode && canPrompt) mode = await selectOne([
-    { name: "Patch/minor/major bump", value: "bump" },
-    { name: "Exact version", value: "exact" },
-    { name: "Version from package.json", value: "package-json" }
-  ], "Version mode");
+  if (!selector && canPrompt)
+    selector = await selectOne(packageChoices(), "Package");
+  if (!selector)
+    throw new Error(
+      "Missing --package <selector> (required without an interactive terminal)."
+    );
+  if (!mode && canPrompt)
+    mode = await selectOne(
+      [
+        { name: "Patch/minor/major bump", value: "bump" },
+        { name: "Exact version", value: "exact" },
+        { name: "Version from package.json", value: "package-json" }
+      ],
+      "Version mode"
+    );
   if (!mode) throw new Error("Missing --mode <bump|exact|package-json>.");
   if (mode !== "package-json" && !version && canPrompt) {
-    if (mode === "bump") version = await selectOne(["patch", "minor", "major", "prerelease", "prepatch", "preminor", "premajor"].map((x) => ({ name: x, value: x })), "Version bump");
+    if (mode === "bump")
+      version = await selectOne(
+        [
+          "patch",
+          "minor",
+          "major",
+          "prerelease",
+          "prepatch",
+          "preminor",
+          "premajor"
+        ].map((x) => ({ name: x, value: x })),
+        "Version bump"
+      );
     else version = await askText("Exact version");
   }
-  if (mode !== "package-json" && !version) throw new Error("Missing --version <version>.");
+  if (mode !== "package-json" && !version)
+    throw new Error("Missing --version <version>.");
   if (canPrompt && !options.dryRun && !options.resolveOnly) {
-    if (!await confirm(`Release ${selector} (${mode}${version ? ":" + version : ""})?`, false)) return;
+    if (!await confirm(
+      `Release ${selector} (${mode}${version ? ":" + version : ""})?`,
+      false
+    ))
+      return;
   }
   releaseWorkspacePackage(selector, {
     ...options,
