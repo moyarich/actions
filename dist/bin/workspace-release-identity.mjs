@@ -34,7 +34,7 @@ class InvalidArgumentError extends CommanderError {
     this.name = this.constructor.name;
   }
 }
-let Argument$1 = class Argument2 {
+class Argument {
   /**
    * Initialize a new command argument with the given name and description.
    * The default is that the argument is required, and you can explicitly
@@ -148,7 +148,7 @@ let Argument$1 = class Argument2 {
     this.required = false;
     return this;
   }
-};
+}
 function humanReadableArgName(arg) {
   const nameOutput = arg.name() + (arg.variadic === true ? "..." : "");
   return arg.required ? "<" + nameOutput + ">" : "[" + nameOutput + "]";
@@ -1376,7 +1376,7 @@ class Command extends EventEmitter {
    * @return {Argument} new argument
    */
   createArgument(name, description) {
-    return new Argument$1(name, description);
+    return new Argument(name, description);
   }
   /**
    * Define argument syntax for command.
@@ -3918,12 +3918,13 @@ if (restoreSourceMode) {
     ...process.argv.slice(3)
   ]);
 } else {
-  program.addArgument(new Argument("<package>", "Workspace package selector")).addOption(
+  program.requiredOption("--package <selector>", "Workspace package selector").addOption(
     new Option(
       "--version <version>",
       "Version or release-template token to use"
     )
-  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((selector, options) => {
+  ).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((options) => {
+    const selector = options.package;
     const pkg = packageInfo(repositoryRoot(), selector);
     const identity = releaseIdentity(
       pkg,
