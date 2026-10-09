@@ -1,33 +1,26 @@
 ---
 title: Reference
-description: Repository layout and public API conventions.
+description: CLI reference and package structure for Workspace Tools.
 ---
 
 # Reference
 
-## Repository layout
+Workspace Tools publishes command-line utilities, not reusable workflow or standalone GitHub Action definitions.
+
+## Package structure
 
 ```text
-.
-├── .github/
-│   └── workflows/
-│       ├── reusable_*.yml
-│       └── <repository workflows>.yml
-├── actions/
-├── scripts/
-├── docs/
-├── CHANGELOG.md
-└── README.md
+src/                 # CLI implementations and shared workspace logic
+tests/               # capability-based tests
+dist/bin/            # committed executable bundles published to npm
+examples/            # usage examples
+docs/                # reference, guides, and development documentation
+.github/workflows/   # repository-local workflow callers
 ```
 
-## Conventions
-
-- `reusable_*.yml` identifies public reusable workflows.
-- Public reusable workflows must contain a `workflow_call` trigger.
-- Reusable workflows remain directly under `.github/workflows/`; GitHub does not support workflow subdirectories.
-- `actions/*/action.yml` is reserved for public standalone actions.
-- `scripts/*` contains reusable scripts and automation tooling.
+See [Repository structure](../04-development/01-repository-structure/page.mdx) for build, test, and distribution boundaries. The reusable workflows and actions live in [moyarich/reusable-workflows](https://github.com/moyarich/reusable-workflows).
 
 ## Command reference
 
 - [Workspace CLI](./02-workspace-cli/page.mdx)
+- [Semantic version resolver](../sim-version-resolver.md)

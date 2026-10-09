@@ -11,7 +11,7 @@ description: Command reference for workspace automation shipped by Workspace Too
 discover-packages [directory] [--workspaces] [--include-root-package] [--include-private] [--require-publish-config] [--require-test-script] [--require-build-script] [--json|--pretty-json]
 ```
 
-Uses the same package-discovery core as the `discover-packages` GitHub Action.
+Produces package metadata for scripts and the separate reusable discovery workflow in `moyarich/reusable-workflows`.
 
 ## workspace-dependency-check
 
@@ -85,9 +85,9 @@ Release modes are `bump`, `exact`, and `package-json`. `package-json` reads the 
 ## workspace-publish
 
 ```sh
-workspace-publish [package] [--registry=github|npm|both] [--tag=latest] [--access=public|restricted] [--dry-run] [--with-dependencies] [--no-verify-git-tag]
+workspace-publish [package] [--registry=npm|github|all|both] [--tag=latest] [--access=public|restricted] [--dry-run] [--with-dependencies] [--no-verify-git-tag]
 ```
 
-Matching Git release tag verification defaults to enabled. A real publish requires `<package-directory>@<package.json.version>` to point to `HEAD`.
+The default publishing destination is public npm (`registry.npmjs.org`). GitHub Packages is opt-in through `--registry=github`; `both` is a compatibility alias for `all`. Matching Git release tag verification defaults to enabled. A real publish requires `<package-directory>@<package.json.version>` to point to `HEAD`.
 
 `--dry-run` never publishes to a registry. With a selector it previews that package; without a selector it previews every publishable package.

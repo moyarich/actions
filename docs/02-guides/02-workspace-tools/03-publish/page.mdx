@@ -20,15 +20,15 @@ workspace-publish --dry-run
 workspace-publish --dry-run --json
 ```
 
-Preview a publish and inspect the suggested distribution tag:
+Preview a public npm publish (the default destination) and inspect the suggested distribution tag:
 
 ```sh
-workspace-publish css-expand-collapse --registry=github --dry-run --json
+workspace-publish css-expand-collapse --registry=npm --dry-run --json
 ```
 
 For stable versions the preview suggests `latest`; prerelease versions suggest their prerelease identifier. Suggestions are informational only.
 
-Publish to GitHub Packages by explicitly accepting or choosing a tag:
+Publish to GitHub Packages (optional) by explicitly selecting it and choosing a tag:
 
 ```sh
 workspace-publish css-expand-collapse --registry=github --tag=latest
@@ -49,6 +49,8 @@ workspace-publish css-expand-collapse --no-verify-git-tag
 ```
 
 If the matching tag is valid but the package version already exists in the selected registry, that destination is skipped with reason `already-published`.
+
+Public npm (`registry.npmjs.org`) is the default. GitHub Packages (`npm.pkg.github.com`) is a separate, optional destination with its own permissions. Selecting `--registry=github` does not change where the CLI itself is installed from.
 
 Use `--registry=all` for all supported destinations. The legacy `--registry=both` alias remains accepted by the CLI for compatibility. `--tag=<tag>` controls the npm distribution tag and `--access=public|restricted` controls access. A real publish is blocked when `--tag` is omitted so `latest` is never moved implicitly.
 

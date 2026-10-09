@@ -8,15 +8,15 @@ description: Install and use the Workspace Tools CLI package.
 Install the package:
 
 ```sh
-npm install @moyarich/workspace-tools
+npm install --save-dev @moyarich/workspace-tools
 ```
 
-Run commands through npm scripts, `npx`, or the installed package binaries.
+Run installed commands from the project using `npm exec --` (or npm scripts). Public npm is the default registry; no GitHub Packages token is required.
 
 ```sh
-npx discover-packages --workspaces --json
-npx workspace-dependency-check .
-npx workspace-release . --mode=package-json
+npm exec -- discover-packages --workspaces --json
+npm exec -- workspace-dependency-check .
+npm exec -- workspace-release . --mode=package-json --dry-run
 ```
 
 Reusable GitHub workflows are maintained separately in `moyarich/reusable-workflows`.
