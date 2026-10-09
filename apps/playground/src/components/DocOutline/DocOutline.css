@@ -27,7 +27,7 @@
   --_doc-outline-active-background: #f2f3fc;
 
   /* Private, derived offset centers the active marker on the TOC rail. */
-  --_marker-offset: calc(
+  --_doc-outline-marker-offset: calc(
     0px - var(--_doc-outline-padding-left) -
       (var(--_doc-outline-border-width) + var(--_doc-outline-marker-width)) / 2
   );
@@ -77,7 +77,7 @@
   content: "";
   position: absolute;
   /* Align the marker's center with the left border's center. */
-  left: var(--_marker-offset);
+  left: var(--_doc-outline-marker-offset);
   top: var(--_doc-outline-marker-inset-block);
   bottom: var(--_doc-outline-marker-inset-block);
   width: var(--_doc-outline-marker-width);
