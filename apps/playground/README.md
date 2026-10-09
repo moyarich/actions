@@ -1,19 +1,72 @@
-# Actions playground
+# Workspace Tools documentation playground
 
-Private React/Vite playground for browsing the reusable workflow examples in
-`moyarich/workspace-tools`.
+React/Vite documentation viewer for Workspace Tools. It renders the canonical MDX pages from root `docs/**/page.mdx` and `examples/**/page.mdx`—those files remain the content sources.
+
+The interface uses a compact header, left documentation navigation, a readable article column, and an automatically generated right-hand **On this page** outline. Headings (`h2`/`h3`) become deep links and the active section is tracked while scrolling. At narrower widths the outline is hidden and navigation becomes scrollable.
 
 ## Development
 
 From the repository root:
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
-Build the playground with:
+Build the playground:
 
 ```sh
 npm run build:playground
 ```
+
+Add or change sections by editing the authoritative docs/examples MDX files, not separate playground copies.
+
+## Tabbed code examples
+
+Use `<CodeGroup>` and `<CodeTab label="...">` directly in canonical MDX documentation. Put a fenced Markdown code block inside each tab. The MDX build highlights those fenced blocks with Shiki; no separate code string or client-side syntax highlighter is needed.
+
+```mdx
+<CodeGroup>
+<CodeTab label="npm">
+
+\`\`\`sh
+npm exec -- workspace-publish . --registry=npm --dry-run
+\`\`\`
+
+</CodeTab>
+<CodeTab label="GitHub Packages">
+
+\`\`\`sh
+npm exec -- workspace-publish . --registry=github --dry-run
+\`\`\`
+
+</CodeTab>
+</CodeGroup>
+```
+
+Tabs support mouse selection, Left/Right arrow keys, Home, and End. Keep full code examples in `docs/` or `examples/` rather than duplicating them in the React application.
+
+## Monaco editor code tabs
+
+MDX is React, so it can also render the `<MonacoCodeGroup />` React component directly. Unlike `<CodeGroup>`, this uses the existing Monaco editor and accepts file definitions with syntax languages. Enable editing with `editable`; the default is read-only. Each tab has its own editor model, so switching files preserves in-session edits.
+
+```mdx
+<MonacoCodeGroup
+  editable
+  height={220}
+  files={[
+    {
+      name: "npm.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=npm --dry-run",
+    },
+    {
+      name: "github.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=github --dry-run",
+    },
+  ]}
+/>
+```
+
+Use Shiki-backed `CodeGroup` for ordinary static documentation snippets (lightweight, pre-rendered) and `MonacoCodeGroup` when readers benefit from switching complete files or editing example code.

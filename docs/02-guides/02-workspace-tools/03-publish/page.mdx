@@ -5,6 +5,48 @@ description: Validate and publish workspace packages with release-tag guardrails
 
 # Publishing workspace packages
 
+## Monaco editor tabs
+
+For a richer file-switching example, this React component embeds Monaco directly in MDX. Select a tab to inspect the npm and GitHub Packages commands; editing is enabled for experimentation.
+
+<MonacoCodeGroup
+  editable
+  height={220}
+  files={[
+    {
+      name: "publish-npm.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=npm --dry-run\n",
+    },
+    {
+      name: "publish-github.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=github --dry-run\n",
+    },
+  ]}
+/>
+
+## Registry examples
+
+Switch between public npm (the default) and optional GitHub Packages. Both examples are previews and do not publish anything.
+
+<CodeGroup>
+<CodeTab label="Public npm">
+
+```sh
+npm exec -- workspace-publish . --registry=npm --dry-run
+```
+
+</CodeTab>
+<CodeTab label="GitHub Packages">
+
+```sh
+npm exec -- workspace-publish . --registry=github --dry-run
+```
+
+</CodeTab>
+</CodeGroup>
+
 Validate without publishing:
 
 ```sh
