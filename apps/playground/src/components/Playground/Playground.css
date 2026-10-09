@@ -1,6 +1,7 @@
 .example-playground {
   margin: var(--playground-margin, 1.5rem 0);
-  border: var(--playground-border-width, 1px) solid var(--playground-border-color, #e0e4ed);
+  border: var(--playground-border-width, 1px) solid
+    var(--playground-border-color, #e0e4ed);
   border-radius: var(--playground-radius, 0.75rem);
   overflow: hidden;
   background: var(--playground-background, #fff);
@@ -11,7 +12,8 @@
   gap: var(--playground-tab-gap, 0.25rem);
   padding: var(--playground-tabs-padding, 0.5rem);
   background: var(--playground-tabs-background, #f7f8fb);
-  border-bottom: var(--playground-border-width, 1px) solid var(--playground-border-color, #e0e4ed);
+  border-bottom: var(--playground-border-width, 1px) solid
+    var(--playground-border-color, #e0e4ed);
 }
 
 .example-playground-tabs button {

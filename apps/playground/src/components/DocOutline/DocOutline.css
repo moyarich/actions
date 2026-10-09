@@ -5,7 +5,8 @@
   max-height: var(--doc-outline-max-height, calc(100vh - 125px));
   overflow-y: auto;
   padding-left: var(--doc-outline-padding-left, 1rem);
-  border-left: var(--doc-outline-border-width, 1px) solid var(--doc-outline-border-color, #e6e8f0);
+  border-left: var(--doc-outline-border-width, 1px) solid
+    var(--doc-outline-border-color, #e6e8f0);
 }
 
 .doc-outline-title {
@@ -26,7 +27,8 @@
   color: var(--doc-outline-link-color, #69758b);
   font-size: var(--doc-outline-link-font-size, 0.79rem);
   line-height: var(--doc-outline-link-line-height, 1.45);
-  padding: var(--doc-outline-link-padding-block, 0.32rem) var(--doc-outline-link-padding-inline, 0.55rem);
+  padding: var(--doc-outline-link-padding-block, 0.32rem)
+    var(--doc-outline-link-padding-inline, 0.55rem);
   text-decoration: none;
   border-radius: var(--doc-outline-link-radius, 0.3rem);
 }
@@ -43,7 +45,14 @@
   content: "";
   position: absolute;
   /* Align the marker's center with the left border's center. */
-  left: calc(-1 * var(--doc-outline-padding-left, 1rem) - (var(--doc-outline-border-width, 1px) + var(--doc-outline-marker-width, 2px)) / 2);
+  left: calc(
+    -1 * var(--doc-outline-padding-left, 1rem) -
+      (
+        var(--doc-outline-border-width, 1px) +
+          var(--doc-outline-marker-width, 2px)
+      ) /
+      2
+  );
   top: var(--doc-outline-marker-inset-block, 0.15rem);
   bottom: var(--doc-outline-marker-inset-block, 0.15rem);
   width: var(--doc-outline-marker-width, 2px);

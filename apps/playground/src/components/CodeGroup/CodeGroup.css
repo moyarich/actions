@@ -1,7 +1,8 @@
 /* Tabbed examples retain Shiki's build-time highlighting inside each panel. */
 .code-group {
   margin: var(--code-group-margin, 1.5rem 0);
-  border: var(--code-group-border-width, 1px) solid var(--code-group-border-color, #30394d);
+  border: var(--code-group-border-width, 1px) solid
+    var(--code-group-border-color, #30394d);
   border-radius: var(--code-group-radius, 0.7rem);
   overflow: hidden;
   background: var(--code-group-background, #171e30);
@@ -12,7 +13,8 @@
   align-items: stretch;
   padding: var(--code-group-tabs-padding, 0.3rem 0.7rem 0);
   background: var(--code-group-tabs-background, #20283a);
-  border-bottom: var(--code-group-tabs-border-width, 1px) solid var(--code-group-tabs-border-color, #364158);
+  border-bottom: var(--code-group-tabs-border-width, 1px) solid
+    var(--code-group-tabs-border-color, #364158);
   overflow-x: auto;
 }
 
@@ -41,7 +43,8 @@
 }
 
 .code-group-tabs button:focus-visible {
-  outline: var(--code-group-focus-width, 2px) solid var(--code-group-focus-color, #a5b4fc);
+  outline: var(--code-group-focus-width, 2px) solid
+    var(--code-group-focus-color, #a5b4fc);
   outline-offset: var(--code-group-focus-offset, -3px);
 }
 
