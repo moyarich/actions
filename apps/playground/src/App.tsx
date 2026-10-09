@@ -161,6 +161,7 @@ function ContentRoute() {
         >
           <Page />
         </MDXProvider>
+        <footer className="article-footer"><a href={`https://github.com/moyarich/workspace-tools/edit/main/${page.sourcePath}`} target="_blank" rel="noreferrer">Edit this page ↗</a></footer>
       </article>
       <DocOutline headings={headings} />
     </div>
