@@ -1,6 +1,6 @@
 ---
 title: Public changelog and release notes
-description: Rules for keeping changelog entries and GitHub Releases focused on changes that matter to reusable-workflow consumers.
+description: Rules for keeping changelog entries and GitHub Releases focused on changes that matter to Workspace Tools CLI users.
 ---
 
 # Public changelog and release notes
@@ -9,8 +9,8 @@ Treat `CHANGELOG.md` and GitHub Releases as consumer-facing documentation.
 
 A reader should be able to answer:
 
-- Which reusable workflows are available?
-- What can each workflow do?
+- Which CLI commands are available?
+- What can each command do?
 - What new behavior, options, compatibility, or fixes are available to callers?
 - Does a change require callers to do anything differently?
 
@@ -20,13 +20,13 @@ Document changes to the reusable workflows that callers can use or observe.
 
 Include:
 
-- new reusable workflows;
+- new CLI commands;
 - new supported use cases;
-- new or changed workflow inputs, outputs, secrets, permissions, or configuration;
-- meaningful workflow behavior changes;
+- new or changed CLI options, output formats, supported environments, or user-facing configuration;
+- meaningful CLI behavior changes;
 - compatibility improvements;
-- caller-visible bug fixes; and
-- breaking changes or migration steps required by callers.
+- user-visible bug fixes; and
+- breaking changes or migration steps required by package consumers.
 
 Do not include changes that do not affect consumers, such as repository maintenance, documentation-only housekeeping, test changes, formatting changes, or other work with no caller-visible effect.
 
@@ -34,9 +34,9 @@ Write entries in terms of what a caller can now do or what behavior changed.
 
 ## Initial release
 
-The first release should be a concise capability overview of the reusable workflows.
+The first release should be a concise capability overview of Workspace Tools.
 
-Group related workflows so consumers can quickly understand the available CI, package, release, publishing, Pages, and repository-tooling capabilities. Avoid narrating the repository's development history.
+Group commands by package discovery, dependency validation, lockfile maintenance, release, publishing, and GitHub issue tooling. Avoid narrating the repository's development history.
 
 ## Initial release draft
 
@@ -61,15 +61,15 @@ Once a release draft exists, preserve it.
 - Updating the release version, tag, or name must not discard the existing body.
 - Dry-run previews must show the proposed result without changing the draft.
 
-A pull request belongs in the public draft only when it changes something reusable-workflow consumers can use or observe.
+A pull request belongs in the public draft only when it changes something Workspace Tools consumers can use or observe.
 
 ## Review checklist
 
 Before publishing a release, verify that:
 
-- every entry describes a reusable workflow capability or caller-visible change;
-- the available workflows and their purpose are easy to understand;
-- new inputs, outputs, supported use cases, compatibility changes, and meaningful fixes are represented;
+- every entry describes a CLI capability or user-visible change;
+- the available commands and their purpose are easy to understand;
+- new CLI commands, options, supported use cases, compatibility changes, and meaningful fixes are represented;
 - repository-only maintenance is absent;
 - existing draft text has been preserved;
 - newly added pull-request entries are release-worthy and not duplicated; and
