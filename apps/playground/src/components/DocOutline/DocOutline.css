@@ -22,6 +22,7 @@
 
 .doc-outline nav a {
   display: block;
+  position: relative;
   color: #69758b;
   font-size: 0.79rem;
   line-height: 1.45;
@@ -36,6 +37,17 @@
 
 .doc-outline nav a:hover {
   color: #384ca3;
+}
+
+.doc-outline nav a.active::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  width: 2px;
+  border-radius: 2px;
+  background: #3549a6;
 }
 
 .doc-outline nav a.active {
