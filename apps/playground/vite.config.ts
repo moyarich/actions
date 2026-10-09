@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import mdx from "@mdx-js/rollup";
 import react from "@vitejs/plugin-react";
 import remarkFrontmatter from "remark-frontmatter";
+import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
 import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 import { defineConfig } from "vite";
@@ -15,6 +16,7 @@ export default defineConfig({
       enforce: "pre",
       ...mdx({
         providerImportSource: "@mdx-js/react",
+        rehypePlugins: [[rehypePrettyCode, { theme: "github-dark", keepBackground: false }]],
         remarkPlugins: [
           remarkFrontmatter,
           remarkGfm,
