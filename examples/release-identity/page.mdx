@@ -48,8 +48,10 @@ When exact source provenance is unavailable, compare the candidate commit with t
 ```sh
 npm exec -- workspace-release-identity restore-equivalence . \
   --commit 8b4539e214afc9d87dfbad3e52243e4426c26179 \
-  --registry https://npm.pkg.github.com \
+  --registry https://registry.npmjs.org \
   --pretty-json
 ```
 
 You can repeat `--registry` for multiple published copies. A match from any supplied published registry proves artifact equivalence; other mismatches or lookup failures remain visible in the result.
+
+The registry in `restore-equivalence` selects an existing published artifact for comparison; public npm and GitHub Packages are separate destinations. Supply each registry explicitly when comparing multiple copies.
