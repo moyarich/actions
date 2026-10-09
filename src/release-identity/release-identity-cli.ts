@@ -1,4 +1,4 @@
-import { Argument, Option, program } from "commander";
+import { Option, program } from "commander";
 import { releaseIdentity } from "../release-identity/release-identity.ts";
 import { verifyRestoreArtifactEquivalenceAny } from "../release-identity/restore-equivalence.ts";
 import { resolveRestoreSource } from "../release-identity/restore-source.ts";
@@ -15,19 +15,15 @@ program
 
 if (restoreSourceMode) {
   program
-    .addArgument(
-      new Argument(
-        "<source>",
-        "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>",
-      ),
-    )
+    .requiredOption("--source <source>", "commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<url>")
     .requiredOption(
       "--repository <owner/name>",
       "GitHub repository used for run, artifact, and github-url resolution",
     )
     .option("--json", "Print compact JSON")
     .option("--pretty-json", "Print formatted JSON")
-    .action((source, options) => {
+    .action((options) => {
+      const source = options.source;
       const resolution = resolveRestoreSource(source, options.repository);
 
       if (options.json) process.stdout.write(JSON.stringify(resolution));
@@ -54,7 +50,7 @@ if (restoreSourceMode) {
   ]);
 } else if (restoreEquivalenceMode) {
   program
-    .addArgument(new Argument("<package>", "Workspace package selector"))
+    .requiredOption("--package <selector>", "Workspace package selector")
     .requiredOption("--commit <sha>", "Candidate historical commit")
     .addOption(
       new Option(
@@ -66,7 +62,8 @@ if (restoreSourceMode) {
     )
     .option("--json", "Print compact JSON")
     .option("--pretty-json", "Print formatted JSON")
-    .action((selector, options) => {
+    .action((options) => {
+      const selector = options.package;
       if (!Array.isArray(options.registry) || options.registry.length === 0) {
         throw new Error("At least one --registry <url> is required.");
       }
