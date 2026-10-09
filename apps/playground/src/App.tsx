@@ -16,9 +16,15 @@ import {
   useLocation,
 } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
-import { Playground, MonacoCodeGroup } from "./components/Playground/Playground";
+import {
+  Playground,
+  MonacoCodeGroup,
+} from "./components/Playground/Playground";
 import { CodeGroup, CodeTab } from "./components/CodeGroup/CodeGroup";
-import { DocOutline, type OutlineItem } from "./components/DocOutline/DocOutline";
+import {
+  DocOutline,
+  type OutlineItem,
+} from "./components/DocOutline/DocOutline";
 import { DocsLayout } from "./components/DocsLayout/DocsLayout";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
