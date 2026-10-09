@@ -1,6 +1,5 @@
 /* Tabbed examples retain Shiki's build-time highlighting inside each panel. */
 .code-group {
-  /* Private component tokens: copy this directory without global defaults. */
   --_code-group-margin: var(--code-group-margin, 1.5rem 0);
   --_code-group-border-width: var(--code-group-border-width, 1px);
   --_code-group-border-color: var(--code-group-border-color, #30394d);
