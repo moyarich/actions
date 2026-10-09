@@ -5,6 +5,28 @@ description: Validate and publish workspace packages with release-tag guardrails
 
 # Publishing workspace packages
 
+## Registry examples
+
+Switch between public npm (the default) and optional GitHub Packages. Both examples are previews and do not publish anything.
+
+<CodeGroup>
+<CodeTab label="Public npm">
+
+```sh
+npm exec -- workspace-publish . --registry=npm --dry-run
+```
+
+</CodeTab>
+<CodeTab label="GitHub Packages">
+
+```sh
+npm exec -- workspace-publish . --registry=github --dry-run
+```
+
+</CodeTab>
+</CodeGroup>
+
+
 Validate without publishing:
 
 ```sh
