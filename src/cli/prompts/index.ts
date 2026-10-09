@@ -27,8 +27,8 @@ export async function selectMany<T extends string>(
   if (hasFzf()) {
     const result = spawnSync(
       "fzf",
-      ["--multi", "--delimiter=\\t", "--with-nth=2..", "--prompt", message + "> ", "--header", "TAB toggles selection; ENTER confirms"],
-      { input: choices.map((choice, i) => `${i}\\t${choice.name}`).join("\n") + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "inherit"] },
+      ["--multi", "--delimiter=\t", "--with-nth=2..", "--prompt", message + "> ", "--header", "TAB toggles selection; ENTER confirms"],
+      { input: choices.map((choice, i) => `${i}\t${choice.name}`).join("\n") + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "inherit"] },
     );
     if (result.status === 1 || result.status === 130) return [];
     if (result.error || result.status !== 0) throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
