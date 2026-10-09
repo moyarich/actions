@@ -15,6 +15,7 @@ export default defineConfig({
     {
       enforce: "pre",
       ...mdx({
+        include: /\.(?:md|mdx)$/,
         providerImportSource: "@mdx-js/react",
         rehypePlugins: [
           [rehypePrettyCode, { theme: "github-dark", keepBackground: false }],
