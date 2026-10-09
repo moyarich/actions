@@ -66,4 +66,3 @@ export function DocOutline({ headings }: { headings: OutlineItem[] }) {
     </aside>
   );
 }
-

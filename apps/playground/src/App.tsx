@@ -23,7 +23,6 @@ import { DocsLayout } from "./components/DocsLayout";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
-
 function resolveMdxHref(page: ContentPage, href?: string) {
   if (!href) return null;
   // HashRouter owns the fragment. A plain #heading would replace the whole route.
