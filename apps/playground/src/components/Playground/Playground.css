@@ -12,7 +12,10 @@
   --_playground-tab-radius: var(--playground-tab-radius, 0.4rem);
   --_playground-tab-color: var(--playground-tab-color, #5c687c);
   --_playground-tab-active-color: var(--playground-tab-active-color, #3045a2);
-  --_playground-tab-active-background: var(--playground-tab-active-background, #fff);
+  --_playground-tab-active-background: var(
+    --playground-tab-active-background,
+    #fff
+  );
 
   margin: var(--_playground-margin);
   border: var(--_playground-border-width) solid var(--_playground-border-color);

@@ -13,18 +13,33 @@
   --_doc-outline-link-color: var(--doc-outline-link-color, #69758b);
   --_doc-outline-link-font-size: var(--doc-outline-link-font-size, 0.79rem);
   --_doc-outline-link-line-height: var(--doc-outline-link-line-height, 1.45);
-  --_doc-outline-link-padding-block: var(--doc-outline-link-padding-block, 0.32rem);
-  --_doc-outline-link-padding-inline: var(--doc-outline-link-padding-inline, 0.55rem);
+  --_doc-outline-link-padding-block: var(
+    --doc-outline-link-padding-block,
+    0.32rem
+  );
+  --_doc-outline-link-padding-inline: var(
+    --doc-outline-link-padding-inline,
+    0.55rem
+  );
   --_doc-outline-link-radius: var(--doc-outline-link-radius, 0.3rem);
-  --_doc-outline-nested-padding-left: var(--doc-outline-nested-padding-left, 1.4rem);
+  --_doc-outline-nested-padding-left: var(
+    --doc-outline-nested-padding-left,
+    1.4rem
+  );
   --_doc-outline-hover-color: var(--doc-outline-hover-color, #384ca3);
   --_doc-outline-marker-width: var(--doc-outline-marker-width, 2px);
-  --_doc-outline-marker-inset-block: var(--doc-outline-marker-inset-block, 0.15rem);
+  --_doc-outline-marker-inset-block: var(
+    --doc-outline-marker-inset-block,
+    0.15rem
+  );
   --_doc-outline-marker-radius: var(--doc-outline-marker-radius, 2px);
   --_doc-outline-marker-color: var(--doc-outline-marker-color, #3549a6);
   --_doc-outline-active-color: var(--doc-outline-active-color, #3549a6);
   --_doc-outline-active-font-weight: var(--doc-outline-active-font-weight, 650);
-  --_doc-outline-active-background: var(--doc-outline-active-background, #f2f3fc);
+  --_doc-outline-active-background: var(
+    --doc-outline-active-background,
+    #f2f3fc
+  );
 
   /* Private, derived offset centers the active marker on the TOC rail. */
   --_doc-outline-marker-offset: calc(

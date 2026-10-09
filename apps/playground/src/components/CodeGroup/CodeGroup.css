@@ -16,8 +16,14 @@
   --_code-group-tab-color: var(--code-group-tab-color, #aeb9ce);
   --_code-group-tab-font-size: var(--code-group-tab-font-size, 0.81rem);
   --_code-group-tab-active-color: var(--code-group-tab-active-color, #fff);
-  --_code-group-tab-indicator-color: var(--code-group-tab-indicator-color, #a5b4fc);
-  --_code-group-tab-active-font-weight: var(--code-group-tab-active-font-weight, 650);
+  --_code-group-tab-indicator-color: var(
+    --code-group-tab-indicator-color,
+    #a5b4fc
+  );
+  --_code-group-tab-active-font-weight: var(
+    --code-group-tab-active-font-weight,
+    650
+  );
   --_code-group-focus-width: var(--code-group-focus-width, 2px);
   --_code-group-focus-color: var(--code-group-focus-color, #a5b4fc);
   --_code-group-focus-offset: var(--code-group-focus-offset, -3px);
