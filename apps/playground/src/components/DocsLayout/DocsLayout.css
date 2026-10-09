@@ -1,5 +1,4 @@
 .article-layout {
-  /* Private component tokens: copy this directory without global defaults. */
   --_docs-layout-content-width: var(--docs-layout-content-width, 760px);
   --_docs-layout-toc-min-width: var(--docs-layout-toc-min-width, 175px);
   --_docs-layout-toc-max-width: var(--docs-layout-toc-max-width, 220px);
