@@ -45,3 +45,20 @@ npm exec -- workspace-publish . --registry=github --dry-run
 ```
 
 Tabs support mouse selection, Left/Right arrow keys, Home, and End. Keep full code examples in `docs/` or `examples/` rather than duplicating them in the React application.
+
+## Monaco editor code tabs
+
+MDX is React, so it can also render the `<MonacoCodeGroup />` React component directly. Unlike `<CodeGroup>`, this uses the existing Monaco editor and accepts file definitions with syntax languages. Enable editing with `editable`; the default is read-only. Each tab has its own editor model, so switching files preserves in-session edits.
+
+```mdx
+<MonacoCodeGroup
+  editable
+  height={220}
+  files={[
+    { name: "npm.sh", language: "shell", source: "npm exec -- workspace-publish . --registry=npm --dry-run" },
+    { name: "github.sh", language: "shell", source: "npm exec -- workspace-publish . --registry=github --dry-run" },
+  ]}
+/>
+```
+
+Use Shiki-backed `CodeGroup` for ordinary static documentation snippets (lightweight, pre-rendered) and `MonacoCodeGroup` when readers benefit from switching complete files or editing example code.
