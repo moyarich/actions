@@ -28,7 +28,7 @@ Set `GITHUB_TOKEN` to a GitHub token with permission to read packages before ins
 
 ## Usage
 
-Run any command through `npm exec`:
+Run any command through `npm exec`. Package selection uses named `--package` options; in a terminal, release and publish commands prompt for missing selections, while CI and JSON invocations must be explicit:
 
 ```sh
 npm exec -- <command> [arguments] [options]
@@ -39,9 +39,9 @@ npm exec -- <command> [arguments] [options]
 | `discover-packages`          | Find packages in a repository or workspace            | `npm exec -- discover-packages --workspaces --include-root-package`         |
 | `workspace-dependency-check` | Check dependency versions across a workspace          | `npm exec -- workspace-dependency-check --all`                              |
 | `workspace-package-lock`     | Review or regenerate the root `package-lock.json`     | `npm exec -- workspace-package-lock --dry-run`                              |
-| `workspace-release`          | Decide which version to release                       | `npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run` |
-| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity . --pretty-json`                    |
-| `workspace-publish`          | Validate and publish a package                        | `npm exec -- workspace-publish . --dry-run`                                 |
+| `workspace-release`          | Decide which version to release                       | `npm exec -- workspace-release --package . --mode bump --version patch --dry-run` |
+| `workspace-release-identity` | Resolve the canonical Git tag and GitHub Release name | `npm exec -- workspace-release-identity --package . --pretty-json`                    |
+| `workspace-publish`          | Validate and publish a package                        | `npm exec -- workspace-publish --package . --dry-run`                                 |
 | `issue-dependency-tree`      | See which GitHub issues block other issues            | `npm exec -- issue-dependency-tree`                                         |
 
 Every command documents its full arguments and options through `--help`:
@@ -128,13 +128,13 @@ A typical flow:
 
 ```sh
 # 1. Resolve or prepare the package version
-npm exec -- workspace-release . --mode=package-json --dry-run
+npm exec -- workspace-release --package . --mode package-json --dry-run
 
 # 2. Resolve the canonical tag and GitHub Release name
-npm exec -- workspace-release-identity . --pretty-json
+npm exec -- workspace-release-identity --package . --pretty-json
 
 # 3. Validate the package artifact before publishing
-npm exec -- workspace-publish . --dry-run
+npm exec -- workspace-publish --package . --dry-run
 ```
 
 Remove `--dry-run` when you are ready to perform the operation.
@@ -151,10 +151,10 @@ Remove `--dry-run` when you are ready to perform the operation.
 
 ```sh
 # Use the package.json version
-npm exec -- workspace-release . --mode=package-json --dry-run
+npm exec -- workspace-release --package . --mode package-json --dry-run
 
 # Preview a patch release
-npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run
+npm exec -- workspace-release --package . --mode bump --version patch --dry-run
 ```
 
 ### Resolve release identity
@@ -162,7 +162,7 @@ npm exec -- workspace-release workspace-tools=patch --mode=bump --dry-run
 `workspace-release-identity` resolves the canonical package name, version, Git tag, and GitHub Release name, so release automation has one authoritative source for naming. Run it once the package and version are known.
 
 ```sh
-npm exec -- workspace-release-identity . --pretty-json
+npm exec -- workspace-release-identity --package . --pretty-json
 ```
 
 For example, `@moyarich/workspace-tools` version `0.1.0` resolves to the tag:
@@ -176,7 +176,7 @@ For example, `@moyarich/workspace-tools` version `0.1.0` resolves to the tag:
 `workspace-publish` validates publishing readiness and publishes the canonical package artifact. A dry run builds the artifact without sending it to a registry.
 
 ```sh
-npm exec -- workspace-publish . --dry-run
+npm exec -- workspace-publish --package . --dry-run
 ```
 
 Supported options include:
