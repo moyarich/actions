@@ -1,4 +1,10 @@
-import { Children, isValidElement, useId, useState, type ReactNode } from "react";
+import {
+  Children,
+  isValidElement,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 
 /**
  * A syntax-highlighted code panel. Write a fenced Markdown code block inside
@@ -25,7 +31,11 @@ export function CodeGroup({ children }: { children: ReactNode }) {
   const active = Math.min(selected, tabs.length - 1);
   return (
     <div className="code-group">
-      <div className="code-group-tabs" role="tablist" aria-label="Code examples">
+      <div
+        className="code-group-tabs"
+        role="tablist"
+        aria-label="Code examples"
+      >
         {tabs.map((tab, index) => (
           <button
             key={index}
@@ -37,13 +47,24 @@ export function CodeGroup({ children }: { children: ReactNode }) {
             aria-controls={`${id}-panel-${index}`}
             onClick={() => setSelected(index)}
             onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
               event.preventDefault();
-              const next = event.key === "Home" ? 0
-                : event.key === "End" ? tabs.length - 1
-                : (active + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+              const next =
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? tabs.length - 1
+                    : (active +
+                        (event.key === "ArrowRight" ? 1 : -1) +
+                        tabs.length) %
+                      tabs.length;
               setSelected(next);
-              event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+              event.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                [next]?.focus();
             }}
           >
             {tab.label}
