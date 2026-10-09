@@ -71,7 +71,7 @@ jobs:
       use-workspaces: true
       include-root-package: true
       require-publish-config: true
-      workspace-tools-source: workspace
+      workspace-tools-source: checkout:current
 
   select-packages:
     name: Select packages for drafting
