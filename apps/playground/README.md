@@ -55,8 +55,16 @@ MDX is React, so it can also render the `<MonacoCodeGroup />` React component di
   editable
   height={220}
   files={[
-    { name: "npm.sh", language: "shell", source: "npm exec -- workspace-publish . --registry=npm --dry-run" },
-    { name: "github.sh", language: "shell", source: "npm exec -- workspace-publish . --registry=github --dry-run" },
+    {
+      name: "npm.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=npm --dry-run",
+    },
+    {
+      name: "github.sh",
+      language: "shell",
+      source: "npm exec -- workspace-publish . --registry=github --dry-run",
+    },
   ]}
 />
 ```

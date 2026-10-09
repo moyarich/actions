@@ -13,7 +13,11 @@ type PlaygroundProps = {
   height?: number;
 };
 
-export function Playground({ files, editable = false, height = 360 }: PlaygroundProps) {
+export function Playground({
+  files,
+  editable = false,
+  height = 360,
+}: PlaygroundProps) {
   const [activeName, setActiveName] = useState(files[0]?.name ?? "");
   const activeFile = useMemo(
     () => files.find((file) => file.name === activeName) ?? files[0],
