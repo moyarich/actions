@@ -65,6 +65,7 @@
     "workspace-release-identity": "dist/bin/workspace-release-identity.mjs"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
     "semver": "^7.7.3"
   }
 }
