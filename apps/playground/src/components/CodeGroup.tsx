@@ -5,12 +5,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import "./CodeGroup.css";
 
 /**
  * A syntax-highlighted code panel. Write a fenced Markdown code block inside
  * CodeTab so the MDX compiler passes it through Shiki at build time.
  */
-import "./CodeGroup.css";
 export function CodeTab({ children }: { label: string; children: ReactNode }) {
   return <>{children}</>;
 }
