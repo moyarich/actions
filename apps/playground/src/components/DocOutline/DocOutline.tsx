@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
 import "./DocOutline.css";
 
 export type OutlineItem = { id: string; title: string; depth: 2 | 3 };
 
-export function DocOutline({ headings }: { headings: OutlineItem[] }) {
-  const location = useLocation();
+export function DocOutline({
+  headings,
+  hrefForHeading = (id) => `#${id}`,
+}: {
+  headings: OutlineItem[];
+  hrefForHeading?: (id: string) => string;
+}) {
   const [active, setActive] = useState<string>("");
   const scrollingTo = useRef<string | null>(null);
   useEffect(() => {
@@ -46,9 +50,9 @@ export function DocOutline({ headings }: { headings: OutlineItem[] }) {
       <p className="doc-outline-title">On this page</p>
       <nav>
         {headings.map((heading) => (
-          <Link
+          <a
             key={heading.id}
-            to={`${location.pathname}#${heading.id}`}
+            href={hrefForHeading(heading.id)}
             onClick={() => {
               scrollingTo.current = heading.id;
               setActive(heading.id);
@@ -60,7 +64,7 @@ export function DocOutline({ headings }: { headings: OutlineItem[] }) {
             aria-current={active === heading.id ? "location" : undefined}
           >
             {heading.title}
-          </Link>
+          </a>
         ))}
       </nav>
     </aside>
