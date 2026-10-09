@@ -74,9 +74,11 @@ function MdxLink({
 function DocOutline({ headings }: { headings: OutlineItem[] }) {
   const location = useLocation();
   const [active, setActive] = useState<string>("");
+  const scrollingTo = useRef<string | null>(null);
   useEffect(() => {
     if (!headings.length) return;
     const update = () => {
+      if (scrollingTo.current) return;
       let next = headings[0].id;
       for (const heading of headings) {
         const element = document.getElementById(heading.id);
@@ -93,9 +95,15 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
     update();
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    const finishScroll = () => {
+      scrollingTo.current = null;
+      update();
+    };
+    window.addEventListener("scrollend", finishScroll);
     return () => {
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      window.removeEventListener("scrollend", finishScroll);
     };
   }, [headings]);
 
@@ -108,7 +116,10 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
           <Link
             key={heading.id}
             to={`${location.pathname}#${heading.id}`}
-            onClick={() => setActive(heading.id)}
+            onClick={() => {
+              scrollingTo.current = heading.id;
+              setActive(heading.id);
+            }}
             className={[
               `depth-${heading.depth}`,
               active === heading.id ? "active" : "",
@@ -177,13 +188,23 @@ function ContentRoute() {
       })
       .filter((entry): entry is OutlineItem => entry !== null);
     setHeadings(entries);
-    if (location.hash) {
-      requestAnimationFrame(() =>
-        document
-          .getElementById(decodeURIComponent(location.hash.slice(1)))
-          ?.scrollIntoView(),
-      );
+  }, [page?.route]);
+
+  useEffect(() => {
+    if (!location.hash) return;
+    let targetId: string;
+    try {
+      targetId = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return;
     }
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [page?.route, location.hash]);
 
   if (!page) {
