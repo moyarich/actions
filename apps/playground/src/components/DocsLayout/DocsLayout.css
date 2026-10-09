@@ -1,15 +1,15 @@
 .article-layout {
   /* Private component tokens: copy this directory without global defaults. */
-  --_docs-layout-content-width: 760px;
-  --_docs-layout-toc-min-width: 175px;
-  --_docs-layout-toc-max-width: 220px;
-  --_docs-layout-gap: clamp(2rem, 4vw, 5rem);
-  --_docs-layout-padding-block-start: 3rem;
-  --_docs-layout-padding-inline: clamp(1.5rem, 4vw, 5rem);
-  --_docs-layout-padding-block-end: 5rem;
-  --_docs-layout-mobile-padding-block-start: 2rem;
-  --_docs-layout-mobile-padding-inline: 1.25rem;
-  --_docs-layout-mobile-padding-block-end: 4rem;
+  --_docs-layout-content-width: var(--docs-layout-content-width, 760px);
+  --_docs-layout-toc-min-width: var(--docs-layout-toc-min-width, 175px);
+  --_docs-layout-toc-max-width: var(--docs-layout-toc-max-width, 220px);
+  --_docs-layout-gap: var(--docs-layout-gap, clamp(2rem, 4vw, 5rem));
+  --_docs-layout-padding-block-start: var(--docs-layout-padding-block-start, 3rem);
+  --_docs-layout-padding-inline: var(--docs-layout-padding-inline, clamp(1.5rem, 4vw, 5rem));
+  --_docs-layout-padding-block-end: var(--docs-layout-padding-block-end, 5rem);
+  --_docs-layout-mobile-padding-block-start: var(--docs-layout-mobile-padding-block-start, 2rem);
+  --_docs-layout-mobile-padding-inline: var(--docs-layout-mobile-padding-inline, 1.25rem);
+  --_docs-layout-mobile-padding-block-end: var(--docs-layout-mobile-padding-block-end, 4rem);
 
   display: grid;
   grid-template-columns:
