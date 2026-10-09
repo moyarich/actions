@@ -1,9 +1,6 @@
 import { MDXProvider } from "@mdx-js/react";
 import { DynamicIcon } from "lucide-react/dynamic";
-import {
-  useMemo,
-  type ComponentPropsWithoutRef,
-} from "react";
+import { useMemo, type ComponentPropsWithoutRef } from "react";
 import {
   Link,
   NavLink,
@@ -93,7 +90,6 @@ function ContentRoute() {
     }),
     [page],
   );
-
 
   if (!page) {
     return (

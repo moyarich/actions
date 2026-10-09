@@ -14,7 +14,10 @@
   display: grid;
   grid-template-columns:
     minmax(0, var(--_docs-layout-content-width))
-    minmax(var(--_docs-layout-toc-min-width), var(--_docs-layout-toc-max-width));
+    minmax(
+      var(--_docs-layout-toc-min-width),
+      var(--_docs-layout-toc-max-width)
+    );
   gap: var(--_docs-layout-gap);
   justify-content: center;
   padding: var(--_docs-layout-padding-block-start)
