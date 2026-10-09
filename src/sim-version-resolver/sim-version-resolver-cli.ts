@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
+import { packageInfo, repositoryRoot } from "../workspace/workspace.ts";
 import { resolveVersionSelection } from "./sim-version-resolver.ts";
 
 const program = new Command();
@@ -12,6 +13,7 @@ program
     "--current-version <version>",
     "Current version; defaults to selected package manifest",
   )
+  .option("--package <selector>", "Workspace package directory or name")
   .option("--package-json <path>", "Package manifest path", "package.json")
   .option("--mode <mode>", "Version mode: bump, package-json, exact", "bump")
   .option(
@@ -27,7 +29,12 @@ program
     }
     let currentVersion = opts.currentVersion;
     if (!currentVersion) {
-      const manifest = JSON.parse(readFileSync(opts.packageJson, "utf8"));
+      const manifestPath = opts.package
+        ? opts.package === "."
+          ? "package.json"
+          : `${packageInfo(repositoryRoot(), opts.package).directory}/package.json`
+        : opts.packageJson;
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
       currentVersion = manifest.version;
     }
     const nextVersion = resolveVersionSelection(

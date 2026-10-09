@@ -65,7 +65,7 @@ test("release accepts both separated and equals option values", () => {
   ]) {
     const result = invoke(
       "dist/bin/workspace-release.mjs",
-      "workspace-tools=patch",
+      "--package=.",
       "--dry-run",
       ...args,
     );
@@ -90,4 +90,27 @@ test("publish CLI accepts all as a registry selection", () => {
   expect(result.status).toBe(0);
   expect(result.stdout).toMatch(/--registry <registry>/);
   expect(result.stderr).not.toMatch(/allowed choices|invalid argument/i);
+});
+
+test("named package selectors replace positional release arguments", () => {
+  const result = invoke(
+    "dist/bin/workspace-release.mjs",
+    ".",
+    "--mode=package-json",
+    "--dry-run",
+  );
+  expect(result.status).toBe(1);
+  expect(result.stderr).toMatch(
+    /too many arguments|excess arguments|unexpected argument/i,
+  );
+});
+
+test("release refuses to prompt for missing named options in non-TTY mode", () => {
+  const result = invoke(
+    "dist/bin/workspace-release.mjs",
+    "--no-interactive",
+    "--dry-run",
+  );
+  expect(result.status).toBe(1);
+  expect(result.stderr).toMatch(/Missing --package/);
 });

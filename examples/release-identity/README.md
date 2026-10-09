@@ -3,7 +3,7 @@
 Resolve the canonical Git tag and GitHub Release name for the root package:
 
 ```sh
-npm exec -- workspace-release-identity . --pretty-json
+npm exec -- workspace-release-identity --package . --pretty-json
 ```
 
 Resolve a Restore Release source to the exact historical commit:

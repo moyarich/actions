@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import fs, { readFileSync } from "node:fs";
+import fs, { readFileSync, existsSync, readdirSync } from "node:fs";
 import { EventEmitter } from "node:events";
-import childProcess from "node:child_process";
-import path from "node:path";
+import childProcess, { execFileSync } from "node:child_process";
+import path, { resolve } from "node:path";
 import process$1 from "node:process";
 import { stripVTControlCharacters } from "node:util";
 class CommanderError extends Error {
@@ -3349,6 +3349,70 @@ function useColor() {
   return void 0;
 }
 new Command();
+function workspacePatterns(root) {
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, "package.json"), "utf8")
+  );
+  const workspaces = Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages;
+  if (!Array.isArray(workspaces)) return [];
+  return workspaces;
+}
+function workspacePackages(root) {
+  const directories = workspacePatterns(root).flatMap((pattern) => {
+    const normalized = pattern.replace(/^\.\//, "").replace(/\/$/, "");
+    if (!normalized.endsWith("/*")) {
+      return existsSync(resolve(root, normalized, "package.json")) ? [normalized] : [];
+    }
+    const parent = normalized.slice(0, -2);
+    const parentDir = resolve(root, parent);
+    if (!existsSync(parentDir)) return [];
+    return readdirSync(parentDir, { withFileTypes: true }).filter(
+      (entry) => entry.isDirectory() && existsSync(resolve(parentDir, entry.name, "package.json"))
+    ).map((entry) => `${parent}/${entry.name}`);
+  });
+  return [...new Set(directories)].map((directory) => {
+    const file = resolve(root, directory, "package.json");
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8")
+    );
+    return { directory, file, manifest };
+  }).filter(
+    (pkg) => typeof pkg.manifest.name === "string" && typeof pkg.manifest.version === "string"
+  );
+}
+function packageInfo(root, selector) {
+  const normalized = selector?.replace(/^\.\//, "");
+  if (normalized === "." || normalized === "") {
+    const file = resolve(root, "package.json");
+    const manifest = JSON.parse(
+      readFileSync(file, "utf8")
+    );
+    if (typeof manifest.name !== "string" || typeof manifest.version !== "string") {
+      throw new Error("Root package.json must define name and version.");
+    }
+    return {
+      directory: ".",
+      file,
+      manifest
+    };
+  }
+  if (normalized === ".." || normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) {
+    throw new Error(
+      `Package selector must identify a workspace package: ${selector}`
+    );
+  }
+  const pkg = workspacePackages(root).find(
+    ({ directory, manifest }) => normalized === directory || normalized === directory.split("/").at(-1) || normalized === manifest.name
+  );
+  if (!pkg) throw new Error(`Package not found: ${selector}`);
+  return pkg;
+}
+function repositoryRoot() {
+  return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  }).trim();
+}
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -5397,7 +5461,7 @@ program.name("sim-version-resolver").description(
 ).option(
   "--current-version <version>",
   "Current version; defaults to selected package manifest"
-).option("--package-json <path>", "Package manifest path", "package.json").option("--mode <mode>", "Version mode: bump, package-json, exact", "bump").option(
+).option("--package <selector>", "Workspace package directory or name").option("--package-json <path>", "Package manifest path", "package.json").option("--mode <mode>", "Version mode: bump, package-json, exact", "bump").option(
   "--selection <selection>",
   "Typed selection, e.g. bump:minor or exact:1.2.3"
 ).option("--bump <type>", "Version increment", "patch").option("--exact-version <version>", "Exact version when --mode exact").option("--json", "Output a machine-readable JSON object").action((opts) => {
@@ -5406,7 +5470,8 @@ program.name("sim-version-resolver").description(
   }
   let currentVersion = opts.currentVersion;
   if (!currentVersion) {
-    const manifest = JSON.parse(readFileSync(opts.packageJson, "utf8"));
+    const manifestPath = opts.package ? opts.package === "." ? "package.json" : `${packageInfo(repositoryRoot(), opts.package).directory}/package.json` : opts.packageJson;
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     currentVersion = manifest.version;
   }
   const nextVersion = resolveVersionSelection(

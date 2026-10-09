@@ -3429,15 +3429,14 @@ function discoverPackages(options) {
   if (root) packages.unshift(root);
   return packages.sort((a, b) => a.name.localeCompare(b.name));
 }
-program.name("discover-packages").description("Discover repository packages and package metadata.").addArgument(
-  new Argument("[directory]", "Packages directory").default("packages")
-).option("--workspaces", "Discover from package.json workspace patterns").option("--include-root-package", "Include the repository root package").option("--include-private", "Include private packages").option("--require-publish-config", "Only include publishable packages").option("--require-test-script", "Only include packages with a test script").option("--require-build-script", "Only include packages with a build script").addOption(
+program.name("discover-packages").description("Discover repository packages and package metadata.").option("--directory <directory>", "Packages directory", "packages").option("--workspaces", "Discover from package.json workspace patterns").option("--include-root-package", "Include the repository root package").option("--include-private", "Include private packages").option("--require-publish-config", "Only include publishable packages").option("--require-test-script", "Only include packages with a test script").option("--require-build-script", "Only include packages with a build script").addOption(
   new Option("--format <format>", "Output format").choices([
     "text",
     "json",
     "pretty-json"
   ])
-).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((directory, options) => {
+).option("--json", "Print compact JSON").option("--pretty-json", "Print formatted JSON").action((options) => {
+  const directory = options.directory;
   const packages = discoverPackages({
     packagesDirectory: directory,
     useWorkspaces: Boolean(options.workspaces),

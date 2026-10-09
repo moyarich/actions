@@ -1,12 +1,10 @@
-import { Argument, Option, program } from "commander";
+import { Option, program } from "commander";
 import { discoverPackages } from "./discover-packages";
 
 program
   .name("discover-packages")
   .description("Discover repository packages and package metadata.")
-  .addArgument(
-    new Argument("[directory]", "Packages directory").default("packages"),
-  )
+  .option("--directory <directory>", "Packages directory", "packages")
   .option("--workspaces", "Discover from package.json workspace patterns")
   .option("--include-root-package", "Include the repository root package")
   .option("--include-private", "Include private packages")
@@ -22,7 +20,8 @@ program
   )
   .option("--json", "Print compact JSON")
   .option("--pretty-json", "Print formatted JSON")
-  .action((directory, options) => {
+  .action((options) => {
+    const directory = options.directory;
     const packages = discoverPackages({
       packagesDirectory: directory,
       useWorkspaces: Boolean(options.workspaces),
