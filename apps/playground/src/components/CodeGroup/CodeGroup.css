@@ -1,8 +1,7 @@
 /* Tabbed examples retain Shiki's build-time highlighting inside each panel. */
 .code-group {
   margin: var(--code-group-margin);
-  border: var(--code-group-border-width) solid
-    var(--code-group-border-color);
+  border: var(--code-group-border-width) solid var(--code-group-border-color);
   border-radius: var(--code-group-radius);
   overflow: hidden;
   background: var(--code-group-background);
@@ -43,8 +42,7 @@
 }
 
 .code-group-tabs button:focus-visible {
-  outline: var(--code-group-focus-width) solid
-    var(--code-group-focus-color);
+  outline: var(--code-group-focus-width) solid var(--code-group-focus-color);
   outline-offset: var(--code-group-focus-offset);
 }
 

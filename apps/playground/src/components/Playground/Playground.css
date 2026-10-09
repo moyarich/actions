@@ -1,7 +1,6 @@
 .example-playground {
   margin: var(--playground-margin);
-  border: var(--playground-border-width) solid
-    var(--playground-border-color);
+  border: var(--playground-border-width) solid var(--playground-border-color);
   border-radius: var(--playground-radius);
   overflow: hidden;
   background: var(--playground-background);
