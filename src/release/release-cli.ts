@@ -1,6 +1,6 @@
 import { Option, program } from "commander";
 import { releaseWorkspacePackage } from "./release.ts";
-import { assertInteractive, confirm, askText } from "../cli/prompts/index.ts";
+import { confirm, askText } from "../cli/prompts/index.ts";
 import { packageChoices, selectOne } from "../cli/prompts/selection.ts";
 
 program
