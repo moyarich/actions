@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
+  type ReactNode,
 } from "react";
 import {
   Link,
@@ -122,6 +123,20 @@ function DocOutline({ headings }: { headings: OutlineItem[] }) {
   );
 }
 
+type DocsLayoutProps = {
+  children: ReactNode;
+  toc?: ReactNode;
+};
+
+function DocsLayout({ children, toc }: DocsLayoutProps) {
+  return (
+    <div className="article-layout">
+      {children}
+      {toc ?? null}
+    </div>
+  );
+}
+
 function ContentRoute() {
   const location = useLocation();
   const page = allPages.find(
@@ -182,7 +197,7 @@ function ContentRoute() {
   }
   const Page = page.Component;
   return (
-    <div className="article-layout">
+    <DocsLayout toc={headings.length > 0 ? <DocOutline headings={headings} /> : undefined}>
       <article className="content-page" ref={articleRef}>
         <p className="content-kicker">
           {page.route.startsWith("/examples") ? "Examples" : "Documentation"}
@@ -209,8 +224,7 @@ function ContentRoute() {
           </a>
         </footer>
       </article>
-      <DocOutline headings={headings} />
-    </div>
+    </DocsLayout>
   );
 }
 
