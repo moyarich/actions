@@ -180,7 +180,7 @@ function ContentRoute() {
         <MDXProvider
           components={{
             Playground,
-          Icon: DynamicIcon,
+            Icon: DynamicIcon,
             MonacoCodeGroup,
             CodeGroup,
             CodeTab,
