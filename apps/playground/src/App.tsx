@@ -14,7 +14,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
-import { Playground } from "./Playground";
+import { Playground, MonacoCodeGroup } from "./Playground";
 import { CodeGroup, CodeTab } from "./CodeGroup";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
@@ -157,6 +157,7 @@ function ContentRoute() {
         <MDXProvider
           components={{
             Playground,
+            MonacoCodeGroup,
             CodeGroup,
             CodeTab,
             a: (props) => <MdxLink {...props} page={page} />,
