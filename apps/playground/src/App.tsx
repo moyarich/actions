@@ -1,10 +1,7 @@
 import { MDXProvider } from "@mdx-js/react";
 import { DynamicIcon } from "lucide-react/dynamic";
 import {
-  useEffect,
   useMemo,
-  useRef,
-  useState,
   type ComponentPropsWithoutRef,
 } from "react";
 import {
@@ -26,6 +23,7 @@ import {
   type OutlineItem,
 } from "./components/DocOutline/DocOutline";
 import { DocsLayout } from "./components/DocsLayout/DocsLayout";
+import { useDocOutline } from "./components/DocOutline/useDocOutline";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
@@ -82,8 +80,7 @@ function ContentRoute() {
   const page = allPages.find(
     (candidate) => candidate.route === location.pathname,
   );
-  const articleRef = useRef<HTMLElement>(null);
-  const [headings, setHeadings] = useState<OutlineItem[]>([]);
+  const { articleRef, headings } = useDocOutline(page?.route, location.hash);
   const mdxComponents = useMemo(
     () => ({
       Playground,
@@ -97,56 +94,6 @@ function ContentRoute() {
     [page],
   );
 
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article) return;
-    const used = new Map<string, number>();
-    const entries: OutlineItem[] = Array.from(
-      article.querySelectorAll<HTMLHeadingElement>("h2, h3"),
-    )
-      .map((element) => {
-        const title = element.textContent?.trim() ?? "";
-        if (!title) return null;
-        const base =
-          element.id ||
-          title
-            .toLowerCase()
-            .normalize("NFKD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9\s-]/g, "")
-            .trim()
-            .replace(/\s+/g, "-") ||
-          "section";
-        const seen = used.get(base) ?? 0;
-        used.set(base, seen + 1);
-        const id = seen ? `${base}-${seen + 1}` : base;
-        element.id = id;
-        return {
-          id,
-          title,
-          depth: element.tagName === "H2" ? 2 : 3,
-        } as OutlineItem;
-      })
-      .filter((entry): entry is OutlineItem => entry !== null);
-    setHeadings(entries);
-  }, [page?.route]);
-
-  useEffect(() => {
-    if (!location.hash) return;
-    let targetId: string;
-    try {
-      targetId = decodeURIComponent(location.hash.slice(1));
-    } catch {
-      return;
-    }
-    const frame = requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [page?.route, location.hash]);
 
   if (!page) {
     return (
