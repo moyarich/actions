@@ -20,3 +20,22 @@ npm exec -- workspace-release . --mode=package-json --dry-run
 ```
 
 Reusable GitHub workflows are maintained separately in `moyarich/reusable-workflows`.
+
+## Lucide icons in MDX
+
+The playground provides Lucide React icons through an `Icon` MDX component. Use a [Lucide icon name](https://lucide.dev/icons/) in kebab-case when the icon name comes from content. The generic `Icon` uses Lucide's `DynamicIcon` API. **Tradeoff:** dynamic icons import the icon catalog during build, generate per-icon modules, and may flash while loading. For fixed icons, prefer direct named imports.
+
+```mdx
+<Icon name="check-circle" size={20} aria-label="Available" />
+<Icon name="terminal" size={20} strokeWidth={1.75} />
+```
+
+For static icons in React/MDX pages, import individual icons directly from `lucide-react` to keep builds smaller:
+
+```mdx
+import { ArrowRight } from "lucide-react";
+
+<ArrowRight size={18} aria-hidden="true" />
+```
+
+Decorative icons should use `aria-hidden="true"`; meaningful icons should have an accessible label.

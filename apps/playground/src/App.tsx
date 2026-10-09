@@ -1,4 +1,5 @@
 import { MDXProvider } from "@mdx-js/react";
+import { DynamicIcon } from "lucide-react/dynamic";
 import {
   useEffect,
   useRef,
@@ -179,6 +180,7 @@ function ContentRoute() {
         <MDXProvider
           components={{
             Playground,
+            Icon: DynamicIcon,
             MonacoCodeGroup,
             CodeGroup,
             CodeTab,
