@@ -65,7 +65,11 @@ program
     }
     if (mode !== "package-json" && !version)
       throw new Error("Missing --version <version>.");
-    if (mode === "exact" && version && !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+    if (
+      mode === "exact" &&
+      version &&
+      !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)
+    ) {
       throw new Error(`Invalid exact SemVer: ${version}`);
     }
     if (canPrompt && !options.dryRun && !options.resolveOnly) {

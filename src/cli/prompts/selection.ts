@@ -41,22 +41,33 @@ export async function selectOne(
   if (choices.length >= 8) {
     const probe = spawnSync("fzf", ["--version"], { stdio: "ignore" });
     if (!probe.error && probe.status === 0) {
-      const result = spawnSync("fzf", [
-        "--prompt", message + "> ",
-        "--delimiter=\\t",
-        "--with-nth=2..",
-        "--exit-0",
-      ], {
-        input: choices.map((choice,i)=>`${i}\\t${choice.name}`).join("\n")+"\n",
-        encoding: "utf8",
-        stdio: ["pipe","pipe","inherit"]
-      });
+      const result = spawnSync(
+        "fzf",
+        [
+          "--prompt",
+          message + "> ",
+          "--delimiter=\\t",
+          "--with-nth=2..",
+          "--exit-0",
+        ],
+        {
+          input:
+            choices.map((choice, i) => `${i}\\t${choice.name}`).join("\n") +
+            "\n",
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "inherit"],
+        },
+      );
       if (result.status === 1 || result.status === 130) return undefined;
-      if (result.error || result.status !== 0) throw new Error(`fzf failed: ${result.error?.message ?? result.status}`);
-      const line=result.stdout.trim();
+      if (result.error || result.status !== 0)
+        throw new Error(
+          `fzf failed: ${result.error?.message ?? result.status}`,
+        );
+      const line = result.stdout.trim();
       if (!line) return undefined;
-      const index=Number(line.split("\t",1)[0]);
-      if (!Number.isInteger(index) || index < 0 || index >= choices.length) throw new Error("Invalid fzf selection");
+      const index = Number(line.split("\t", 1)[0]);
+      if (!Number.isInteger(index) || index < 0 || index >= choices.length)
+        throw new Error("Invalid fzf selection");
       return choices[index].value;
     }
   }
