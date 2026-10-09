@@ -39,7 +39,11 @@ function resolveMdxHref(page: ContentPage, href?: string) {
   const sourcePath = parts.join("/");
   const match = allPages.find((candidate) => candidate.sourcePath === sourcePath);
   // Ordinary Markdown files aren't compiled as playground routes.
-  if (!match) return null;
+  if (!match) {
+    // Render source-only Markdown links on GitHub instead of navigating to a
+    // missing GitHub Pages file under the Vite application base path.
+    return `https://github.com/moyarich/workspace-tools/blob/main/${sourcePath}${fragment ? `#${fragment}` : ""}`;
+  }
   return `${match.route}${fragment ? `#${fragment}` : ""}`;
 }
 
@@ -50,10 +54,10 @@ function MdxLink({
   ...props
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
   const route = resolveMdxHref(page, href);
-  return route ? (
+  return route?.startsWith("/") ? (
     <Link to={route} {...props}>{children}</Link>
   ) : (
-    <a href={href} {...props}>
+    <a href={route ?? href} {...props}>
       {children}
     </a>
   );
