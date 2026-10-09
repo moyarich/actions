@@ -7,14 +7,14 @@ description: Maintainer guide to release drafts, canonical tags, registry publis
 
 Workspace Tools separates **release drafting**, **release preparation**, and **package publishing**. Its local workflows call implementations in [moyarich/reusable-workflows](https://github.com/moyarich/reusable-workflows); the reusable workflow YAML files do not live in this repository.
 
-| Local workflow | Responsibility |
-| --- | --- |
-| `.github/workflows/release-draft.yml` | Preview or update a persistent GitHub Release draft |
-| `.github/workflows/release.yml` | Resolve and prepare the selected package version and canonical Git release identity |
-| `.github/workflows/publish.yml` | Publish the prepared canonical package artifact to selected registries |
-| `.github/workflows/reset-release.yml` | Guarded reset of an unpublished release |
-| `.github/workflows/restore-release.yml` | Restore release identity from verified historical evidence |
-| `.github/workflows/delete-release-tag.yml` | Explicit release/tag deletion |
+| Local workflow                             | Responsibility                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `.github/workflows/release-draft.yml`      | Preview or update a persistent GitHub Release draft                                 |
+| `.github/workflows/release.yml`            | Resolve and prepare the selected package version and canonical Git release identity |
+| `.github/workflows/publish.yml`            | Publish the prepared canonical package artifact to selected registries              |
+| `.github/workflows/reset-release.yml`      | Guarded reset of an unpublished release                                             |
+| `.github/workflows/restore-release.yml`    | Restore release identity from verified historical evidence                          |
+| `.github/workflows/delete-release-tag.yml` | Explicit release/tag deletion                                                       |
 
 ## First validate the repository state
 
@@ -53,15 +53,15 @@ The canonical package release tag identifies the source commit and the package v
 
 Use **Actions → Publish** (`.github/workflows/publish.yml`) or the `workspace-publish` CLI. Public npm is the default publishing destination:
 
-| Selection | Destination | Authentication |
-| --- | --- | --- |
+| Selection       | Destination                  | Authentication                                   |
+| --------------- | ---------------------------- | ------------------------------------------------ |
 | `npm` (default) | `https://registry.npmjs.org` | npm publishing credentials / configured approval |
-| `github` | `https://npm.pkg.github.com` | GitHub Packages publishing permissions |
-| `all` | Both supported registries | Credentials and permissions for each |
+| `github`        | `https://npm.pkg.github.com` | GitHub Packages publishing permissions           |
+| `all`           | Both supported registries    | Credentials and permissions for each             |
 
 `package.json#publishConfig.registry` also defaults to the public npm registry. The `--registry` CLI flag or the Publish workflow's `registry` input explicitly chooses the destination for a given operation. GitHub Packages remains optional for organizations that want an additional GitHub-hosted copy or private/internal distribution.
 
-**Installing the Workspace Tools CLI** from public npm does *not* require a GitHub Packages token. **Publishing a package** is a separate authenticated operation and may require npm staging approval, release tag verification, and registry-specific tokens. The shared npm publish implementation may stage a release pending approval; staging is not proof that the version is already public.
+**Installing the Workspace Tools CLI** from public npm does _not_ require a GitHub Packages token. **Publishing a package** is a separate authenticated operation and may require npm staging approval, release tag verification, and registry-specific tokens. The shared npm publish implementation may stage a release pending approval; staging is not proof that the version is already public.
 
 The publish workflow defaults to `dry-run: true` and requires an explicit non-dry-run decision to make registry changes. Keep `verify-git-tag` enabled for normal releases. Use `npm pack --dry-run` for a separate inspection of the package contents.
 
