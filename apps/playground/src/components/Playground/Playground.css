@@ -1,0 +1,51 @@
+.example-playground {
+  --_playground-margin: var(--playground-margin, 1.5rem 0);
+  --_playground-border-width: var(--playground-border-width, 1px);
+  --_playground-border-color: var(--playground-border-color, #e0e4ed);
+  --_playground-radius: var(--playground-radius, 0.75rem);
+  --_playground-background: var(--playground-background, #fff);
+  --_playground-tab-gap: var(--playground-tab-gap, 0.25rem);
+  --_playground-tabs-padding: var(--playground-tabs-padding, 0.5rem);
+  --_playground-tabs-background: var(--playground-tabs-background, #f7f8fb);
+  --_playground-tab-padding: var(--playground-tab-padding, 0.5rem 0.75rem);
+  --_playground-tab-radius: var(--playground-tab-radius, 0.4rem);
+  --_playground-tab-color: var(--playground-tab-color, #5c687c);
+  --_playground-tab-active-color: var(--playground-tab-active-color, #3045a2);
+  --_playground-tab-active-background: var(
+    --playground-tab-active-background,
+    #fff
+  );
+
+  margin: var(--_playground-margin);
+  border: var(--_playground-border-width) solid var(--_playground-border-color);
+  border-radius: var(--_playground-radius);
+  overflow: hidden;
+  background: var(--_playground-background);
+}
+
+.example-playground-tabs {
+  display: flex;
+  gap: var(--_playground-tab-gap);
+  padding: var(--_playground-tabs-padding);
+  background: var(--_playground-tabs-background);
+  border-bottom: var(--_playground-border-width) solid
+    var(--_playground-border-color);
+}
+
+.example-playground-tabs button {
+  padding: var(--_playground-tab-padding);
+  border: 0;
+  border-radius: var(--_playground-tab-radius);
+  color: var(--_playground-tab-color);
+  background: transparent;
+  cursor: pointer;
+}
+
+.example-playground-tabs button.active {
+  color: var(--_playground-tab-active-color);
+  background: var(--_playground-tab-active-background);
+}
+
+.example-playground-editor {
+  min-width: 0;
+}

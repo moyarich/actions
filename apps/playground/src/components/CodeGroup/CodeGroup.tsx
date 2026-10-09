@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import "./CodeGroup.css";
 
 /**
  * A syntax-highlighted code panel. Write a fenced Markdown code block inside

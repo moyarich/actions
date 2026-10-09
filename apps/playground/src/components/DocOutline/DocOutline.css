@@ -1,0 +1,112 @@
+.doc-outline {
+  --_doc-outline-top: var(--doc-outline-top, 98px);
+  --_doc-outline-max-height: var(--doc-outline-max-height, calc(100vh - 125px));
+  --_doc-outline-padding-left: var(--doc-outline-padding-left, 1rem);
+  --_doc-outline-border-width: var(--doc-outline-border-width, 1px);
+  --_doc-outline-border-color: var(--doc-outline-border-color, #e6e8f0);
+  --_doc-outline-title-gap: var(--doc-outline-title-gap, 0.85rem);
+  --_doc-outline-title-color: var(--doc-outline-title-color, #778197);
+  --_doc-outline-title-font-size: var(--doc-outline-title-font-size, 0.75rem);
+  --_doc-outline-title-font-weight: var(--doc-outline-title-font-weight, 750);
+  --_doc-outline-item-gap: var(--doc-outline-item-gap, 0.18rem);
+  --_doc-outline-link-color: var(--doc-outline-link-color, #69758b);
+  --_doc-outline-link-font-size: var(--doc-outline-link-font-size, 0.79rem);
+  --_doc-outline-link-line-height: var(--doc-outline-link-line-height, 1.45);
+  --_doc-outline-link-padding-block: var(
+    --doc-outline-link-padding-block,
+    0.32rem
+  );
+  --_doc-outline-link-padding-inline: var(
+    --doc-outline-link-padding-inline,
+    0.55rem
+  );
+  --_doc-outline-link-radius: var(--doc-outline-link-radius, 0.3rem);
+  --_doc-outline-nested-padding-left: var(
+    --doc-outline-nested-padding-left,
+    1.4rem
+  );
+  --_doc-outline-hover-color: var(--doc-outline-hover-color, #384ca3);
+  --_doc-outline-marker-width: var(--doc-outline-marker-width, 2px);
+  --_doc-outline-marker-inset-block: var(
+    --doc-outline-marker-inset-block,
+    0.15rem
+  );
+  --_doc-outline-marker-radius: var(--doc-outline-marker-radius, 2px);
+  --_doc-outline-marker-color: var(--doc-outline-marker-color, #3549a6);
+  --_doc-outline-active-color: var(--doc-outline-active-color, #3549a6);
+  --_doc-outline-active-font-weight: var(--doc-outline-active-font-weight, 650);
+  --_doc-outline-active-background: var(
+    --doc-outline-active-background,
+    #f2f3fc
+  );
+
+  /* Private, derived offset centers the active marker on the TOC rail. */
+  --_doc-outline-marker-offset: calc(
+    0px - var(--_doc-outline-padding-left) -
+      (var(--_doc-outline-border-width) + var(--_doc-outline-marker-width)) / 2
+  );
+  position: sticky;
+  top: var(--_doc-outline-top);
+  align-self: start;
+  max-height: var(--_doc-outline-max-height);
+  overflow-y: auto;
+  padding-left: var(--_doc-outline-padding-left);
+  border-left: var(--_doc-outline-border-width) solid
+    var(--_doc-outline-border-color);
+}
+
+.doc-outline-title {
+  margin: 0 0 var(--_doc-outline-title-gap);
+  color: var(--_doc-outline-title-color);
+  font-size: var(--_doc-outline-title-font-size);
+  font-weight: var(--_doc-outline-title-font-weight);
+}
+
+.doc-outline nav {
+  display: grid;
+  gap: var(--_doc-outline-item-gap);
+}
+
+.doc-outline nav a {
+  display: block;
+  position: relative;
+  color: var(--_doc-outline-link-color);
+  font-size: var(--_doc-outline-link-font-size);
+  line-height: var(--_doc-outline-link-line-height);
+  padding: var(--_doc-outline-link-padding-block)
+    var(--_doc-outline-link-padding-inline);
+  text-decoration: none;
+  border-radius: var(--_doc-outline-link-radius);
+}
+
+.doc-outline nav a.depth-3 {
+  padding-left: var(--_doc-outline-nested-padding-left);
+}
+
+.doc-outline nav a:hover {
+  color: var(--_doc-outline-hover-color);
+}
+
+.doc-outline nav a.active::before {
+  content: "";
+  position: absolute;
+  /* Align the marker's center with the left border's center. */
+  left: var(--_doc-outline-marker-offset);
+  top: var(--_doc-outline-marker-inset-block);
+  bottom: var(--_doc-outline-marker-inset-block);
+  width: var(--_doc-outline-marker-width);
+  border-radius: var(--_doc-outline-marker-radius);
+  background: var(--_doc-outline-marker-color);
+}
+
+.doc-outline nav a.active {
+  color: var(--_doc-outline-active-color);
+  font-weight: var(--_doc-outline-active-font-weight);
+  background: var(--_doc-outline-active-background);
+}
+
+@media (max-width: 1240px) {
+  .doc-outline {
+    display: none;
+  }
+}

@@ -1,11 +1,6 @@
 import { MDXProvider } from "@mdx-js/react";
 import { DynamicIcon } from "lucide-react/dynamic";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ComponentPropsWithoutRef,
-} from "react";
+import { useMemo, type ComponentPropsWithoutRef } from "react";
 import {
   Link,
   NavLink,
@@ -15,12 +10,16 @@ import {
   useLocation,
 } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
-import { Playground, MonacoCodeGroup } from "./Playground";
-import { CodeGroup, CodeTab } from "./CodeGroup";
+import {
+  Playground,
+  MonacoCodeGroup,
+} from "./components/Playground/Playground";
+import { CodeGroup, CodeTab } from "./components/CodeGroup/CodeGroup";
+import { DocOutline } from "./components/DocOutline/DocOutline";
+import { DocsLayout } from "./components/DocsLayout/DocsLayout";
+import { useDocOutline } from "./components/DocOutline/useDocOutline";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
-
-type OutlineItem = { id: string; title: string; depth: 2 | 3 };
 
 function resolveMdxHref(page: ContentPage, href?: string) {
   if (!href) return null;
@@ -70,96 +69,24 @@ function MdxLink({
   );
 }
 
-function DocOutline({ headings }: { headings: OutlineItem[] }) {
-  const location = useLocation();
-  const [active, setActive] = useState<string>("");
-  useEffect(() => {
-    if (!headings.length) return;
-    const update = () => {
-      let next = headings[0].id;
-      for (const heading of headings) {
-        const element = document.getElementById(heading.id);
-        if (element && element.getBoundingClientRect().top <= 130)
-          next = heading.id;
-      }
-      setActive(next);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, [headings]);
-
-  if (!headings.length) return null;
-  return (
-    <aside className="doc-outline" aria-label="On this page">
-      <p className="doc-outline-title">On this page</p>
-      <nav>
-        {headings.map((heading) => (
-          <Link
-            key={heading.id}
-            to={`${location.pathname}#${heading.id}`}
-            className={[
-              `depth-${heading.depth}`,
-              active === heading.id ? "active" : "",
-            ].join(" ")}
-            aria-current={active === heading.id ? "location" : undefined}
-          >
-            {heading.title}
-          </Link>
-        ))}
-      </nav>
-    </aside>
-  );
-}
-
 function ContentRoute() {
   const location = useLocation();
   const page = allPages.find(
     (candidate) => candidate.route === location.pathname,
   );
-  const articleRef = useRef<HTMLElement>(null);
-  const [headings, setHeadings] = useState<OutlineItem[]>([]);
-
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article) return;
-    const used = new Map<string, number>();
-    const entries: OutlineItem[] = Array.from(
-      article.querySelectorAll<HTMLHeadingElement>("h2, h3"),
-    )
-      .map((element) => {
-        const title = element.textContent?.trim() ?? "";
-        if (!title) return null;
-        const base =
-          element.id ||
-          title
-            .toLowerCase()
-            .normalize("NFKD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9\s-]/g, "")
-            .trim()
-            .replace(/\s+/g, "-") ||
-          "section";
-        const seen = used.get(base) ?? 0;
-        used.set(base, seen + 1);
-        const id = seen ? `${base}-${seen + 1}` : base;
-        element.id = id;
-        return {
-          id,
-          title,
-          depth: element.tagName === "H2" ? 2 : 3,
-        } as OutlineItem;
-      })
-      .filter((entry): entry is OutlineItem => entry !== null);
-    setHeadings(entries);
-    if (location.hash) {
-      requestAnimationFrame(() =>
-        document
-          .getElementById(decodeURIComponent(location.hash.slice(1)))
-          ?.scrollIntoView(),
-      );
-    }
-  }, [page?.route, location.hash]);
+  const { articleRef, headings } = useDocOutline(page?.route, location.hash);
+  const mdxComponents = useMemo(
+    () => ({
+      Playground,
+      Icon: DynamicIcon,
+      MonacoCodeGroup,
+      CodeGroup,
+      CodeTab,
+      a: (props: ComponentPropsWithoutRef<"a">) =>
+        page ? <MdxLink {...props} page={page} /> : <a {...props} />,
+    }),
+    [page],
+  );
 
   if (!page) {
     return (
@@ -172,21 +99,21 @@ function ContentRoute() {
   }
   const Page = page.Component;
   return (
-    <div className="article-layout">
+    <DocsLayout
+      toc={
+        headings.length > 0 ? (
+          <DocOutline
+            headings={headings}
+            hrefForHeading={(id) => `#${location.pathname}#${id}`}
+          />
+        ) : undefined
+      }
+    >
       <article className="content-page" ref={articleRef}>
         <p className="content-kicker">
           {page.route.startsWith("/examples") ? "Examples" : "Documentation"}
         </p>
-        <MDXProvider
-          components={{
-            Playground,
-            Icon: DynamicIcon,
-            MonacoCodeGroup,
-            CodeGroup,
-            CodeTab,
-            a: (props) => <MdxLink {...props} page={page} />,
-          }}
-        >
+        <MDXProvider components={mdxComponents}>
           <Page />
         </MDXProvider>
         <footer className="article-footer">
@@ -199,8 +126,7 @@ function ContentRoute() {
           </a>
         </footer>
       </article>
-      <DocOutline headings={headings} />
-    </div>
+    </DocsLayout>
   );
 }
 
